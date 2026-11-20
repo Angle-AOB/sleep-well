@@ -50,6 +50,10 @@ export const BACKUP_COURSE_VERSION = 'six-week-v1'
 export type BackupPreferences = {
   backupReminders: boolean
   wakeTime?: string
+  /** 最近一次应用内备份提醒的本地日期；只影响提醒节奏，不参与派生计算。 */
+  lastBackupReminderOn?: string
+  /** 最近一次成功导出备份的 ISO 时间戳。 */
+  lastBackupAt?: string
 }
 
 export type BackupData = {
@@ -133,8 +137,12 @@ function isValidCourse(value: unknown): value is CourseState {
 function isValidPreferences(value: unknown): value is BackupPreferences {
   if (!isRecord(value)) return false
   if (typeof value.backupReminders !== 'boolean') return false
-  return value.wakeTime === undefined
-    || (typeof value.wakeTime === 'string' && isClockTime(value.wakeTime))
+  if (value.wakeTime !== undefined && !(typeof value.wakeTime === 'string' && isClockTime(value.wakeTime))) {
+    return false
+  }
+  if (value.lastBackupReminderOn !== undefined && !isLocalDate(value.lastBackupReminderOn)) return false
+  if (value.lastBackupAt !== undefined && !isIsoTimestamp(value.lastBackupAt)) return false
+  return true
 }
 
 function isValidScreening(value: unknown): value is ScreeningRecord {

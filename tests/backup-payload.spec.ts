@@ -210,3 +210,35 @@ test('complete-night detection after import uses the existing domain rules', () 
   expect(evaluateNight(parsed.payload.diary.find((item) => item.date === '2026-11-02')!).complete).toBe(false)
   expect(evaluateNight(parsed.payload.diary.find((item) => item.date === '2026-11-01')!).complete).toBe(true)
 })
+
+test('reminder bookkeeping survives a backup round trip', () => {
+  const data: BackupData = {
+    ...backupData(),
+    preferences: {
+      backupReminders: true,
+      lastBackupReminderOn: '2026-11-10',
+      lastBackupAt: '2026-11-12T09:30:00.000Z'
+    }
+  }
+  const payload = createBackupPayload(data, { exportedAt: '2026-11-20T08:00:00.000Z' })
+  const parsed = parseBackupPayload(JSON.parse(JSON.stringify(payload)))
+
+  expect(parsed.ok).toBe(true)
+  if (!parsed.ok) return
+  expect(parsed.payload.preferences).toEqual(data.preferences)
+})
+
+test('a backup with malformed reminder bookkeeping is rejected', () => {
+  const base = createBackupPayload(backupData(), { exportedAt: '2026-11-20T08:00:00.000Z' })
+
+  for (const preferences of [
+    { backupReminders: true, lastBackupReminderOn: '2026-02-31' },
+    { backupReminders: true, lastBackupReminderOn: 20261110 },
+    { backupReminders: true, lastBackupAt: 'not-a-time' }
+  ]) {
+    const result = parseBackupPayload({ ...base, preferences })
+    expect(result.ok).toBe(false)
+    if (result.ok) continue
+    expect(result.error.kind).toBe('invalid-preferences')
+  }
+})

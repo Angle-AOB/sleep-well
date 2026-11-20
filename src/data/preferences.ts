@@ -8,6 +8,10 @@ export type Preferences = {
    * 保留该字段，仅用于迁移时预填固定起床时间输入框，不直接生效。
    */
   wakeTime?: string
+  /** 最近一次在应用内展示备份提醒的本地日期；提醒节奏无法从日记推导，必须持久化。 */
+  lastBackupReminderOn?: string
+  /** 最近一次成功交付备份文件的时间戳；用于判断“备份之后是否又有新日记”。 */
+  lastBackupAt?: string
 }
 
 export const defaultPreferences: Preferences = {
