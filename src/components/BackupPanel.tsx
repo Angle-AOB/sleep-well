@@ -47,7 +47,7 @@ type BackupPanelProps = {
 function formatDay(value: string): string {
   const [year, month, day] = value.split('-').map(Number)
   if (!year || !month || !day) return value
-  return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+  return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
     .format(new Date(year, month - 1, day))
 }
 
@@ -55,7 +55,7 @@ function formatMoment(value: string): string {
   const moment = new Date(value)
   return Number.isNaN(moment.getTime())
     ? value
-    : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(moment)
+    : new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(moment)
 }
 
 function summaryLines(t: TFunction, summary: BackupSummary): string[] {

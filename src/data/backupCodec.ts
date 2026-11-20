@@ -109,7 +109,10 @@ export async function deliverFile(blob: Blob, filename: string): Promise<Deliver
       await sharing.share({ files: [file] })
       return 'shared'
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return 'cancelled'
+      // 用户取消分享不是错误；不同浏览器可能抛 DOMException 或其他带 name 的对象。
+      if (typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError') {
+        return 'cancelled'
+      }
     }
   }
 
