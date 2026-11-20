@@ -178,6 +178,8 @@ export type CourseInput = {
 }
 
 export const MINIMUM_COMPLETE_NIGHTS = 4
+/** 首次候选窗口在完整夜平均 TST 之上预留的余量。 */
+export const WINDOW_TARGET_SURPLUS_MINUTES = 30
 export const WINDOW_FLOOR_MINUTES = 5 * 60
 /**
  * 自动化上限：候选/新窗口一旦超过 10 小时，就暂停自动窗口并建议专业评估。
@@ -190,13 +192,16 @@ export const WINDOW_AUTOMATION_LIMIT_MINUTES = 10 * 60
  */
 export const WINDOW_CEILING_MINUTES = 12 * 60
 export const TITRATION_STEP_MINUTES = 15
+/** 每周滴定回看的完整夜数；首次校准也使用同一段 7 夜，避免出现第二个 7。 */
+export const TITRATION_NIGHTS = 7
 export const SE_INCREASE_THRESHOLD = 90
 export const SE_DECREASE_THRESHOLD = 85
 export const CAFFEINE_CUTOFF_HOURS = 8
 
-const nightsPerCalibration = 7
-const targetSurplusMinutes = 30
-const roundingMinutes = 15
+const nightsPerCalibration = TITRATION_NIGHTS
+const targetSurplusMinutes = WINDOW_TARGET_SURPLUS_MINUTES
+/** 舍入网格与滴定步长是同一个 15 分钟的产品常量，不另写一份。 */
+const roundingMinutes = TITRATION_STEP_MINUTES
 const daysPerWeek = 7
 const baselineLengthDays = 7
 const maintenanceCheckDay = 35

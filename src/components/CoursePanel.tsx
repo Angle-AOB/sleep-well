@@ -8,8 +8,10 @@ import {
   medianOutOfBedTime,
   MINIMUM_COMPLETE_NIGHTS,
   startCourse,
+  TITRATION_STEP_MINUTES,
   WINDOW_AUTOMATION_LIMIT_MINUTES,
   WINDOW_FLOOR_MINUTES,
+  WINDOW_TARGET_SURPLUS_MINUTES,
   withTitrationDeferral,
   withWakeTime,
   withWorkPattern,
@@ -92,7 +94,7 @@ function windowUnavailableBody(
     case 'baseline-in-progress':
       return t('windowBaseline')
     case 'insufficient-data':
-      return t('windowDataInsufficient')
+      return t('windowDataInsufficient', { required: MINIMUM_COMPLETE_NIGHTS })
     case 'screening-paused':
       return hasScreening ? t('windowScreeningPaused') : t('windowScreeningPending')
     case 'shift-work-paused':
@@ -336,7 +338,11 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
         </p>
       </div>
 
-      {progress.baselineExtended && <p className="course-note is-warning" role="status">{t('courseBaselineExtended')}</p>}
+      {progress.baselineExtended && (
+        <p className="course-note is-warning" role="status">
+          {t('courseBaselineExtended', { required: MINIMUM_COMPLETE_NIGHTS })}
+        </p>
+      )}
       {completed && <p className="course-note">{t('courseCompletedNote')}</p>}
 
       <div className="course-grid">
@@ -459,7 +465,11 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
                   )}
                 </p>
                 <p className="course-card-copy">
-                  {t('windowTarget', { target: durationText(t, windowView.calibration.targetMinutes) })}
+                  {t('windowTarget', {
+                    surplus: WINDOW_TARGET_SURPLUS_MINUTES,
+                    step: TITRATION_STEP_MINUTES,
+                    target: durationText(t, windowView.calibration.targetMinutes)
+                  })}
                 </p>
                 {windowView.calibration.limitedBy === 'average-tib' && (
                   <p className="course-card-copy">

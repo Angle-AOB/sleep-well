@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next'
 import {
   SE_DECREASE_THRESHOLD,
   SE_INCREASE_THRESHOLD,
+  TITRATION_NIGHTS,
   TITRATION_STEP_MINUTES,
   WINDOW_AUTOMATION_LIMIT_MINUTES,
   WINDOW_FLOOR_MINUTES,
@@ -24,7 +25,7 @@ export function titrationBody(t: TFunction, view: TitrationView): string {
     case 'not-applicable':
       return ''
     case 'scheduled':
-      return t('titrationScheduled', { week: view.nextWeek })
+      return t('titrationScheduled', { week: view.nextWeek, nights: TITRATION_NIGHTS })
     case 'consolidation':
       return t('titrationConsolidation')
     case 'insufficient-data':

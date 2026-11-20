@@ -866,3 +866,16 @@ test('the titration copy shows two decimals so the number never contradicts the 
   })
   expect(titrationBody(t, exact.titration)).toContain('92.50%')
 })
+
+// ---- 文案里的规则数字只来自领域常量，资源文件不保存第二份真值 ----
+
+test('rule copy takes every rule number from the caller instead of hardcoding it', () => {
+  const t = i18n.getFixedT('zh-CN')
+
+  // 故意传入与产品常量不同的数值：若资源里写死了 30/15/4/7，这些断言就会失败。
+  expect(t('windowTarget', { surplus: 31, step: 16, target: '7 小时' })).toContain('31 分钟')
+  expect(t('windowTarget', { surplus: 31, step: 16, target: '7 小时' })).toContain('16 分钟')
+  expect(t('windowDataInsufficient', { required: 5 })).toContain('不足 5 夜')
+  expect(t('courseBaselineExtended', { required: 5 })).toContain('不足 5 夜')
+  expect(t('titrationScheduled', { week: 4, nights: 8 })).toContain('开始前 8 夜')
+})
