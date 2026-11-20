@@ -24,3 +24,16 @@ test('the third saved night triggers the first in-app reminder', () => {
 
   expect(decision).toEqual({ remind: true, kind: 'first', entryCount: 3 })
 })
+
+test('turning reminders off suppresses them no matter how much history exists', () => {
+  const decision = evaluateBackupReminder({
+    entries: [night('2026-11-17'), night('2026-11-18'), night('2026-11-19')],
+    preferences: {
+      backupReminders: false,
+      lastBackupReminderOn: '2026-10-01'
+    },
+    today: '2026-11-20'
+  })
+
+  expect(decision).toEqual({ remind: false })
+})
