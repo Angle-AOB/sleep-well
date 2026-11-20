@@ -79,7 +79,7 @@ input[type="radio"], input[type="checkbox"] { width: 20px; height: 20px; accent-
 .metric-cell dt { color: #66736e; font-size: 11px; letter-spacing: .04em; }.metric-cell dd { margin: 6px 0 0; color: #263b36; font-size: 18px; line-height: 1.35; }
 .metric-unavailable { display: block; color: #8a6b52; font-size: 14px; }.metric-reason { display: block; margin-top: 2px; color: #7a8781; font-size: 11px; line-height: 1.5; }
 .diary-alert { margin: 0; padding: 14px 16px; color: #8a3d2b; background: #f7e9e3; border-left: 3px solid #ba6e4f; font-size: 13px; line-height: 1.7; }.diary-alert p { margin: 0; }.diary-alert ul { margin: 8px 0 0; padding-left: 18px; }
-.diary-status { margin: 0; color: #47765f; font-size: 13px; }
+.diary-status { margin: 0; color: #47765f; font-size: 13px; }.diary-status.is-warning { color: #8a3d2b; }
 .diary-actions { display: flex; justify-content: flex-end; }
 .diary-history { margin-top: 28px; padding-top: 24px; border-top: 1px solid #cbd9d0; }
 .diary-history ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }

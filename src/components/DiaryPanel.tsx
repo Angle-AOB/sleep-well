@@ -89,9 +89,9 @@ function localToday(): LocalDate {
   return `${now.getFullYear()}-${month}-${day}`
 }
 
-function formatDiaryDate(date: LocalDate): string {
+function formatDiaryDate(t: TFunction, date: LocalDate): string {
   const [, month, day] = date.split('-')
-  return `${Number(month)} 月 ${Number(day)} 日`
+  return t('diaryDateShort', { month: Number(month), day: Number(day) })
 }
 
 function optionalNumber(value: string): number | undefined {
@@ -114,6 +114,10 @@ function wasoFromForm(form: DiaryFormState): WasoEstimate {
     default:
       return { kind: 'range', range: form.wasoChoice }
   }
+}
+
+function findEntry(entries: SleepDiaryEntry[], date: LocalDate): SleepDiaryEntry | undefined {
+  return entries.find((entry) => entry.date === date)
 }
 
 function formFromEntry(entry: SleepDiaryEntry | null): DiaryFormState {
@@ -181,6 +185,8 @@ function problemText(t: TFunction, problem: DiaryProblem): string {
       return problem.field === 'waso' ? t('diaryProblemInvalidWaso') : t('diaryProblemInvalidLatency')
     case 'invalid-time':
       return t('diaryProblemInvalidTime')
+    case 'lights-off-after-wake':
+      return t('diaryProblemLightsOffAfterWake')
     case 'time-in-bed-not-positive':
       return t('diaryProblemEmptyTimeInBed')
   }
@@ -205,10 +211,10 @@ export function DiaryPanel({ storageUnavailable }: { storageUnavailable: boolean
   const [selectedDate, setSelectedDate] = useState<LocalDate>(today)
   const [form, setForm] = useState<DiaryFormState>(emptyForm)
   const [entries, setEntries] = useState<SleepDiaryEntry[]>([])
-  const [loadedState, setLoadedState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [fetchState, setFetchState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [saving, setSaving] = useState(false)
-  const loadState = storageUnavailable ? 'error' : loadedState
+  const loadState = storageUnavailable ? 'error' : fetchState
 
   useEffect(() => {
     if (storageUnavailable) return
@@ -218,16 +224,16 @@ export function DiaryPanel({ storageUnavailable }: { storageUnavailable: boolean
       .then((loaded) => {
         if (!active) return
         setEntries(loaded)
-        setForm(formFromEntry(loaded.find((entry) => entry.date === today) ?? null))
-        setLoadedState('ready')
+        setForm(formFromEntry(findEntry(loaded, today) ?? null))
+        setFetchState('ready')
       })
       .catch(() => {
-        if (active) setLoadedState('error')
+        if (active) setFetchState('error')
       })
     return () => { active = false }
   }, [storageUnavailable, today])
 
-  const savedEntry = entries.find((entry) => entry.date === selectedDate)
+  const savedEntry = findEntry(entries, selectedDate)
   const assessment = evaluateNight(entryFromForm(selectedDate, form, savedEntry))
   const problems = assessment.problems
   const wasoMinutesMissing = form.wasoChoice === 'minutes' && optionalNumber(form.wasoMinutes) === undefined
@@ -240,7 +246,7 @@ export function DiaryPanel({ storageUnavailable }: { storageUnavailable: boolean
   function chooseDate(date: LocalDate) {
     if (!date) return
     setSelectedDate(date)
-    setForm(formFromEntry(entries.find((entry) => entry.date === date) ?? null))
+    setForm(formFromEntry(findEntry(entries, date) ?? null))
     setFeedback(null)
   }
 
@@ -261,7 +267,7 @@ export function DiaryPanel({ storageUnavailable }: { storageUnavailable: boolean
       await writeDiaryEntry(entry)
       const loaded = await readDiaryEntries()
       setEntries(loaded)
-      setForm(formFromEntry(loaded.find((item) => item.date === selectedDate) ?? entry))
+      setForm(formFromEntry(findEntry(loaded, selectedDate) ?? entry))
       setFeedback('saved')
     } catch {
       setFeedback('save-error')
@@ -274,7 +280,7 @@ export function DiaryPanel({ storageUnavailable }: { storageUnavailable: boolean
     <section className="diary-panel" aria-labelledby="diary-title">
       <div className="panel-heading">
         <div>
-          <p className="panel-kicker">DIARY</p>
+          <p className="panel-kicker">{t('diaryKicker')}</p>
           <h2 id="diary-title">{t('diaryTitle')}</h2>
         </div>
         <span className="panel-symbol" aria-hidden="true">☾</span>
@@ -431,7 +437,7 @@ export function DiaryPanel({ storageUnavailable }: { storageUnavailable: boolean
                 </div>
                 <div className="metric-cell">
                   <dt>{t('metricSe')}</dt>
-                  <dd><MetricValue metric={assessment.sleepEfficiency} format={(value) => `${value}%`} /></dd>
+                  <dd><MetricValue metric={assessment.sleepEfficiency} format={(value) => t('metricPercent', { value })} /></dd>
                 </div>
               </dl>
               <p className="field-hint">{t('diaryMetricsNote')}</p>
@@ -449,6 +455,7 @@ export function DiaryPanel({ storageUnavailable }: { storageUnavailable: boolean
               </div>
             )}
 
+            {feedback === 'invalid' && <p className="diary-status is-warning" role="status">{t('diaryFixBeforeSave')}</p>}
             {feedback === 'saved' && <p className="diary-status" role="status">{t('diarySaved')}</p>}
             {feedback === 'save-error' && <p className="diary-alert" role="alert">{t('diarySaveError')}</p>}
 
@@ -474,7 +481,7 @@ export function DiaryPanel({ storageUnavailable }: { storageUnavailable: boolean
                         className={`history-entry ${entry.date === selectedDate ? 'is-current' : ''}`}
                         onClick={() => chooseDate(entry.date)}
                       >
-                        <span className="history-date">{formatDiaryDate(entry.date)}</span>
+                        <span className="history-date">{formatDiaryDate(t, entry.date)}</span>
                         <span aria-hidden="true">·</span>
                         <span className={`history-status ${entryAssessment.complete ? 'is-complete' : ''}`}>
                           {entryAssessment.complete ? t('diaryComplete') : t('diaryPartial')}
@@ -482,7 +489,7 @@ export function DiaryPanel({ storageUnavailable }: { storageUnavailable: boolean
                         <span aria-hidden="true">·</span>
                         <span className="history-metric">
                           {entryAssessment.sleepEfficiency.status === 'available'
-                            ? `${t('metricSe')} ${entryAssessment.sleepEfficiency.value}%`
+                            ? `${t('metricSe')} ${t('metricPercent', { value: entryAssessment.sleepEfficiency.value })}`
                             : t('metricUnavailable')}
                         </span>
                       </button>

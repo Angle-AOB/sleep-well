@@ -50,6 +50,7 @@ export type DiaryProblem =
   | { kind: 'night-components-exceed-time-in-bed'; timeInBedMinutes: number; componentMinutes: number }
   | { kind: 'invalid-duration'; field: 'sleep-onset-latency' | 'waso' }
   | { kind: 'invalid-time'; field: 'lights-off' | 'final-wake' | 'out-of-bed' }
+  | { kind: 'lights-off-after-wake' }
   | { kind: 'time-in-bed-not-positive' }
 
 export type NightAssessment = {
@@ -137,11 +138,24 @@ function resolveWaso(waso: WasoEstimate): WasoResolution {
   }
 }
 
-function resolveLightsOff(date: LocalDate, lightsOffTime: string, anchor: Date): Date | null {
+type LightsOffResolution =
+  | { status: 'resolved'; moment: Date }
+  | { status: 'after-wake' }
+  | { status: 'invalid' }
+
+/**
+ * 关灯时间先按日记日期解析；若它晚于最终醒来（缺失时用起床时间），
+ * 中午之后的时刻视为前一晚，中午之前的时刻无法构成一夜，属于顺序矛盾，
+ * 要求用户修正而不是挪到前一天伪装成有效数据。
+ */
+function resolveLightsOff(date: LocalDate, lightsOffTime: string, anchor: Date): LightsOffResolution {
   const sameDay = localMoment(date, lightsOffTime)
-  if (!sameDay) return null
-  if (sameDay.getTime() <= anchor.getTime()) return sameDay
-  return localMoment(date, lightsOffTime, -1)
+  if (!sameDay) return { status: 'invalid' }
+  if (sameDay.getTime() <= anchor.getTime()) return { status: 'resolved', moment: sameDay }
+  if (lightsOffTime < '12:00') return { status: 'after-wake' }
+
+  const previousEvening = localMoment(date, lightsOffTime, -1)
+  return previousEvening ? { status: 'resolved', moment: previousEvening } : { status: 'invalid' }
 }
 
 function roundToTenth(value: number): number {
@@ -186,12 +200,20 @@ export function evaluateNight(entry: SleepDiaryEntry): NightAssessment {
   if (lightsOff.status === 'valid' && outOfBed.status === 'valid') {
     const anchor = finalWake.status === 'valid' ? finalWake.moment : outOfBed.moment
     const start = resolveLightsOff(entry.date, entry.lightsOffTime!, anchor)
-    const minutes = start ? minutesBetween(start, outOfBed.moment) : 0
-    if (!start || minutes <= 0) {
-      problems.push({ kind: 'time-in-bed-not-positive' })
+    if (start.status === 'after-wake') {
+      problems.push({ kind: 'lights-off-after-wake' })
+      timeInBed = unavailable('invalid-input')
+    } else if (start.status === 'invalid') {
+      problems.push({ kind: 'invalid-time', field: 'lights-off' })
       timeInBed = unavailable('invalid-input')
     } else {
-      timeInBed = available(minutes)
+      const minutes = minutesBetween(start.moment, outOfBed.moment)
+      if (minutes <= 0) {
+        problems.push({ kind: 'time-in-bed-not-positive' })
+        timeInBed = unavailable('invalid-input')
+      } else {
+        timeInBed = available(minutes)
+      }
     }
   } else if (lightsOff.status === 'invalid' || outOfBed.status === 'invalid') {
     timeInBed = unavailable('invalid-input')

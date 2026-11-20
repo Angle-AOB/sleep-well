@@ -97,6 +97,7 @@ const resources = {
       diaryTitle: '晨间睡眠日记',
       diaryIntro: '在早晨回顾上一夜。只填记得住的部分：不确定的字段可以留空或记为“不知道”，缺失不会被当成 0。',
       diaryDateLabel: '记录哪一夜',
+      diaryDateShort: '{{month}} 月 {{day}} 日',
       diaryLightsOffLabel: '关灯时间',
       diaryLatencyLabel: '入睡潜伏期 SOL（分钟）',
       diaryLatencyHint: '关灯到入睡的估计时长；留空表示未记录。',
@@ -140,9 +141,11 @@ const resources = {
       metricMissingInput: '缺少必要字段',
       metricApproximateInput: '只有区间估计，无法精确计算',
       metricInvalidInput: '时间或组成时长需要修正',
+      metricPercent: '{{value}}%',
       durationMinutes: '{{minutes}} 分钟',
       durationHours: '{{hours}} 小时',
       durationHoursMinutes: '{{hours}} 小时 {{minutes}} 分钟',
+      diaryFixBeforeSave: '请先修正上面的问题，再保存日记。',
       diarySave: '保存日记',
       diaryUpdate: '更新日记',
       diarySaving: '正在保存…',
@@ -162,6 +165,7 @@ const resources = {
       diaryProblemInvalidWaso: 'WASO 分钟数请输入 0 或更大的整数分钟。',
       diaryProblemWasoMinutesMissing: '选择“精确分钟”后需要填写具体分钟数。',
       diaryProblemInvalidTime: '时间格式无效，请重新填写。',
+      diaryProblemLightsOffAfterWake: '关灯时间在早晨却晚于最终醒来时间，请检查是否填错了时间。',
       diaryProblemEmptyTimeInBed: '关灯时间与起床时间相同，无法形成卧床时间，请修正。'
     }
   }

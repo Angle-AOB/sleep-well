@@ -140,6 +140,19 @@ test('final wake later than getting out of bed is a contradiction that needs cor
   expect(assessment.complete).toBe(false)
 })
 
+test('a morning lights-off later than the final wake is an ordering contradiction', () => {
+  const assessment = evaluateNight(entry({
+    ...completeNightFields,
+    lightsOffTime: '07:10',
+    finalWakeTime: '07:00',
+    outOfBedTime: '07:30'
+  }))
+
+  expect(assessment.problems.map((problem) => problem.kind)).toContain('lights-off-after-wake')
+  expect(assessment.timeInBed).toEqual({ status: 'unavailable', reason: 'invalid-input' })
+  expect(assessment.complete).toBe(false)
+})
+
 test('components longer than time in bed are rejected instead of being clamped', () => {
   const assessment = evaluateNight(entry({
     lightsOffTime: '00:30',
