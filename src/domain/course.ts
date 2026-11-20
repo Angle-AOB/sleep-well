@@ -809,14 +809,18 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
       ? { status: 'paused', reason: pauseReason }
       : { status: 'not-applicable' }
   } else if (needsReview) {
+    // W2 尚未开始限制与滴定：超上限只是“候选窗口不生成”，不能写成已暂停。
+    const candidate = progress.week === 2
     window = {
       status: 'unavailable',
       reason: 'window-over-ten-hours',
       completeNights: needsReview.completeNights,
       proposedMinutes: needsReview.proposedMinutes
     }
-    restriction = 'paused'
-    titration = { status: 'review', proposedMinutes: needsReview.proposedMinutes, basis: null }
+    restriction = candidate ? 'preview' : 'paused'
+    titration = candidate
+      ? { status: 'not-applicable' }
+      : { status: 'review', proposedMinutes: needsReview.proposedMinutes, basis: null }
   } else if (!wakeTime.effective) {
     window = unavailable('wake-time-not-set', calibrationNights)
     restriction = progress.week === 2 ? 'preview' : 'awaiting-window'

@@ -85,7 +85,8 @@ function weekStatus(week: CourseWeek, currentWeek: CourseWeek, completed: boolea
 function windowUnavailableBody(
   t: TFunction,
   view: Extract<WindowView, { status: 'unavailable' }>,
-  hasScreening: boolean
+  hasScreening: boolean,
+  candidateOnly: boolean
 ): string {
   switch (view.reason) {
     case 'baseline-in-progress':
@@ -97,10 +98,15 @@ function windowUnavailableBody(
     case 'shift-work-paused':
       return t('windowShiftPaused')
     case 'window-over-ten-hours':
-      return t('windowOverTenHours', {
-        duration: durationText(t, view.proposedMinutes),
-        limitHours: WINDOW_AUTOMATION_LIMIT_MINUTES / 60
-      })
+      return candidateOnly
+        ? t('windowCandidateOverLimit', {
+          duration: durationText(t, view.proposedMinutes),
+          limitHours: WINDOW_AUTOMATION_LIMIT_MINUTES / 60
+        })
+        : t('windowOverTenHours', {
+          duration: durationText(t, view.proposedMinutes),
+          limitHours: WINDOW_AUTOMATION_LIMIT_MINUTES / 60
+        })
     case 'wake-time-not-set':
       return t('windowNeedsWakeTime')
     case 'course-not-started':
@@ -428,7 +434,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
 
             {windowView.status === 'unavailable' ? (
               <p className={`course-card-copy ${windowWarning ? 'is-warning' : ''}`}>
-                {windowUnavailableBody(t, windowView, screening !== null)}
+                {windowUnavailableBody(t, windowView, screening !== null, currentWeek === 2)}
               </p>
             ) : (
               <>

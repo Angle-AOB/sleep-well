@@ -274,22 +274,23 @@ test('several changes in one week show the latest one as pending', () => {
   expect(result.wakeTime.pending).toEqual({ time: '07:15', effectiveWeek: 3 })
 })
 
-test('a candidate window longer than ten hours pauses automation and suggests review', () => {
+test('a W2 candidate over the limit stays a candidate and never claims titration is paused', () => {
   const result = assess({
     state: confirmedWake(),
     entries: nights(['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04'], { timeInBed: 660, totalSleep: 600 }),
     today: '2026-11-10'
   })
 
+  expect(result.progress.week).toBe(2)
   expect(result.window).toEqual({
     status: 'unavailable',
     reason: 'window-over-ten-hours',
     completeNights: 4,
     proposedMinutes: 630
   })
-  expect(result.restriction).toBe('paused')
-  // 超过 10 小时与 #5 的窗口语义一致：滴定也进入可区分的 review，而不是 not-applicable。
-  expect(result.titration).toEqual({ status: 'review', proposedMinutes: 630, basis: null })
+  // W2 只预览候选窗口：窗口不生成属于候选语义，睡眠限制与滴定都还没开始。
+  expect(result.restriction).toBe('preview')
+  expect(result.titration).toEqual({ status: 'not-applicable' })
 })
 
 test('an over-limit candidate reports its computed duration without generating a window', () => {

@@ -185,6 +185,7 @@ const resources = {
       windowScreeningPending: '完成安全筛查后才会生成自动睡眠窗口。',
       windowShiftPaused: '轮班/倒班作息不进入自动睡眠限制，因此不会生成睡眠窗口。',
       windowOverTenHours: '按规则计算的窗口约为 {{duration}}，超过 {{limitHours}} 小时的产品上限。自动睡眠窗口已暂停，建议先咨询睡眠或医疗专业人士，或进行专业评估。',
+      windowCandidateOverLimit: '按规则计算的候选窗口约为 {{duration}}，超过 {{limitHours}} 小时的产品上限：候选窗口暂不生成，建议先咨询睡眠或医疗专业人士，或进行专业评估。',
       windowDataInsufficient: '可用于校准的完整夜不足 4 夜，暂时不能校准睡眠窗口。继续记录日记，数据足够后会重新校准。',
       windowPreviewNote: '第 2 周仅预览候选窗口，不执行睡眠限制；第 3 周重新校准后才正式启用。',
       windowActiveNote: '窗口按固定起床时间倒推；长度 = 锚定周校准值 + 已生效的滴定调整，周内不会因为某一晚的数据而变化。',
