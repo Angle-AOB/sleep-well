@@ -317,6 +317,7 @@ test('W2 previews the candidate window from the baseline, with the 8-hour caffei
       limitedBy: 'target',
       calibratedFromWeek: 1
     },
+    adjustments: [],
     heldover: false,
     latestCompleteNights: 4
   })
@@ -450,4 +451,30 @@ test('W3 only starts restriction and announces the first weekly review in W4', (
   expect(result.progress.week).toBe(3)
   expect(result.window).toMatchObject({ status: 'available', durationMinutes: 480, mode: 'active' })
   expect(result.titration).toEqual({ status: 'scheduled', nextWeek: 4 })
+})
+
+test('a mean sleep efficiency above ninety percent lengthens the window by fifteen minutes in W4', () => {
+  const result = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(nightsAtLatency(['2026-11-15', '2026-11-16', '2026-11-17', '2026-11-18'], 36)),
+    today: '2026-11-22'
+  })
+
+  expect(result.progress.week).toBe(4)
+  expect(result.window).toMatchObject({
+    status: 'available',
+    startTime: '22:45',
+    endTime: '07:00',
+    durationMinutes: 495,
+    mode: 'active',
+    // 校准本身仍是 W3 的 8 小时；多出来的 15 分钟来自第 4 周的滴定。
+    calibration: { durationMinutes: 480, calibratedFromWeek: 2 },
+    adjustments: [{ week: 4, rule: 'increase', changeMinutes: 15, previousMinutes: 480, durationMinutes: 495 }]
+  })
+  expect(result.titration).toMatchObject({
+    status: 'adjusted',
+    basis: { completeNights: 4, averageSleepEfficiency: 92.5 },
+    change: { week: 4, changeMinutes: 15, previousMinutes: 480, durationMinutes: 495 }
+  })
+  expect(result.restriction).toBe('active')
 })
