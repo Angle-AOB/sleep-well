@@ -252,3 +252,11 @@ test('ZipError is the only failure surface for malformed archives', async () => 
   expect(error).toBeInstanceOf(ZipError)
 })
 
+
+test('reading rejects a stored (non-deflated) entry as unsupported, not corrupt', async () => {
+  const payload = encoder.encode('{}')
+  const stored = forgeZip([
+    { name: 'data.json', compressed: payload, uncompressedSize: payload.byteLength, crc: crc32(payload), method: 0 }
+  ])
+  await expectZipError(() => readZip(stored, { inflate }), 'unsupported-compression')
+})

@@ -192,7 +192,7 @@ function MetricValue({ metric, format }: { metric: Metric<number>; format: (valu
   )
 }
 
-export function DiaryPanel({ storageUnavailable, onSaved, refreshToken = 0 }: { storageUnavailable: boolean; onSaved?: () => void; refreshToken?: number }) {
+export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { storageUnavailable: boolean; onSaved?: () => void; reloadToken?: number }) {
   const { t } = useTranslation()
   const [initialDate] = useState(localToday)
   const [today, setToday] = useState(initialDate)
@@ -203,7 +203,7 @@ export function DiaryPanel({ storageUnavailable, onSaved, refreshToken = 0 }: { 
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
-  const lastRefresh = useRef(refreshToken)
+  const lastReload = useRef(reloadToken)
   const loadState = storageUnavailable ? 'error' : fetchState
 
   useEffect(() => {
@@ -225,10 +225,10 @@ export function DiaryPanel({ storageUnavailable, onSaved, refreshToken = 0 }: { 
     return () => { active = false }
   }, [storageUnavailable, initialDate])
 
-  // 导入备份后由外部递增 refreshToken，重新读取日记并把当前选中日期同步到新数据。
+  // 导入备份后由外部递增 reloadToken，重新读取日记并把当前选中日期同步到新数据。
   useEffect(() => {
-    if (lastRefresh.current === refreshToken) return
-    lastRefresh.current = refreshToken
+    if (lastReload.current === reloadToken) return
+    lastReload.current = reloadToken
     if (storageUnavailable) return
 
     let active = true
@@ -244,7 +244,7 @@ export function DiaryPanel({ storageUnavailable, onSaved, refreshToken = 0 }: { 
         if (active) setFetchState('error')
       })
     return () => { active = false }
-  }, [refreshToken, storageUnavailable, selectedDate])
+  }, [reloadToken, storageUnavailable, selectedDate])
 
   useEffect(() => {
     function syncLocalDate() {

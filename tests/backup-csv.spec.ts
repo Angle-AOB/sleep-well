@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { diaryCsv, escapeCsvCell } from '../src/domain/csv'
+import { diaryCsv, escapeCsvCell, type DiaryCsvLabels } from '../src/domain/csv'
 import type { SleepDiaryEntry } from '../src/domain/diary'
 
 function entry(date: string, overrides: Partial<SleepDiaryEntry> = {}): SleepDiaryEntry {
@@ -18,8 +18,34 @@ function entry(date: string, overrides: Partial<SleepDiaryEntry> = {}): SleepDia
   }
 }
 
-function rows(csv: string): string[][] {
-  return csv
+
+const labels: DiaryCsvLabels = {
+  yes: '是',
+  header: [
+    '日期',
+    '关灯时间',
+    '入睡潜伏期（分钟）',
+    '最终醒来时间',
+    '起床时间',
+    '夜醒次数',
+    '入睡后觉醒 WASO',
+    '主观睡眠质量（1–5）',
+    '咖啡因',
+    '酒精',
+    '午睡',
+    '运动',
+    '卧床时间（分钟）',
+    '总睡眠时间（分钟）',
+    '睡眠效率（%）'
+  ]
+}
+
+function buildCsv(entries: SleepDiaryEntry[]): string {
+  return diaryCsv(entries, labels)
+}
+
+function rows(value: string): string[][] {
+  return value
     .replace(/^\ufeff/, '')
     .split('\r\n')
     .filter((line) => line.length > 0)
@@ -27,11 +53,11 @@ function rows(csv: string): string[][] {
 }
 
 test('CSV starts with a UTF-8 BOM and uses CRLF with a stable header', () => {
-  const csv = diaryCsv([entry('2026-11-01')])
-  expect(csv.startsWith('\ufeff')).toBe(true)
-  expect(csv).toContain('\r\n')
+  const rendered = buildCsv([entry('2026-11-01')])
+  expect(rendered.startsWith('\ufeff')).toBe(true)
+  expect(rendered).toContain('\r\n')
 
-  const header = rows(csv)[0]
+  const header = rows(rendered)[0]
   expect(header).toEqual([
     '日期',
     '关灯时间',
@@ -60,26 +86,26 @@ test('CSV cells escape commas, quotes and new lines', () => {
 })
 
 test('unknown and range WASO never become fabricated exact minutes', () => {
-  const unknown = rows(diaryCsv([entry('2026-11-01', { waso: { kind: 'unknown' } })]))[1]
+  const unknown = rows(buildCsv([entry('2026-11-01', { waso: { kind: 'unknown' } })]))[1]
   expect(unknown[6]).toBe('')
   // TIB 仍可计算，但 TST 与 SE 不可计算，因此留空而不是 0。
   expect(unknown[12]).toBe('480')
   expect(unknown[13]).toBe('')
   expect(unknown[14]).toBe('')
 
-  const range = rows(diaryCsv([entry('2026-11-01', { waso: { kind: 'range', range: '15-to-30' } })]))[1]
+  const range = rows(buildCsv([entry('2026-11-01', { waso: { kind: 'range', range: '15-to-30' } })]))[1]
   expect(range[6]).toBe('15-30')
   expect(range[13]).toBe('')
   expect(range[14]).toBe('')
 
-  const none = rows(diaryCsv([entry('2026-11-01', { waso: { kind: 'none-remembered' } })]))[1]
+  const none = rows(buildCsv([entry('2026-11-01', { waso: { kind: 'none-remembered' } })]))[1]
   expect(none[6]).toBe('0')
   expect(none[13]).toBe('420')
   expect(none[14]).toBe('87.5')
 })
 
 test('exact WASO minutes and optional fields are exported as stable values', () => {
-  const row = rows(diaryCsv([
+  const row = rows(buildCsv([
     entry('2026-11-01', {
       waso: { kind: 'minutes', minutes: 25 },
       nightWakes: 'three-to-five',
@@ -102,17 +128,27 @@ test('exact WASO minutes and optional fields are exported as stable values', () 
 })
 
 test('CSV exports diary nights in chronological order and leaves absent fields blank', () => {
-  const csv = diaryCsv([
+  const rendered = buildCsv([
     entry('2026-11-03'),
     { ...entry('2026-11-01'), lightsOffTime: undefined, outOfBedTime: undefined, sleepOnsetLatencyMinutes: undefined, finalWakeTime: undefined, nightWakes: 'unknown', waso: { kind: 'unknown' }, tags: [] }
   ])
-  const body = rows(csv).slice(1)
+  const body = rows(rendered).slice(1)
   expect(body.map((row) => row[0])).toEqual(['2026-11-01', '2026-11-03'])
   expect(body[0].slice(1, 6)).toEqual(['', '', '', '', ''])
 })
 
 test('an empty diary still produces a valid header-only CSV', () => {
-  const csv = diaryCsv([])
-  expect(rows(csv)).toHaveLength(1)
-  expect(csv.endsWith('\r\n')).toBe(true)
+  const rendered = buildCsv([])
+  expect(rows(rendered)).toHaveLength(1)
+  expect(rendered.endsWith('\r\n')).toBe(true)
+})
+
+test('the CSV header and yes-label are provided by the caller', () => {
+  const rendered = diaryCsv(
+    [entry('2026-11-01', { tags: ['caffeine'] })],
+    { yes: 'YES', header: labels.header.map((label, index) => index === 0 ? 'DATE' : label) }
+  )
+  const [header, first] = rows(rendered)
+  expect(header[0]).toBe('DATE')
+  expect(first[8]).toBe('YES')
 })

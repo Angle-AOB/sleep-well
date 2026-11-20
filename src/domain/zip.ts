@@ -57,7 +57,6 @@ const localSignature = 0x04034b50
 const centralSignature = 0x02014b50
 const endSignature = 0x06054b50
 const deflateMethod = 8
-const storeMethod = 0
 const utf8Flag = 0x0800
 const encryptedFlag = 0x0001
 const zip64Sizes = 0xffffffff
@@ -130,7 +129,7 @@ function raw(target: ByteWriter, value: Uint8Array): void {
 
 export async function createZip(
   entries: ZipEntry[],
-  options: { deflate: DeflateRaw; modifiedAt?: Date }
+  options: { deflate: DeflateRaw; modifiedAt: Date }
 ): Promise<Uint8Array> {
   if (entries.length === 0) throw new ZipError('empty-archive')
   if (entries.length > ZIP_LIMITS.entries) throw new ZipError('too-many-entries')
@@ -144,7 +143,7 @@ export async function createZip(
   }
 
   const encoder = new TextEncoder()
-  const { time, date } = dosDateTime(options.modifiedAt ?? new Date())
+  const { time, date } = dosDateTime(options.modifiedAt)
   const prepared: { name: Uint8Array; source: Uint8Array; compressed: Uint8Array; crc: number }[] = []
 
   for (const entry of entries) {
@@ -277,7 +276,8 @@ function readCentralDirectory(bytes: Uint8Array, view: DataView, endOffset: numb
 
     assertSafeName(name)
     if (flags & encryptedFlag) throw new ZipError('encrypted-entry')
-    if (method !== deflateMethod && method !== storeMethod) throw new ZipError('unsupported-compression')
+    // 写侧只产出 DEFLATE；读侧不维护不会出现的 store 分支，遇到其他方法直接判为不支持。
+    if (method !== deflateMethod) throw new ZipError('unsupported-compression')
     if (uncompressedSize === zip64Sizes || compressedSize === zip64Sizes) {
       throw new ZipError('zip64-unsupported')
     }
@@ -325,15 +325,10 @@ async function extractEntry(
   const compressed = bytes.subarray(dataStart, dataEnd)
 
   let data: Uint8Array
-  if (record.method === storeMethod) {
-    if (record.compressedSize !== record.uncompressedSize) throw new ZipError('corrupt-entry')
-    data = compressed.slice()
-  } else {
-    try {
-      data = await inflate(compressed, Math.min(budget, ZIP_LIMITS.entryBytes))
-    } catch {
-      throw new ZipError('corrupt-entry')
-    }
+  try {
+    data = await inflate(compressed, Math.min(budget, ZIP_LIMITS.entryBytes))
+  } catch {
+    throw new ZipError('corrupt-entry')
   }
 
   if (data.byteLength !== record.uncompressedSize || crc32(data) !== record.crc) {

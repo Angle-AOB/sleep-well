@@ -9,9 +9,35 @@
  * 不包含任何界面文案，错误只给出结构性的错误类型，不带日记内容或筛查答案。
  */
 
-import { assessCourse, type CourseState, type CourseWeek } from './course'
-import { evaluateNight, type LocalDate, type SleepDiaryEntry } from './diary'
-import { createScreeningRecord, type ScreeningRecord } from './screening'
+import {
+  isCourseWeek,
+  isClockTime,
+  isWorkPattern,
+  assessCourse,
+  type CourseState,
+  type CourseWeek
+} from './course'
+import {
+  isDiaryTag,
+  isLocalDate,
+  isNightWakesCount,
+  isSleepQuality,
+  isWasoEstimate,
+  evaluateNight,
+  type LocalDate,
+  type SleepDiaryEntry
+} from './diary'
+import {
+  createScreeningRecord,
+  isAffectedNights,
+  isConcernDuration,
+  isDaytimeImpact,
+  isDistressLevel,
+  isImprovementGoal,
+  isScreeningActivity,
+  isScreeningStatus,
+  type ScreeningRecord
+} from './screening'
 
 export const BACKUP_SCHEMA_VERSION = 1
 export const BACKUP_APP_VERSION = '0.1.0'
@@ -53,37 +79,8 @@ export type ParseResult =
   | { ok: true; payload: BackupPayload }
   | { ok: false; error: BackupError }
 
-const datePattern = /^(\d{4})-(\d{2})-(\d{2})$/
-const clockPattern = /^([01][0-9]|2[0-3]):([0-5][0-9])$/
-const tagValues = new Set(['caffeine', 'alcohol', 'nap', 'exercise'])
-const nightWakeValues = new Set(['unknown', 'none', 'one-to-two', 'three-to-five', 'six-plus'])
-const wasoRangeValues = new Set(['under-15', '15-to-30', '30-to-60', 'over-60'])
-const workPatternValues = new Set(['regular', 'shift-work'])
-const screeningStatusValues = new Set(['cleared', 'needs-review'])
-const activityValues = new Set(['education', 'diary', 'export', 'sleep-restriction'])
-const distressValues = new Set(['none', 'some', 'a-lot'])
-const concernDurationValues = new Set(['less-than-week', 'one-to-four-weeks', 'one-to-three-months', 'over-three-months'])
-const affectedNightsValues = new Set(['none', 'one-to-two', 'three-to-four', 'five-to-seven'])
-const daytimeImpactValues = new Set(['none', 'some', 'significant'])
-const improvementGoalValues = new Set(['fall-asleep', 'stay-asleep', 'regularity', 'daytime'])
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-export function isLocalDate(value: unknown): value is LocalDate {
-  if (typeof value !== 'string') return false
-  const match = datePattern.exec(value)
-  if (!match) return false
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  const probe = new Date(Date.UTC(year, month - 1, day))
-  return probe.getUTCFullYear() === year && probe.getUTCMonth() === month - 1 && probe.getUTCDate() === day
-}
-
-function isClock(value: unknown): value is string {
-  return typeof value === 'string' && clockPattern.test(value)
 }
 
 function isNonNegativeInteger(value: unknown): value is number {
@@ -94,50 +91,37 @@ function isIsoTimestamp(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && !Number.isNaN(Date.parse(value))
 }
 
-function isWaso(value: unknown): boolean {
-  if (!isRecord(value)) return false
-  switch (value.kind) {
-    case 'unknown':
-    case 'none-remembered':
-      return true
-    case 'minutes':
-      return isNonNegativeInteger(value.minutes)
-    case 'range':
-      return typeof value.range === 'string' && wasoRangeValues.has(value.range)
-    default:
-      return false
-  }
-}
-
 function isValidDiaryEntry(value: unknown): value is SleepDiaryEntry {
   if (!isRecord(value)) return false
   if (!isLocalDate(value.date)) return false
-  if (value.lightsOffTime !== undefined && !isClock(value.lightsOffTime)) return false
-  if (value.finalWakeTime !== undefined && !isClock(value.finalWakeTime)) return false
-  if (value.outOfBedTime !== undefined && !isClock(value.outOfBedTime)) return false
+  if (value.lightsOffTime !== undefined && !(typeof value.lightsOffTime === 'string' && isClockTime(value.lightsOffTime))) return false
+  if (value.finalWakeTime !== undefined && !(typeof value.finalWakeTime === 'string' && isClockTime(value.finalWakeTime))) return false
+  if (value.outOfBedTime !== undefined && !(typeof value.outOfBedTime === 'string' && isClockTime(value.outOfBedTime))) return false
   if (value.sleepOnsetLatencyMinutes !== undefined && !isNonNegativeInteger(value.sleepOnsetLatencyMinutes)) return false
-  if (typeof value.nightWakes !== 'string' || !nightWakeValues.has(value.nightWakes)) return false
-  if (!isWaso(value.waso)) return false
-  if (value.sleepQuality !== undefined) {
-    const quality = value.sleepQuality
-    if (!Number.isInteger(quality) || (quality as number) < 1 || (quality as number) > 5) return false
-  }
-  if (!Array.isArray(value.tags) || value.tags.some((tag) => typeof tag !== 'string' || !tagValues.has(tag))) return false
+  if (!isNightWakesCount(value.nightWakes)) return false
+  if (!isWasoEstimate(value.waso)) return false
+  if (value.sleepQuality !== undefined && !isSleepQuality(value.sleepQuality)) return false
+  if (!Array.isArray(value.tags) || !value.tags.every((tag) => isDiaryTag(tag))) return false
   return isIsoTimestamp(value.recordedAt) && isIsoTimestamp(value.updatedAt)
 }
 
 function isValidCourse(value: unknown): value is CourseState {
   if (!isRecord(value)) return false
   if (!isLocalDate(value.startedOn)) return false
-  if (typeof value.workPattern !== 'string' || !workPatternValues.has(value.workPattern)) return false
+  if (!isWorkPattern(value.workPattern)) return false
   if (!Array.isArray(value.wakeTimes)) return false
   for (const decision of value.wakeTimes) {
-    if (!isRecord(decision) || !isClock(decision.time) || !isLocalDate(decision.decidedOn)) return false
+    if (!isRecord(decision)
+      || typeof decision.time !== 'string'
+      || !isClockTime(decision.time)
+      || !isLocalDate(decision.decidedOn)) {
+      return false
+    }
   }
   if (value.deferredTitrations !== undefined) {
     if (!Array.isArray(value.deferredTitrations)) return false
     for (const week of value.deferredTitrations) {
-      if (!Number.isInteger(week) || (week as number) < 1 || (week as number) > 6) return false
+      if (!isCourseWeek(week)) return false
     }
   }
   return true
@@ -146,11 +130,8 @@ function isValidCourse(value: unknown): value is CourseState {
 function isValidPreferences(value: unknown): value is BackupPreferences {
   if (!isRecord(value)) return false
   if (typeof value.backupReminders !== 'boolean') return false
-  return value.wakeTime === undefined || isClock(value.wakeTime)
-}
-
-function isOptionalEnum(value: unknown, allowed: Set<string>): boolean {
-  return value === undefined || (typeof value === 'string' && allowed.has(value))
+  return value.wakeTime === undefined
+    || (typeof value.wakeTime === 'string' && isClockTime(value.wakeTime))
 }
 
 function isValidScreening(value: unknown): value is ScreeningRecord {
@@ -171,19 +152,19 @@ function isValidScreening(value: unknown): value is ScreeningRecord {
   ]) {
     if (typeof answers[key] !== 'boolean') return false
   }
-  if (typeof answers.distress !== 'string' || !distressValues.has(answers.distress)) return false
-  if (!isOptionalEnum(answers.concernDuration, concernDurationValues)) return false
-  if (!isOptionalEnum(answers.affectedNights, affectedNightsValues)) return false
-  if (!isOptionalEnum(answers.daytimeImpact, daytimeImpactValues)) return false
-  if (!isOptionalEnum(answers.improvementGoal, improvementGoalValues)) return false
+  if (typeof answers.distress !== 'string' || !isDistressLevel(answers.distress)) return false
+  if (answers.concernDuration !== undefined && !isConcernDuration(answers.concernDuration)) return false
+  if (answers.affectedNights !== undefined && !isAffectedNights(answers.affectedNights)) return false
+  if (answers.daytimeImpact !== undefined && !isDaytimeImpact(answers.daytimeImpact)) return false
+  if (answers.improvementGoal !== undefined && !isImprovementGoal(answers.improvementGoal)) return false
 
-  if (typeof result.status !== 'string' || !screeningStatusValues.has(result.status)) return false
+  if (typeof result.status !== 'string' || !isScreeningStatus(result.status)) return false
   if (typeof result.sleepRestrictionPaused !== 'boolean') return false
   if (typeof result.strongReferral !== 'boolean') return false
   if (typeof result.rescreenRequired !== 'boolean') return false
   if (!isIsoTimestamp(result.completedAt)) return false
   return Array.isArray(result.availableActivities)
-    && result.availableActivities.every((activity) => typeof activity === 'string' && activityValues.has(activity))
+    && result.availableActivities.every((activity) => isScreeningActivity(activity))
 }
 
 function validatePayload(value: unknown): ParseResult {
@@ -323,6 +304,8 @@ export function compareBackup(current: BackupData, backup: BackupData, today: Lo
 
 export type MergeResult = {
   entries: SleepDiaryEntry[]
+  /** 只包含真正新增的记录；调用方直接写入这些记录，不必再自行去重。 */
+  addedEntries: SleepDiaryEntry[]
   added: number
   skipped: number
 }
@@ -330,7 +313,7 @@ export type MergeResult = {
 /** 新增策略只追加日记；日期即日记身份，冲突时保留当前记录。 */
 export function mergeDiaryEntries(current: SleepDiaryEntry[], incoming: SleepDiaryEntry[]): MergeResult {
   const byDate = new Map(current.map((entry) => [entry.date, entry]))
-  let added = 0
+  const addedEntries: SleepDiaryEntry[] = []
   let skipped = 0
 
   for (const entry of incoming) {
@@ -339,12 +322,13 @@ export function mergeDiaryEntries(current: SleepDiaryEntry[], incoming: SleepDia
       continue
     }
     byDate.set(entry.date, entry)
-    added += 1
+    addedEntries.push(entry)
   }
 
   return {
     entries: [...byDate.values()].sort((left, right) => left.date.localeCompare(right.date)),
-    added,
+    addedEntries,
+    added: addedEntries.length,
     skipped
   }
 }

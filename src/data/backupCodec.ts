@@ -1,6 +1,6 @@
 /**
- * 浏览器侧的平台适配：把领域层的 ZIP/迁移包函数接到 CompressionStream、
- * 文件分享与下载上。所有能力在缺失或被拒绝时降级，不把用户取消分享当作错误。
+ * 浏览器侧的编解码适配：把领域层的 ZIP/迁移包函数接到 CompressionStream 上。
+ * 压缩能力在缺失时降级，不把用户取消分享当作错误（交付见 backupDelivery）。
  *
  * 解压时按块读取并累计字节数，超过上限立即取消流，防止压缩炸弹先把内存吃满。
  */
@@ -70,62 +70,11 @@ const inflateRaw: InflateRaw = async (bytes, maxBytes) => {
 
 const deflate: DeflateRaw = deflateRaw
 
-export function backupFileName(exportedAt: string): string {
-  const day = exportedAt.slice(0, 10)
-  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? `sleep-well-${day}.sleep-backup.zip` : 'sleep-well.sleep-backup.zip'
-}
-
-export function diaryFileName(today: string): string {
-  return `sleep-well-diary-${today}.csv`
-}
-
 export function createArchiveBytes(payload: BackupPayload): Promise<Uint8Array> {
-  return createBackupArchive(payload, { deflate })
+  // 时间只在这里读取一次；同一份数据 + 同一个时间参数必须产生同一份字节。
+  return createBackupArchive(payload, { deflate, modifiedAt: new Date() })
 }
 
 export function readArchiveBytes(bytes: Uint8Array): Promise<ReadBackupResult> {
   return readBackupArchive(bytes, { inflate: inflateRaw })
-}
-
-export type DeliveryOutcome = 'shared' | 'downloaded' | 'cancelled' | 'unsupported'
-
-type ShareCapableNavigator = Navigator & {
-  canShare?: (data?: ShareData) => boolean
-  share?: (data: ShareData) => Promise<void>
-}
-
-/**
- * 优先走系统分享（移动端可直接存到文件 App），不可用或失败时回退到下载。
- * 用户取消分享返回 'cancelled'：这不是错误，界面应给出中性提示。
- */
-export async function deliverFile(blob: Blob, filename: string): Promise<DeliveryOutcome> {
-  const sharing = navigator as ShareCapableNavigator
-  const file = new File([blob], filename, { type: blob.type })
-
-  if (typeof sharing.share === 'function'
-    && typeof sharing.canShare === 'function'
-    && sharing.canShare({ files: [file] })) {
-    try {
-      await sharing.share({ files: [file] })
-      return 'shared'
-    } catch (error) {
-      // 用户取消分享不是错误；不同浏览器可能抛 DOMException 或其他带 name 的对象。
-      if (typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError') {
-        return 'cancelled'
-      }
-    }
-  }
-
-  if (typeof document === 'undefined' || typeof URL.createObjectURL !== 'function') return 'unsupported'
-
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.rel = 'noopener'
-  document.body.append(anchor)
-  anchor.click()
-  anchor.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 30_000)
-  return 'downloaded'
 }

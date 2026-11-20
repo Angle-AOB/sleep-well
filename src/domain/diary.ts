@@ -67,6 +67,43 @@ export type NightAssessment = {
 const clockPattern = /^([01][0-9]|2[0-3]):([0-5][0-9])$/
 const datePattern = /^(\d{4})-(\d{2})-(\d{2})$/
 
+/** 领域枚举的唯一来源；备份校验从这里导入，新增取值只改一处。 */
+const nightWakeValues: readonly NightWakesCount[] = ['unknown', 'none', 'one-to-two', 'three-to-five', 'six-plus']
+const wasoRangeValues: readonly WasoRange[] = ['under-15', '15-to-30', '30-to-60', 'over-60']
+const diaryTagValues: readonly DiaryTag[] = ['caffeine', 'alcohol', 'nap', 'exercise']
+
+export function isNightWakesCount(value: unknown): value is NightWakesCount {
+  return typeof value === 'string' && (nightWakeValues as readonly string[]).includes(value)
+}
+
+export function isWasoRange(value: unknown): value is WasoRange {
+  return typeof value === 'string' && (wasoRangeValues as readonly string[]).includes(value)
+}
+
+export function isDiaryTag(value: unknown): value is DiaryTag {
+  return typeof value === 'string' && (diaryTagValues as readonly string[]).includes(value)
+}
+
+export function isSleepQuality(value: unknown): value is SleepQuality {
+  return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 5
+}
+
+export function isWasoEstimate(value: unknown): value is WasoEstimate {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const waso = value as Record<string, unknown>
+  switch (waso.kind) {
+    case 'unknown':
+    case 'none-remembered':
+      return true
+    case 'minutes':
+      return Number.isInteger(waso.minutes) && (waso.minutes as number) >= 0
+    case 'range':
+      return isWasoRange(waso.range)
+    default:
+      return false
+  }
+}
+
 function available(value: number): Metric<number> {
   return { status: 'available', value }
 }
@@ -85,6 +122,10 @@ function parseLocalDate(value: LocalDate): { year: number; month: number; day: n
   const probe = new Date(year, month - 1, day)
   const valid = probe.getFullYear() === year && probe.getMonth() === month - 1 && probe.getDate() === day
   return valid ? { year, month, day } : null
+}
+
+export function isLocalDate(value: unknown): value is LocalDate {
+  return typeof value === 'string' && parseLocalDate(value) !== null
 }
 
 function localMoment(date: LocalDate, time: string, dayOffset = 0): Date | null {

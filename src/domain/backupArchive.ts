@@ -14,6 +14,7 @@ import { crc32, createZip, readZip, ZipError, type DeflateRaw, type InflateRaw, 
 
 export const MANIFEST_ENTRY = 'manifest.json'
 export const DATA_ENTRY = 'data.json'
+/** 备份文件的基础名；导出路径在此基础上插入导出日期。 */
 export const BACKUP_FILE_NAME = 'sleep-well.sleep-backup.zip'
 export const BACKUP_FORMAT = 'sleep-well-backup'
 
@@ -134,7 +135,7 @@ export function createBackupManifest(payload: BackupPayload, dataBytes: Uint8Arr
 
 export async function createBackupArchive(
   payload: BackupPayload,
-  options: { deflate: DeflateRaw; modifiedAt?: Date }
+  options: { deflate: DeflateRaw; modifiedAt: Date }
 ): Promise<Uint8Array> {
   try {
     const dataBytes = encoder.encode(JSON.stringify(payload))

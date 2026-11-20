@@ -16,3 +16,25 @@ export function localToday(): string {
   const day = String(now.getDate()).padStart(2, '0')
   return `${now.getFullYear()}-${month}-${day}`
 }
+
+function pad(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+/** 日记日期等本地日期的长格式，走 i18n 而不是在组件里另起 locale。 */
+export function dateLongText(t: TFunction, value: string): string {
+  const [year, month, day] = value.split('-').map(Number)
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return value
+  return t('dateLong', { year, month, day })
+}
+
+/** ISO 时间戳按设备本地时区显示为「日期 时间」；无效值原样返回。 */
+export function momentText(t: TFunction, value: string): string {
+  const moment = new Date(value)
+  if (Number.isNaN(moment.getTime())) return value
+  const date = `${moment.getFullYear()}-${pad(moment.getMonth() + 1)}-${pad(moment.getDate())}`
+  return t('dateTimeShort', {
+    date: dateLongText(t, date),
+    time: `${pad(moment.getHours())}:${pad(moment.getMinutes())}`
+  })
+}

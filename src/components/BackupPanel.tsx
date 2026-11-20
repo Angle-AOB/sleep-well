@@ -3,6 +3,7 @@ import type { ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import {
+  BACKUP_RULES_VERSION,
   compareBackup,
   createBackupPayload,
   type BackupComparison,
@@ -10,25 +11,44 @@ import {
   type BackupSummary
 } from '../domain/backup'
 import { BackupArchiveError, type BackupManifest } from '../domain/backupArchive'
-import { diaryCsv } from '../domain/csv'
-import { applyBackupImport, readBackupData, type BackupFailure, type BackupFailureReason } from '../data/backup'
+import { diaryCsv, type DiaryCsvLabels } from '../domain/csv'
+import { applyBackupImport, readBackupData } from '../data/backup'
 import {
-  backupFileName,
   bytesBlob,
   createArchiveBytes,
-  deliverFile,
-  diaryFileName,
   MAX_COMPRESSED_BYTES,
   readArchiveBytes,
   supportsBackupCompression
 } from '../data/backupCodec'
-import { localToday } from '../format'
+import {
+  backupFileName,
+  deliverFile,
+  diaryFileName,
+  type DeliveryOutcome
+} from '../data/backupDelivery'
+import { dateLongText, localToday, momentText } from '../format'
 
-type Notice = {
-  tone: 'success' | 'info' | 'error'
-  key: string
-  values?: Record<string, unknown>
-}
+type Operation = 'export-zip' | 'export-csv' | 'import'
+
+type FailureReason =
+  | 'storage-unavailable'
+  | 'compression-unsupported'
+  | 'delivery-failed'
+  | 'unreadable-file'
+  | 'archive-rejected'
+  | 'archive-unsupported'
+  | 'archive-too-large'
+  | 'future-version'
+  | 'storage-error'
+  | 'import-failed'
+  | 'refresh-failed'
+  | 'export-failed'
+
+/** 界面本地的脱敏失败状态；#8 的错误面板接入时可从这里取操作与原因分类。 */
+type LocalBackupError = { operation: Operation; reason: FailureReason }
+
+type Notice =
+  | { tone: 'success' | 'info'; key: string; values?: Record<string, unknown> }
 
 type Preview = {
   payload: BackupPayload
@@ -40,22 +60,29 @@ type BackupPanelProps = {
   storageUnavailable: boolean
   /** 导入成功后让应用重新读取日记、疗程、设置与筛查状态。 */
   onImported?: () => Promise<void> | void
-  /** 留给后续错误面板消费的脱敏失败信息。 */
-  onFailure?: (failure: BackupFailure) => void
 }
 
-function formatDay(value: string): string {
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return value
-  return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
-    .format(new Date(year, month - 1, day))
-}
-
-function formatMoment(value: string): string {
-  const moment = new Date(value)
-  return Number.isNaN(moment.getTime())
-    ? value
-    : new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(moment)
+function csvLabels(t: TFunction): DiaryCsvLabels {
+  return {
+    yes: t('backupCsvYes'),
+    header: [
+      t('backupCsvHeaderDate'),
+      t('backupCsvHeaderLightsOff'),
+      t('backupCsvHeaderLatency'),
+      t('backupCsvHeaderFinalWake'),
+      t('backupCsvHeaderOutOfBed'),
+      t('backupCsvHeaderNightWakes'),
+      t('backupCsvHeaderWaso'),
+      t('backupCsvHeaderQuality'),
+      t('backupCsvHeaderCaffeine'),
+      t('backupCsvHeaderAlcohol'),
+      t('backupCsvHeaderNap'),
+      t('backupCsvHeaderExercise'),
+      t('backupCsvHeaderTib'),
+      t('backupCsvHeaderTst'),
+      t('backupCsvHeaderSe')
+    ]
+  }
 }
 
 function summaryLines(t: TFunction, summary: BackupSummary): string[] {
@@ -65,7 +92,10 @@ function summaryLines(t: TFunction, summary: BackupSummary): string[] {
   } else {
     lines.push(t('backupSummaryDiary', { count: summary.diaryCount }))
     if (summary.firstDate && summary.lastDate) {
-      lines.push(t('backupSummaryRange', { first: formatDay(summary.firstDate), last: formatDay(summary.lastDate) }))
+      lines.push(t('backupSummaryRange', {
+        first: dateLongText(t, summary.firstDate),
+        last: dateLongText(t, summary.lastDate)
+      }))
     }
     lines.push(t('backupSummaryComplete', { count: summary.completeNights }))
   }
@@ -79,56 +109,88 @@ function summaryLines(t: TFunction, summary: BackupSummary): string[] {
   lines.push(summary.screeningStatus === null
     ? t('backupSummaryScreeningNone')
     : t('backupSummaryScreeningIncluded'))
+  lines.push(summary.backupReminders
+    ? t('backupSummaryRemindersOn')
+    : t('backupSummaryRemindersOff'))
   return lines
 }
 
-function archiveFailureReason(error: unknown): BackupFailureReason {
+function archiveFailureReason(error: unknown): FailureReason {
   if (error instanceof BackupArchiveError) {
     if (error.kind === 'entry-too-large' || error.kind === 'archive-too-large' || error.kind === 'too-many-entries') {
       return 'archive-too-large'
     }
     if (error.kind === 'unsupported-schema') return 'future-version'
+    if (error.kind === 'unsupported-compression') return 'archive-unsupported'
   }
   return 'archive-rejected'
 }
 
-function noticeForReason(reason: BackupFailureReason): Notice {
-  switch (reason) {
-    case 'storage-unavailable':
-      return { tone: 'error', key: 'backupStorageUnavailable' }
-    case 'compression-unsupported':
-      return { tone: 'error', key: 'backupCompressionUnsupported' }
-    case 'delivery-failed':
-      return { tone: 'error', key: 'backupDeliveryFailed' }
-    case 'unreadable-file':
-      return { tone: 'error', key: 'backupFileUnreadable' }
-    case 'archive-too-large':
-      return { tone: 'error', key: 'backupArchiveTooLarge' }
-    case 'future-version':
-      return { tone: 'error', key: 'backupFutureVersion' }
-    case 'archive-rejected':
-      return { tone: 'error', key: 'backupArchiveRejected' }
-    case 'import-failed':
-      return { tone: 'error', key: 'backupImportFailed' }
-    case 'export-failed':
-      return { tone: 'error', key: 'backupExportError' }
+const reasonKey: Record<FailureReason, string> = {
+  'storage-unavailable': 'backupStorageUnavailable',
+  'compression-unsupported': 'backupCompressionUnsupported',
+  'delivery-failed': 'backupDeliveryFailed',
+  'unreadable-file': 'backupFileUnreadable',
+  'archive-rejected': 'backupArchiveRejected',
+  'archive-unsupported': 'backupArchiveUnsupported',
+  'archive-too-large': 'backupArchiveTooLarge',
+  'future-version': 'backupFutureVersion',
+  'storage-error': 'backupStorageReadFailed',
+  'import-failed': 'backupImportFailed',
+  'refresh-failed': 'backupImportedRefreshFailed',
+  'export-failed': 'backupExportError'
+}
+
+function deliveryNotice(outcome: DeliveryOutcome): Notice | null {
+  switch (outcome) {
+    case 'cancelled':
+      return { tone: 'info', key: 'backupDeliveredCancelled' }
+    case 'shared':
+      return { tone: 'success', key: 'backupDeliveredShared' }
+    case 'downloaded':
+      return { tone: 'success', key: 'backupDeliveredDownloaded' }
+    case 'unsupported':
+      return null
   }
 }
 
-export function BackupPanel({ storageUnavailable, onImported, onFailure }: BackupPanelProps) {
+export function BackupPanel({ storageUnavailable, onImported }: BackupPanelProps) {
   const { t } = useTranslation()
   const today = localToday()
   const [activity, setActivity] = useState<'export' | 'read' | 'import' | null>(null)
   const busy = activity !== null
   const [notice, setNotice] = useState<Notice | null>(null)
+  const [localError, setLocalError] = useState<LocalBackupError | null>(null)
   const [preview, setPreview] = useState<Preview | null>(null)
   const [confirmingOverwrite, setConfirmingOverwrite] = useState(false)
   const [csvWasEmpty, setCsvWasEmpty] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
-  function fail(operation: BackupFailure['operation'], reason: BackupFailureReason) {
-    setNotice(noticeForReason(reason))
-    onFailure?.({ operation, reason })
+  function clearNotice() {
+    setNotice(null)
+    setLocalError(null)
+  }
+
+  function fail(operation: Operation, reason: FailureReason) {
+    setLocalError({ operation, reason })
+    setNotice(null)
+  }
+
+  /** 读取当前数据失败是存储故障，不是备份文件损坏；两者必须给出不同文案。 */
+  async function readCurrent(operation: Operation) {
+    try {
+      return await readBackupData()
+    } catch {
+      fail(operation, 'storage-error')
+      return null
+    }
+  }
+
+  async function deliver(blob: Blob, filename: string, operation: Operation) {
+    const outcome = await deliverFile(blob, filename)
+    const mapped = deliveryNotice(outcome)
+    if (mapped) setNotice(mapped)
+    else fail(operation, 'delivery-failed')
   }
 
   async function exportZip() {
@@ -136,16 +198,13 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
     if (!supportsBackupCompression()) return fail('export-zip', 'compression-unsupported')
 
     setActivity('export')
-    setNotice(null)
+    clearNotice()
     try {
-      const data = await readBackupData()
+      const data = await readCurrent('export-zip')
+      if (!data) return
       const payload = createBackupPayload(data, { exportedAt: new Date().toISOString() })
       const bytes = await createArchiveBytes(payload)
-      const outcome = await deliverFile(bytesBlob(bytes), backupFileName(payload.exportedAt))
-      if (outcome === 'cancelled') setNotice({ tone: 'info', key: 'backupDeliveredCancelled' })
-      else if (outcome === 'shared') setNotice({ tone: 'success', key: 'backupDeliveredShared' })
-      else if (outcome === 'downloaded') setNotice({ tone: 'success', key: 'backupDeliveredDownloaded' })
-      else fail('export-zip', 'delivery-failed')
+      await deliver(bytesBlob(bytes), backupFileName(payload.exportedAt), 'export-zip')
     } catch {
       fail('export-zip', 'export-failed')
     } finally {
@@ -157,19 +216,17 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
     if (storageUnavailable) return fail('export-csv', 'storage-unavailable')
 
     setActivity('export')
-    setNotice(null)
+    clearNotice()
     try {
-      const data = await readBackupData()
+      const data = await readCurrent('export-csv')
+      if (!data) return
       setCsvWasEmpty(data.diary.length === 0)
-      const csv = diaryCsv(data.diary)
-      const outcome = await deliverFile(
+      const csv = diaryCsv(data.diary, csvLabels(t))
+      await deliver(
         new Blob([csv], { type: 'text/csv;charset=utf-8' }),
-        diaryFileName(today)
+        diaryFileName(today),
+        'export-csv'
       )
-      if (outcome === 'cancelled') setNotice({ tone: 'info', key: 'backupDeliveredCancelled' })
-      else if (outcome === 'shared') setNotice({ tone: 'success', key: 'backupDeliveredShared' })
-      else if (outcome === 'downloaded') setNotice({ tone: 'success', key: 'backupDeliveredDownloaded' })
-      else fail('export-csv', 'delivery-failed')
     } catch {
       fail('export-csv', 'export-failed')
     } finally {
@@ -183,22 +240,34 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
     event.target.value = ''
     if (!file) return
 
-    setNotice(null)
+    clearNotice()
     setPreview(null)
     setConfirmingOverwrite(false)
     setActivity('read')
     try {
       if (file.size > MAX_COMPRESSED_BYTES) return fail('import', 'archive-too-large')
-      const bytes = new Uint8Array(await file.arrayBuffer())
-      const archive = await readArchiveBytes(bytes)
-      const current = await readBackupData()
+
+      let bytes: Uint8Array
+      try {
+        bytes = new Uint8Array(await file.arrayBuffer())
+      } catch {
+        return fail('import', 'unreadable-file')
+      }
+
+      let archive
+      try {
+        archive = await readArchiveBytes(bytes)
+      } catch (error) {
+        return fail('import', archiveFailureReason(error))
+      }
+
+      const current = await readCurrent('import')
+      if (!current) return
       setPreview({
         payload: archive.payload,
         manifest: archive.manifest,
         comparison: compareBackup(current, archive.payload, today)
       })
-    } catch (error) {
-      fail('import', archiveFailureReason(error))
     } finally {
       setActivity(null)
     }
@@ -207,17 +276,27 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
   async function runImport(strategy: 'overwrite' | 'append') {
     if (!preview) return
     setActivity('import')
-    setNotice(null)
+    clearNotice()
+
+    let result
     try {
-      const result = await applyBackupImport(preview.payload, strategy)
+      result = await applyBackupImport(preview.payload, strategy)
+    } catch {
+      fail('import', 'import-failed')
+      setActivity(null)
+      return
+    }
+
+    setPreview(null)
+    setConfirmingOverwrite(false)
+    try {
       await onImported?.()
-      setPreview(null)
-      setConfirmingOverwrite(false)
       setNotice(strategy === 'overwrite'
         ? { tone: 'success', key: 'backupImportedOverwrite', values: { count: result.added } }
         : { tone: 'success', key: 'backupImportedAppend', values: { added: result.added, skipped: result.skipped } })
     } catch {
-      fail('import', 'import-failed')
+      // 导入已经提交，不能说“当前数据未变”；这条错误留给后续错误面板。
+      fail('import', 'refresh-failed')
     } finally {
       setActivity(null)
     }
@@ -226,7 +305,7 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
   function discardPreview() {
     setPreview(null)
     setConfirmingOverwrite(false)
-    setNotice(null)
+    clearNotice()
     if (fileInput.current) fileInput.current.value = ''
   }
 
@@ -279,7 +358,12 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
         {comparison && preview && (
           <div className="backup-preview" aria-labelledby="backup-preview-title">
             <h3 id="backup-preview-title">{t('backupPreviewTitle')}</h3>
-            <p className="field-hint">{t('backupSummaryExportedAt', { time: formatMoment(preview.manifest.exportedAt) })}</p>
+            <p className="field-hint">{t('backupSummaryExportedAt', { time: momentText(t, preview.manifest.exportedAt) })}</p>
+            {preview.manifest.rulesVersion !== BACKUP_RULES_VERSION && (
+              <p className="backup-caution">
+                {t('backupRulesRecomputed', { version: preview.manifest.rulesVersion })}
+              </p>
+            )}
             <div className="backup-compare">
               <section aria-label={t('backupPreviewCurrent')}>
                 <h4>{t('backupPreviewCurrent')}</h4>
@@ -344,8 +428,13 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
           </p>
         )}
         {notice && (
-          <p className={notice.tone === 'error' ? 'diary-alert' : 'backup-status'} role={notice.tone === 'error' ? 'alert' : 'status'}>
+          <p className="backup-status" role="status">
             {t(notice.key, notice.values ?? {})}
+          </p>
+        )}
+        {localError && (
+          <p className="diary-alert" role="alert">
+            {t(reasonKey[localError.reason])}
           </p>
         )}
       </section>

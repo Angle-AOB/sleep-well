@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { deflateRawSync, inflateRawSync } from 'node:zlib'
 import {
-  BACKUP_FILE_NAME,
   createBackupArchive,
   createBackupManifest,
   DATA_ENTRY,
@@ -20,6 +19,7 @@ const inflate = async (bytes: Uint8Array, maxBytes: number): Promise<Uint8Array>
   return result
 }
 const encoder = new TextEncoder()
+const archiveDate = new Date(2026, 10, 20, 8, 0, 0)
 const decoder = new TextDecoder()
 
 function entry(date: string): SleepDiaryEntry {
@@ -65,12 +65,21 @@ test('a built archive round-trips the payload and its manifest', async () => {
   expect(archive.manifest.appVersion).toBe('0.1.0')
   expect(archive.manifest.checksum.algorithm).toBe('crc32')
   expect(archive.manifest.checksum.value).toMatch(/^[0-9a-f]{8}$/)
-  expect(BACKUP_FILE_NAME.endsWith('.sleep-backup.zip')).toBe(true)
+})
+
+test('the same payload and timestamp produce byte-identical archives', async () => {
+  const modifiedAt = new Date(2026, 10, 20, 8, 0, 0)
+  const first = await createBackupArchive(payload(), { deflate, modifiedAt })
+  const second = await createBackupArchive(payload(), { deflate, modifiedAt })
+  const later = await createBackupArchive(payload(), { deflate, modifiedAt: new Date(2026, 10, 21, 8, 0, 0) })
+
+  expect(second).toEqual(first)
+  expect(later).not.toEqual(first)
 })
 
 test('Chinese, emoji and line breaks in metadata survive the archive', async () => {
   const source = payload('版本一\n🌙 beta')
-  const bytes = await createBackupArchive(source, { deflate })
+  const bytes = await createBackupArchive(source, { deflate, modifiedAt: archiveDate })
   const archive = await readBackupArchive(bytes, { inflate })
   expect(archive.payload.appVersion).toBe('版本一\n🌙 beta')
 })
@@ -87,7 +96,7 @@ test('the data entry checksum is verified before the payload is trusted', async 
       { name: MANIFEST_ENTRY, data: encoder.encode(JSON.stringify(manifest)) },
       { name: DATA_ENTRY, data: tampered }
     ],
-    { deflate }
+    { deflate, modifiedAt: archiveDate }
   )
 
   await expectArchiveError(() => readBackupArchive(bytes, { inflate }), 'checksum-mismatch')
@@ -98,7 +107,7 @@ test('missing or unexpected entries are rejected', async () => {
   const dataBytes = encoder.encode(JSON.stringify(source))
   const manifest = createBackupManifest(source, dataBytes)
 
-  const missing = await createZip([{ name: MANIFEST_ENTRY, data: encoder.encode(JSON.stringify(manifest)) }], { deflate })
+  const missing = await createZip([{ name: MANIFEST_ENTRY, data: encoder.encode(JSON.stringify(manifest)) }], { deflate, modifiedAt: archiveDate })
   await expectArchiveError(() => readBackupArchive(missing, { inflate }), 'missing-entry')
 
   const extra = await createZip(
@@ -107,7 +116,7 @@ test('missing or unexpected entries are rejected', async () => {
       { name: DATA_ENTRY, data: dataBytes },
       { name: 'photo.jpg', data: encoder.encode('x') }
     ],
-    { deflate }
+    { deflate, modifiedAt: archiveDate }
   )
   await expectArchiveError(() => readBackupArchive(extra, { inflate }), 'unexpected-entry')
 })
@@ -121,7 +130,7 @@ test('invalid JSON and invalid payloads are rejected', async () => {
       { name: MANIFEST_ENTRY, data: encoder.encode(JSON.stringify(manifestForBroken)) },
       { name: DATA_ENTRY, data: brokenJson }
     ],
-    { deflate }
+    { deflate, modifiedAt: archiveDate }
   )
   await expectArchiveError(() => readBackupArchive(broken, { inflate }), 'invalid-json')
 
@@ -132,7 +141,7 @@ test('invalid JSON and invalid payloads are rejected', async () => {
       { name: MANIFEST_ENTRY, data: encoder.encode(JSON.stringify(futureManifest)) },
       { name: DATA_ENTRY, data: future }
     ],
-    { deflate }
+    { deflate, modifiedAt: archiveDate }
   )
   await expectArchiveError(() => readBackupArchive(futureArchive, { inflate }), 'unsupported-schema')
 })
@@ -146,13 +155,13 @@ test('a manifest that disagrees with the payload is rejected', async () => {
       { name: MANIFEST_ENTRY, data: encoder.encode(JSON.stringify(manifest)) },
       { name: DATA_ENTRY, data: dataBytes }
     ],
-    { deflate }
+    { deflate, modifiedAt: archiveDate }
   )
   await expectArchiveError(() => readBackupArchive(bytes, { inflate }), 'manifest-mismatch')
 })
 
 test('zip-level attacks surface as archive errors', async () => {
-  const bytes = await createBackupArchive(payload(), { deflate })
+  const bytes = await createBackupArchive(payload(), { deflate, modifiedAt: archiveDate })
   const truncated = bytes.slice(0, bytes.byteLength - 8)
   await expectArchiveError(() => readBackupArchive(truncated, { inflate }), 'missing-end-of-central-directory')
 
@@ -172,7 +181,7 @@ test('the archive rejects a payload it cannot read even when the JSON is syntact
       { name: MANIFEST_ENTRY, data: encoder.encode(JSON.stringify(manifest)) },
       { name: DATA_ENTRY, data: dataBytes }
     ],
-    { deflate }
+    { deflate, modifiedAt: archiveDate }
   )
   await expectArchiveError(() => readBackupArchive(bytes, { inflate }), 'invalid-diary')
 })
@@ -182,4 +191,31 @@ test('the manifest declares the data entry and its byte size', async () => {
   const manifest = createBackupManifest(source, encoder.encode(JSON.stringify(source)))
   expect(manifest.entries).toEqual([{ name: DATA_ENTRY, bytes: encoder.encode(JSON.stringify(source)).byteLength }])
   expect(decoder.decode(encoder.encode(JSON.stringify(manifest)))).toContain('data.json')
+})
+
+test('an independent reader using only zlib can read the exported bytes', async () => {
+  const bytes = await createBackupArchive(payload(), { deflate, modifiedAt: archiveDate })
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const names: string[] = []
+  let offset = 0
+
+  // 只按 ZIP local file header 的公开布局扫描，不经过 src/domain/zip.ts。
+  while (offset + 30 <= bytes.byteLength && view.getUint32(offset, true) === 0x04034b50) {
+    const method = view.getUint16(offset + 8, true)
+    const compressedSize = view.getUint32(offset + 18, true)
+    const nameLength = view.getUint16(offset + 26, true)
+    const extraLength = view.getUint16(offset + 28, true)
+    const name = decoder.decode(bytes.subarray(offset + 30, offset + 30 + nameLength))
+    const dataStart = offset + 30 + nameLength + extraLength
+    const data = inflateRawSync(bytes.subarray(dataStart, dataStart + compressedSize))
+
+    expect(method).toBe(8)
+    if (name === DATA_ENTRY) {
+      expect(JSON.parse(decoder.decode(data)).diary).toHaveLength(2)
+    }
+    names.push(name)
+    offset = dataStart + compressedSize
+  }
+
+  expect(names).toEqual([MANIFEST_ENTRY, DATA_ENTRY])
 })

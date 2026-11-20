@@ -15,28 +15,6 @@ import { defaultPreferences } from './preferences'
 
 export type ImportStrategy = 'overwrite' | 'append'
 
-/**
- * 供后续错误面板消费的脱敏失败信息：只描述操作与原因分类，
- * 不包含日记字段、筛查答案或文件内容。
- */
-export type BackupOperation = 'export-zip' | 'export-csv' | 'import'
-
-export type BackupFailureReason =
-  | 'storage-unavailable'
-  | 'compression-unsupported'
-  | 'delivery-failed'
-  | 'unreadable-file'
-  | 'archive-rejected'
-  | 'archive-too-large'
-  | 'future-version'
-  | 'import-failed'
-  | 'export-failed'
-
-export type BackupFailure = {
-  operation: BackupOperation
-  reason: BackupFailureReason
-}
-
 export type ImportResult = {
   strategy: ImportStrategy
   added: number
@@ -108,9 +86,7 @@ async function appendDiary(payload: BackupPayload): Promise<ImportResult> {
     try {
       const current = await transaction.store.getAll()
       const merged = mergeDiaryEntries(current, payload.diary)
-      const existingDates = new Set(current.map((entry) => entry.date))
-      for (const entry of merged.entries) {
-        if (existingDates.has(entry.date)) continue
+      for (const entry of merged.addedEntries) {
         transaction.store.put(entry, entry.date)
       }
       await transaction.done

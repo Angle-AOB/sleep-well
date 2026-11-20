@@ -34,7 +34,7 @@ function App() {
     return window.__SW_READY__ ? 'pending' : 'error'
   })
   const [diaryRevision, setDiaryRevision] = useState(0)
-  const [screeningRevision, setScreeningRevision] = useState(0)
+  const [reloadToken, setReloadToken] = useState(0)
   const saveQueue = useRef(Promise.resolve())
 
   useEffect(() => {
@@ -135,7 +135,7 @@ function App() {
     setScreening(savedScreening)
     setScreeningState('ready')
     setDiaryRevision((revision) => revision + 1)
-    setScreeningRevision((revision) => revision + 1)
+    setReloadToken((revision) => revision + 1)
   }
 
   const storageMessage = storageState === 'ready'
@@ -230,7 +230,7 @@ function App() {
       </section>
 
       <ScreeningPanel
-        key={`${screeningState}-${screeningRevision}`}
+        key={`${screeningState}-${reloadToken}`}
         initialRecord={screeningState === 'ready' ? screening : null}
         loading={screeningState === 'loading'}
         storageUnavailable={storageState === 'unsupported' || screeningState === 'error'}
@@ -246,7 +246,7 @@ function App() {
 
       <DiaryPanel
         storageUnavailable={storageState === 'unsupported'}
-        refreshToken={screeningRevision}
+        reloadToken={reloadToken}
         onSaved={() => setDiaryRevision((revision) => revision + 1)}
       />
 

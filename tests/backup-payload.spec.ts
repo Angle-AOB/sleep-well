@@ -165,6 +165,7 @@ test('append merge deduplicates by date and keeps the current record on conflict
 
   expect(merged.added).toBe(1)
   expect(merged.skipped).toBe(1)
+  expect(merged.addedEntries.map((item) => item.date)).toEqual(['2026-11-03'])
   expect(merged.entries.map((item) => item.date)).toEqual(['2026-11-02', '2026-11-03', '2026-11-04'])
   expect(merged.entries.find((item) => item.date === '2026-11-02')?.sleepQuality).toBe(4)
 })
