@@ -131,9 +131,13 @@ function titrationBody(t: TFunction, view: TitrationView, durationMinutes: numbe
           se: view.basis.averageSleepEfficiency,
           duration: durationText(t, durationMinutes)
         })
-        : t('titrationKeptFloor', { se: view.basis.averageSleepEfficiency })
+        : t('titrationKeptFloor', {
+          nights: view.basis.completeNights,
+          se: view.basis.averageSleepEfficiency
+        })
     case 'review':
       return t('titrationReview', {
+        nights: view.basis.completeNights,
         se: view.basis.averageSleepEfficiency,
         proposed: durationText(t, view.proposedMinutes)
       })
