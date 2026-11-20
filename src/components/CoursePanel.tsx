@@ -7,11 +7,13 @@ import {
   medianOutOfBedTime,
   MINIMUM_COMPLETE_NIGHTS,
   startCourse,
+  withTitrationDeferral,
   withWakeTime,
   withWorkPattern,
   type CourseProgress,
   type CourseState,
   type CourseWeek,
+  type TitrationView,
   type WindowView,
   type WorkPattern
 } from '../domain/course'
@@ -99,6 +101,45 @@ function windowUnavailableBody(
   }
 }
 
+function titrationBody(t: TFunction, view: TitrationView, durationMinutes: number): string {
+  switch (view.status) {
+    case 'not-applicable':
+      return ''
+    case 'scheduled':
+      return t('titrationScheduled', { week: view.nextWeek })
+    case 'consolidation':
+      return t('titrationConsolidation')
+    case 'insufficient-data':
+      return t('titrationInsufficient', { complete: view.completeNights, required: view.required })
+    case 'deferred':
+      return t('titrationDeferred', { duration: durationText(t, durationMinutes) })
+    case 'paused':
+      return view.reason === 'screening' ? t('titrationPausedScreening') : t('titrationPausedShift')
+    case 'adjusted': {
+      const values = {
+        nights: view.basis.completeNights,
+        se: view.basis.averageSleepEfficiency,
+        from: durationText(t, view.change.previousMinutes),
+        to: durationText(t, view.change.durationMinutes)
+      }
+      return view.change.rule === 'increase' ? t('titrationIncreased', values) : t('titrationDecreased', values)
+    }
+    case 'kept':
+      return view.reason === 'in-band'
+        ? t('titrationKeptInBand', {
+          nights: view.basis.completeNights,
+          se: view.basis.averageSleepEfficiency,
+          duration: durationText(t, durationMinutes)
+        })
+        : t('titrationKeptFloor', { se: view.basis.averageSleepEfficiency })
+    case 'review':
+      return t('titrationReview', {
+        se: view.basis.averageSleepEfficiency,
+        proposed: durationText(t, view.proposedMinutes)
+      })
+  }
+}
+
 export function CoursePanel({ storageUnavailable, screening, diaryRevision, initialWakeTime }: CoursePanelProps) {
   const { t } = useTranslation()
   const [today] = useState(localToday)
@@ -172,6 +213,11 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
   async function confirmWakeTime() {
     if (!course || !isClockTime(wakeTimeInput)) return
     await persist(withWakeTime(course, wakeTimeInput, today))
+  }
+
+  async function deferTitration() {
+    if (!course || !assessment.progress) return
+    await persist(withTitrationDeferral(course, assessment.progress.week))
   }
 
   const heading = (
@@ -421,9 +467,29 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
                 <p className="field-hint">
                   {windowView.mode === 'preview' ? t('windowPreviewNote') : t('windowActiveNote')}
                 </p>
+                <p className="field-hint">{t('windowNoManualEdit')}</p>
               </>
             )}
           </section>
+
+          {windowView.status === 'available' && assessment.titration.status !== 'not-applicable' && (
+            <section className="course-card titration-card" aria-labelledby="titration-title">
+              <h3 id="titration-title">{t('titrationTitle')}</h3>
+              <p className="course-card-copy">
+                {titrationBody(t, assessment.titration, windowView.durationMinutes)}
+              </p>
+              {assessment.titration.status === 'adjusted' && !completed && (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => void deferTitration()}
+                  disabled={busy}
+                >
+                  {t('titrationDefer')}
+                </button>
+              )}
+            </section>
+          )}
 
           {assessment.caffeine && (
             <section className="course-card caffeine-card" aria-labelledby="caffeine-title">
@@ -432,6 +498,19 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
               <p className="field-hint">
                 {assessment.caffeine.basis === 'window' ? t('caffeineNoteWindow') : t('caffeineNoteRecent')}
               </p>
+            </section>
+          )}
+
+          {currentWeek >= 3 && (
+            <section className="course-card stimulus-card" aria-labelledby="stimulus-title">
+              <h3 id="stimulus-title">{t('stimulusTitle')}</h3>
+              <p className="course-card-copy">{t('stimulusIntro')}</p>
+              <ol className="stimulus-rules">
+                <li>{t('stimulusRule1')}</li>
+                <li>{t('stimulusRule2')}</li>
+                <li>{t('stimulusRule3')}</li>
+              </ol>
+              <p className="field-hint">{t('stimulusNote')}</p>
             </section>
           )}
 

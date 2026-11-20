@@ -161,3 +161,49 @@ test('a screening that needs review blocks the automatic window without blocking
   await expect(panel.getByText('按最近 7 夜入睡时间的中位数倒推 8 小时')).toBeVisible()
   await expect(diaryPanel(page)).toBeVisible()
 })
+
+test('W4 explains the weekly adjustment, teaches stimulus control, and can defer the change', async ({ page }) => {
+  await openAt(page, '2026-11-01T09:00:00')
+  await startCourse(page)
+  await completeScreening(page)
+  await coursePanel(page).getByRole('button', { name: '确认起床时间' }).click()
+  await expect(coursePanel(page).getByText('07:00 已确认，将从第 2 周开始执行。')).toBeVisible()
+
+  await advanceTo(page, '2026-11-05T09:00:00')
+  await recordBaseline(page)
+  await advanceTo(page, '2026-11-11T09:00:00')
+  for (const date of ['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11']) {
+    await recordCompleteNight(page, date, '07:00')
+  }
+
+  await advanceTo(page, '2026-11-15T09:00:00')
+  const panel = coursePanel(page)
+  await expect(panel.getByText('第 3 周 · 第 1 天')).toBeVisible()
+  await expect(panel.getByRole('heading', { name: '刺激控制' })).toBeVisible()
+  await expect(panel.getByText('“约 20 分钟”是近似判断，不必看钟，也不需要夜间使用手机计时器。')).toBeVisible()
+  await expect(panel.getByText('窗口长度由规则计算，不能手动修改。')).toBeVisible()
+  await expect(panel.getByText('第 4 周将进行第一次每周回顾：依据最近 7 夜的完整夜平均 SE，窗口最多调整一次。')).toBeVisible()
+
+  await advanceTo(page, '2026-11-18T09:00:00')
+  for (const date of ['2026-11-15', '2026-11-16', '2026-11-17', '2026-11-18']) {
+    await recordCompleteNight(page, date, '07:00')
+  }
+  await advanceTo(page, '2026-11-22T09:00:00')
+
+  await expect(panel.getByText('第 4 周 · 第 1 天')).toBeVisible()
+  await expect(panel.getByText('窗口长度 8 小时 15 分钟')).toBeVisible()
+  await expect(panel.getByText('22:45', { exact: true })).toBeVisible()
+  await expect(panel.getByText(
+    '最近 7 夜的 4 个完整夜平均 SE 93.8%（高于 90%）：窗口从 8 小时延长到 8 小时 15 分钟（+15 分钟）。'
+  )).toBeVisible()
+
+  await panel.getByRole('button', { name: '推迟本周调整' }).click()
+  await expect(panel.getByText('窗口长度 8 小时')).toBeVisible()
+  await expect(panel.getByText(
+    '你已推迟本周调整：窗口保持 8 小时。推迟只影响这一周，下一周仍会照常回顾。'
+  )).toBeVisible()
+
+  await page.reload()
+  await expect(coursePanel(page).getByText('窗口长度 8 小时')).toBeVisible()
+  await expect(coursePanel(page).getByText('你已推迟本周调整：窗口保持 8 小时。推迟只影响这一周，下一周仍会照常回顾。')).toBeVisible()
+})

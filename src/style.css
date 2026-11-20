@@ -127,6 +127,8 @@ input[type="radio"], input[type="checkbox"] { width: 20px; height: 20px; accent-
 .window-range { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 4px; color: #213630; font-family: Georgia, "Times New Roman", serif; font-size: 34px; }
 .window-duration { margin: 0 0 14px; color: #66736e; font-size: 12px; }
 .caffeine-card { background: #f3ece4; border-color: #e2d3c4; }
+.titration-card { border-color: #c7d9cc; }
+.stimulus-rules { display: grid; gap: 8px; margin: 0 0 12px; padding-left: 20px; color: #52635c; font-size: 13px; line-height: 1.7; }
 .caffeine-time { margin: 0 0 10px; color: #8a4f33; font-size: 15px; font-weight: 700; line-height: 1.6; }
 .pattern-fieldset { margin: 6px 0 10px; padding: 0; border: 0; }
 .pattern-choice { display: flex; align-items: center; gap: 8px; min-height: 44px; color: #52635c; font-size: 13px; }
