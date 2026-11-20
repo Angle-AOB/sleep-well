@@ -47,8 +47,7 @@ type FailureReason =
 /** 界面本地的脱敏失败状态；#8 的错误面板接入时可从这里取操作与原因分类。 */
 type LocalBackupError = { operation: Operation; reason: FailureReason }
 
-type Notice =
-  | { tone: 'success' | 'info'; key: string; values?: Record<string, unknown> }
+type Notice = { key: string; values?: Record<string, unknown> }
 
 type Preview = {
   payload: BackupPayload
@@ -144,11 +143,11 @@ const reasonKey: Record<FailureReason, string> = {
 function deliveryNotice(outcome: DeliveryOutcome): Notice | null {
   switch (outcome) {
     case 'cancelled':
-      return { tone: 'info', key: 'backupDeliveredCancelled' }
+      return { key: 'backupDeliveredCancelled' }
     case 'shared':
-      return { tone: 'success', key: 'backupDeliveredShared' }
+      return { key: 'backupDeliveredShared' }
     case 'downloaded':
-      return { tone: 'success', key: 'backupDeliveredDownloaded' }
+      return { key: 'backupDeliveredDownloaded' }
     case 'unsupported':
       return null
   }
@@ -292,8 +291,8 @@ export function BackupPanel({ storageUnavailable, onImported }: BackupPanelProps
     try {
       await onImported?.()
       setNotice(strategy === 'overwrite'
-        ? { tone: 'success', key: 'backupImportedOverwrite', values: { count: result.added } }
-        : { tone: 'success', key: 'backupImportedAppend', values: { added: result.added, skipped: result.skipped } })
+        ? { key: 'backupImportedOverwrite', values: { count: result.added } }
+        : { key: 'backupImportedAppend', values: { added: result.added, skipped: result.skipped } })
     } catch {
       // 导入已经提交，不能说“当前数据未变”；这条错误留给后续错误面板。
       fail('import', 'refresh-failed')
