@@ -227,6 +227,7 @@ function App() {
         storageUnavailable={storageState === 'unsupported'}
         screening={screeningState === 'ready' ? screening : null}
         diaryRevision={diaryRevision}
+        initialWakeTime={preferences.wakeTime}
       />
 
       <DiaryPanel

@@ -89,6 +89,7 @@ test('W1 is a baseline week that asks for no behavior change and shows no window
   expect(result.progress.baselineExtended).toBe(false)
   expect(result.restriction).toBe('not-started')
   expect(result.window).toEqual({ status: 'unavailable', reason: 'baseline-in-progress', completeNights: 0 })
+  expect(result.caffeine).toBeNull()
 })
 
 test('day seven still belongs to W1 even when the baseline already has enough complete nights', () => {
@@ -163,17 +164,18 @@ test('the median of recent actual wake times prefills the fixed wake time', () =
     night('2026-11-07')
   ].map((entry, index) => ({ ...entry, outOfBedTime: ['06:40', '06:45', '06:50', '07:00', '07:05', '07:10', '07:20'][index] }))
 
-  expect(medianOutOfBedTime(entries, '2026-11-08')).toBe('07:00')
-  expect(medianOutOfBedTime([entries[0], entries[3]], '2026-11-08')).toBe('06:50')
-  expect(medianOutOfBedTime([], '2026-11-08')).toBeNull()
+  expect(medianOutOfBedTime(entries, '2026-11-07')).toBe('07:00')
+  expect(medianOutOfBedTime([entries[0], entries[3]], '2026-11-07')).toBe('06:50')
+  expect(medianOutOfBedTime([], '2026-11-07')).toBeNull()
 })
 
 test('the wake time prefill ignores nights without an actual wake time and future dates', () => {
   const partial = { ...night('2026-11-02'), outOfBedTime: undefined }
   const entries = [night('2026-11-01'), partial]
 
-  expect(medianOutOfBedTime(entries, '2026-11-08')).toBe('07:00')
-  expect(medianOutOfBedTime([night('2026-11-20')], '2026-11-08')).toBeNull()
+  expect(medianOutOfBedTime(entries, '2026-11-03')).toBe('07:00')
+  expect(medianOutOfBedTime([night('2026-11-20')], '2026-11-03')).toBeNull()
+  expect(medianOutOfBedTime([night('2026-10-20')], '2026-11-03')).toBeNull()
 })
 
 test('a wake time confirmed during baseline is announced as effective from W2', () => {
@@ -215,7 +217,7 @@ test('switching to shift work pauses automatic windows while keeping the course 
   expect(result.progress.week).toBe(2)
   expect(result.window).toEqual({ status: 'unavailable', reason: 'shift-work-paused', completeNights: 4 })
   expect(result.restriction).toBe('paused')
-  expect(result.caffeineCutoff).toBeNull()
+  expect(result.caffeine).toEqual({ cutoff: '15:00', basis: 'recent-bedtime' })
 })
 
 test('a screening that needs review blocks every automatic window', () => {
@@ -224,6 +226,7 @@ test('a screening that needs review blocks every automatic window', () => {
 
   expect(result.window).toEqual({ status: 'unavailable', reason: 'screening-paused', completeNights: 4 })
   expect(result.restriction).toBe('paused')
+  expect(result.caffeine).toEqual({ cutoff: '15:00', basis: 'recent-bedtime' })
 })
 
 test('an unconfirmed wake time leaves W3 without a window until the anchor is set', () => {
@@ -231,7 +234,7 @@ test('an unconfirmed wake time leaves W3 without a window until the anchor is se
 
   expect(result.progress.week).toBe(3)
   expect(result.window).toEqual({ status: 'unavailable', reason: 'wake-time-not-set', completeNights: 4 })
-  expect(result.restriction).toBe('awaiting-data')
+  expect(result.restriction).toBe('awaiting-window')
 })
 
 function confirmedWake(time = '07:00') {
@@ -259,7 +262,7 @@ test('W2 previews the candidate window from the baseline, with the 8-hour caffei
     heldover: false,
     latestCompleteNights: 4
   })
-  expect(result.caffeineCutoff).toBe('16:00')
+  expect(result.caffeine).toEqual({ cutoff: '16:00', basis: 'window' })
   expect(result.restriction).toBe('preview')
 })
 
@@ -347,7 +350,7 @@ test('W3 recalibrates from the anchor week and activates the window', () => {
     calibration: { completeNights: 4, averageTotalSleepMinutes: 450, fromWeek: 2 }
   })
   expect(result.restriction).toBe('active')
-  expect(result.caffeineCutoff).toBe('15:00')
+  expect(result.caffeine).toEqual({ cutoff: '15:00', basis: 'window' })
 })
 
 test('W3 without four complete nights holds the previewed window and flags the gap', () => {

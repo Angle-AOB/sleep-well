@@ -3,6 +3,11 @@ import { openDatabase } from './database'
 
 export type Preferences = {
   backupReminders: boolean
+  /**
+   * 旧版本把期望起床时间存在偏好里；现在由疗程状态按周管理。
+   * 保留该字段，仅用于迁移时预填固定起床时间输入框，不直接生效。
+   */
+  wakeTime?: string
 }
 
 export const defaultPreferences: Preferences = {

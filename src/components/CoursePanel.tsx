@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import {
   assessCourse,
+  isClockTime,
   medianOutOfBedTime,
   MINIMUM_COMPLETE_NIGHTS,
   startCourse,
@@ -25,6 +26,8 @@ type CoursePanelProps = {
   screening: ScreeningRecord | null
   /** 日记保存后递增，用来重新推导周次与候选窗口。 */
   diaryRevision: number
+  /** 旧版本偏好中的期望起床时间，仅作预填，不直接生效。 */
+  initialWakeTime?: string
 }
 
 type WeekContent = { title: string; body: string; note?: string; tasks: string[] }
@@ -66,8 +69,6 @@ const weekContent: Record<CourseWeek, WeekContent> = {
   }
 }
 
-const clockPattern = /^([01][0-9]|2[0-3]):([0-5][0-9])$/
-
 function weekStatus(week: CourseWeek, currentWeek: CourseWeek, completed: boolean): 'done' | 'current' | 'locked' {
   if (completed) return 'done'
   if (week < currentWeek) return 'done'
@@ -92,7 +93,7 @@ function windowUnavailableBody(t: TFunction, reason: WindowUnavailableReason, ha
   }
 }
 
-export function CoursePanel({ storageUnavailable, screening, diaryRevision }: CoursePanelProps) {
+export function CoursePanel({ storageUnavailable, screening, diaryRevision, initialWakeTime }: CoursePanelProps) {
   const { t } = useTranslation()
   const [today] = useState(localToday)
   const [course, setCourse] = useState<CourseState | null>(null)
@@ -118,6 +119,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision }: Co
         setWakeTimeInput(
           saved?.wakeTimes[saved.wakeTimes.length - 1]?.time
             ?? medianOutOfBedTime(diary, today)
+            ?? initialWakeTime
             ?? '07:00'
         )
         setFetchState('ready')
@@ -126,7 +128,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision }: Co
         if (active) setFetchState('error')
       })
     return () => { active = false }
-  }, [storageUnavailable, diaryRevision, today])
+  }, [storageUnavailable, diaryRevision, today, initialWakeTime])
 
   const assessment = assessCourse({
     state: course,
@@ -135,7 +137,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision }: Co
     today
   })
 
-  async function persist(next: CourseState) {
+  async function persist(next: CourseState, onFailure?: () => void) {
     setBusy(true)
     setFeedback(null)
     try {
@@ -143,6 +145,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision }: Co
       setCourse(next)
       setFeedback('saved')
     } catch {
+      onFailure?.()
       setFeedback('error')
     } finally {
       setBusy(false)
@@ -157,24 +160,11 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision }: Co
   async function changePattern(next: WorkPattern) {
     setPattern(next)
     if (!course) return
-
-    setBusy(true)
-    setFeedback(null)
-    try {
-      const updated = withWorkPattern(course, next)
-      await writeCourse(updated)
-      setCourse(updated)
-      setFeedback('saved')
-    } catch {
-      setPattern(course.workPattern)
-      setFeedback('error')
-    } finally {
-      setBusy(false)
-    }
+    await persist(withWorkPattern(course, next), () => setPattern(course.workPattern))
   }
 
   async function confirmWakeTime() {
-    if (!course || !clockPattern.test(wakeTimeInput)) return
+    if (!course || !isClockTime(wakeTimeInput)) return
     await persist(withWakeTime(course, wakeTimeInput, today))
   }
 
@@ -280,7 +270,11 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision }: Co
 
       <div className="course-progress-row">
         <p className="course-progress">
-          {completed ? t('courseMaintenance') : t('courseWeekDay', { week: currentWeek, day: progress.dayOfWeek })}
+          {completed
+            ? t('courseMaintenance')
+            : progress.baselineExtended
+              ? t('courseBaselineDay', { day: progress.dayOfWeek })
+              : t('courseWeekDay', { week: currentWeek, day: progress.dayOfWeek })}
         </p>
         <p className="course-complete-nights">
           {t('courseCompleteNights', { complete: assessment.recentCompleteNights, required: MINIMUM_COMPLETE_NIGHTS })}
@@ -338,7 +332,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision }: Co
                 type="button"
                 className="primary-button"
                 onClick={() => void confirmWakeTime()}
-                disabled={busy || !clockPattern.test(wakeTimeInput)}
+                disabled={busy || !isClockTime(wakeTimeInput)}
               >
                 {assessment.wakeTime.effective ? t('wakeTimeUpdate') : t('wakeTimeConfirm')}
               </button>
@@ -421,11 +415,13 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision }: Co
             )}
           </section>
 
-          {assessment.caffeineCutoff && (
+          {assessment.caffeine && (
             <section className="course-card caffeine-card" aria-labelledby="caffeine-title">
               <h3 id="caffeine-title">{t('caffeineTitle')}</h3>
-              <p className="caffeine-time">{t('caffeineCutoff', { time: assessment.caffeineCutoff })}</p>
-              <p className="field-hint">{t('caffeineNote')}</p>
+              <p className="caffeine-time">{t('caffeineCutoff', { time: assessment.caffeine.cutoff })}</p>
+              <p className="field-hint">
+                {assessment.caffeine.basis === 'window' ? t('caffeineNoteWindow') : t('caffeineNoteRecent')}
+              </p>
             </section>
           )}
 

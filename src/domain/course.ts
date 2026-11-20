@@ -86,7 +86,7 @@ export type WindowView =
       latestCompleteNights: number
     }
 
-export type RestrictionStatus = 'not-started' | 'preview' | 'active' | 'paused' | 'awaiting-data'
+export type RestrictionStatus = 'not-started' | 'preview' | 'active' | 'paused' | 'awaiting-window'
 
 export type WakeTimeView = {
   /** 本周实际执行的固定起床时间；尚未生效时为 null。 */
@@ -97,13 +97,19 @@ export type WakeTimeView = {
   suggestion: string | null
 }
 
+export type CaffeineAdvice = {
+  cutoff: string
+  /** window: 按当前睡眠窗口的上床时间倒推；recent-bedtime: 窗口不可用时按最近入睡时间中位数倒推。 */
+  basis: 'window' | 'recent-bedtime'
+}
+
 export type CourseAssessment = {
   started: boolean
   progress: CourseProgress | null
   wakeTime: WakeTimeView
   window: WindowView
   restriction: RestrictionStatus
-  caffeineCutoff: string | null
+  caffeine: CaffeineAdvice | null
   /** 近 7 夜的完整夜数量，用于显示基线进度。 */
   recentCompleteNights: number
 }
@@ -162,6 +168,10 @@ function fromDayNumber(value: number): LocalDate {
 function clockMinutes(time: string): number | null {
   const match = clockPattern.exec(time)
   return match ? Number(match[1]) * 60 + Number(match[2]) : null
+}
+
+export function isClockTime(value: string): boolean {
+  return clockPattern.test(value)
 }
 
 function formatClock(minutes: number): string {
@@ -340,19 +350,23 @@ function resolveWakeTime(
   }
 }
 
-/** 近 7 夜实际起床时间的中位数，作为固定起床时间的预填建议，不替代用户确认。 */
-export function medianOutOfBedTime(entries: SleepDiaryEntry[], today: LocalDate): string | null {
+/** 近 7 夜某个时钟字段的中位数；只取日期落在最近 7 夜内的记录，避免旧数据冒充近期。 */
+function medianRecentClock(
+  entries: SleepDiaryEntry[],
+  today: LocalDate,
+  pick: (entry: SleepDiaryEntry) => string | undefined
+): string | null {
   const todayDay = dayNumber(today)
   if (todayDay === null) return null
 
   const minutes = entries
     .filter((entry) => {
       const day = dayNumber(entry.date)
-      return day !== null && day <= todayDay && entry.outOfBedTime !== undefined
+      return day !== null && day >= todayDay - nightsPerCalibration + 1 && day <= todayDay
     })
-    .sort((left, right) => right.date.localeCompare(left.date))
-    .slice(0, 7)
-    .map((entry) => clockMinutes(entry.outOfBedTime!))
+    .map(pick)
+    .filter((value): value is string => value !== undefined)
+    .map(clockMinutes)
     .filter((value): value is number => value !== null)
     .sort((left, right) => left - right)
 
@@ -365,9 +379,14 @@ export function medianOutOfBedTime(entries: SleepDiaryEntry[], today: LocalDate)
   return formatClock(median)
 }
 
+/** 近 7 夜实际起床时间的中位数，作为固定起床时间的预填建议，不替代用户确认。 */
+export function medianOutOfBedTime(entries: SleepDiaryEntry[], today: LocalDate): string | null {
+  return medianRecentClock(entries, today, (entry) => entry.outOfBedTime)
+}
+
 /** 确认或修改固定起床时间；同一天多次修改只保留最后一次。 */
 export function withWakeTime(state: CourseState, time: string, decidedOn: LocalDate): CourseState {
-  if (!clockPattern.test(time) || dayNumber(decidedOn) === null) return state
+  if (!isClockTime(time) || dayNumber(decidedOn) === null) return state
 
   const wakeTimes = state.wakeTimes
     .filter((decision) => decision.decidedOn !== decidedOn)
@@ -389,6 +408,28 @@ function unavailable(reason: WindowUnavailableReason, completeNights: number): W
   return { status: 'unavailable', reason, completeNights }
 }
 
+function caffeineAdvice(
+  window: WindowView,
+  week: number,
+  entries: SleepDiaryEntry[],
+  today: LocalDate
+): CaffeineAdvice | null {
+  if (week < 2) return null
+
+  if (window.status === 'available') {
+    return {
+      cutoff: formatClock(clockMinutes(window.startTime)! - CAFFEINE_CUTOFF_HOURS * 60),
+      basis: 'window'
+    }
+  }
+
+  // 窗口被安全筛查或轮班暂停时，仍按最近入睡时间给出咖啡因锚定建议。
+  const bedtime = medianRecentClock(entries, today, (entry) => entry.lightsOffTime)
+  return bedtime
+    ? { cutoff: formatClock(clockMinutes(bedtime)! - CAFFEINE_CUTOFF_HOURS * 60), basis: 'recent-bedtime' }
+    : null
+}
+
 export function assessCourse({ state, entries, screening, today }: CourseInput): CourseAssessment {
   const notStarted: CourseAssessment = {
     started: false,
@@ -396,7 +437,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     wakeTime: { effective: null, pending: null, suggestion: null },
     window: unavailable('course-not-started', 0),
     restriction: 'not-started',
-    caffeineCutoff: null,
+    caffeine: null,
     recentCompleteNights: 0
   }
 
@@ -419,7 +460,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
       wakeTime,
       window: unavailable(insufficient ? 'insufficient-data' : 'baseline-in-progress', recentCompleteNights),
       restriction: 'not-started',
-      caffeineCutoff: null,
+      caffeine: null,
       recentCompleteNights
     }
   }
@@ -435,79 +476,52 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     : primary
 
   const calibrationNights = primary.status === 'ready' ? primary.calibration.completeNights : primary.completeNights
-
-  if (!screening || !canUseSleepRestriction(screening)) {
-    return {
-      started: true,
-      progress,
-      wakeTime,
-      window: unavailable('screening-paused', calibrationNights),
-      restriction: 'paused',
-      caffeineCutoff: null,
-      recentCompleteNights
-    }
-  }
-
-  if (state.workPattern === 'shift-work') {
-    return {
-      started: true,
-      progress,
-      wakeTime,
-      window: unavailable('shift-work-paused', calibrationNights),
-      restriction: 'paused',
-      caffeineCutoff: null,
-      recentCompleteNights
-    }
-  }
-
-  if (!wakeTime.effective) {
-    return {
-      started: true,
-      progress,
-      wakeTime,
-      window: unavailable('wake-time-not-set', calibrationNights),
-      restriction: progress.week === 2 ? 'preview' : 'awaiting-data',
-      caffeineCutoff: null,
-      recentCompleteNights
-    }
-  }
-
   const chosen = primary.status === 'ready'
     ? { calibration: primary.calibration, heldover: false, latestCompleteNights: primary.calibration.completeNights }
     : baselineCalibration.status === 'ready'
       ? { calibration: baselineCalibration.calibration, heldover: true, latestCompleteNights: primary.completeNights }
       : null
 
-  if (!chosen) {
-    return {
-      started: true,
-      progress,
-      wakeTime,
-      window: unavailable('insufficient-data', calibrationNights),
-      restriction: progress.week === 2 ? 'preview' : 'awaiting-data',
-      caffeineCutoff: null,
-      recentCompleteNights
-    }
-  }
+  const gated: WindowUnavailableReason | null = !screening || !canUseSleepRestriction(screening)
+    ? 'screening-paused'
+    : state.workPattern === 'shift-work'
+      ? 'shift-work-paused'
+      : null
 
-  const startTime = formatClock(clockMinutes(wakeTime.effective)! - chosen.calibration.durationMinutes)
+  const mode = progress.week === 2 ? 'preview' : 'active'
+  let window: WindowView
+  let restriction: RestrictionStatus
+
+  if (gated) {
+    window = unavailable(gated, calibrationNights)
+    restriction = 'paused'
+  } else if (!wakeTime.effective) {
+    window = unavailable('wake-time-not-set', calibrationNights)
+    restriction = progress.week === 2 ? 'preview' : 'awaiting-window'
+  } else if (!chosen) {
+    window = unavailable('insufficient-data', calibrationNights)
+    restriction = progress.week === 2 ? 'preview' : 'awaiting-window'
+  } else {
+    window = {
+      status: 'available',
+      startTime: formatClock(clockMinutes(wakeTime.effective)! - chosen.calibration.durationMinutes),
+      endTime: wakeTime.effective,
+      durationMinutes: chosen.calibration.durationMinutes,
+      mode,
+      calibration: chosen.calibration,
+      heldover: chosen.heldover,
+      latestCompleteNights: chosen.latestCompleteNights
+    }
+    restriction = mode === 'preview' ? 'preview' : 'active'
+  }
 
   return {
     started: true,
     progress,
     wakeTime,
-    window: {
-      status: 'available',
-      startTime,
-      endTime: wakeTime.effective,
-      durationMinutes: chosen.calibration.durationMinutes,
-      mode: progress.week === 2 ? 'preview' : 'active',
-      calibration: chosen.calibration,
-      heldover: chosen.heldover,
-      latestCompleteNights: chosen.latestCompleteNights
-    },
-    restriction: progress.week === 2 ? 'preview' : 'active',
-    caffeineCutoff: formatClock(clockMinutes(startTime)! - CAFFEINE_CUTOFF_HOURS * 60),
+    window,
+    restriction,
+    caffeine: caffeineAdvice(window, progress.week, entries, today),
     recentCompleteNights
   }
 }
