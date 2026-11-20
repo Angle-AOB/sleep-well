@@ -36,6 +36,9 @@ import {
   isImprovementGoal,
   isScreeningActivity,
   isScreeningStatus,
+  MAXIMUM_PLAUSIBLE_AGE,
+  MINIMUM_PLAUSIBLE_AGE,
+  SCREENING_BOOLEAN_KEYS,
   type ScreeningRecord
 } from './screening'
 
@@ -140,16 +143,10 @@ function isValidScreening(value: unknown): value is ScreeningRecord {
   const result = value.result
   if (!isRecord(answers) || !isRecord(result)) return false
 
-  if (!Number.isInteger(answers.age) || (answers.age as number) < 0 || (answers.age as number) > 150) return false
-  for (const key of [
-    'bipolarOrMania',
-    'seizureHistory',
-    'osaRedFlags',
-    'dangerousParasomnia',
-    'pregnant',
-    'severeSleepinessOrSafetyRisk',
-    'acuteInstability'
-  ]) {
+  if (!Number.isInteger(answers.age)
+    || (answers.age as number) < MINIMUM_PLAUSIBLE_AGE
+    || (answers.age as number) > MAXIMUM_PLAUSIBLE_AGE) return false
+  for (const key of SCREENING_BOOLEAN_KEYS) {
     if (typeof answers[key] !== 'boolean') return false
   }
   if (typeof answers.distress !== 'string' || !isDistressLevel(answers.distress)) return false

@@ -37,6 +37,26 @@ const improvementGoalValues: readonly ImprovementGoal[] = ['fall-asleep', 'stay-
 const screeningStatusValues: readonly ScreeningStatus[] = ['cleared', 'needs-review']
 const screeningActivityValues: readonly ScreeningActivity[] = ['education', 'diary', 'export', 'sleep-restriction']
 
+/**
+ * 命中任一项即暂停睡眠限制的布尔字段。备份校验遍历同一份清单，
+ * 新增筛查题时只需在这里加一个字段。
+ */
+export const SCREENING_BOOLEAN_KEYS = [
+  'bipolarOrMania',
+  'seizureHistory',
+  'osaRedFlags',
+  'dangerousParasomnia',
+  'pregnant',
+  'severeSleepinessOrSafetyRisk',
+  'acuteInstability'
+] as const
+
+/** 未满该年龄属于安全关注项，需要监护人和专业人士参与。 */
+export const MINIMUM_ADULT_AGE = 18
+/** 年龄的结构合理性范围；超出说明备份内容不是有效答案。 */
+export const MINIMUM_PLAUSIBLE_AGE = 0
+export const MAXIMUM_PLAUSIBLE_AGE = 150
+
 function isEnumValue<T extends string>(values: readonly T[], value: unknown): value is T {
   return typeof value === 'string' && (values as readonly string[]).includes(value)
 }
@@ -72,15 +92,9 @@ function availableActivitiesFor(safetyConcern: boolean): ScreeningActivity[] {
 }
 
 function hasSafetyConcern(answers: ScreeningAnswers): boolean {
-  return answers.age < 18
-    || answers.bipolarOrMania
-    || answers.seizureHistory
-    || answers.osaRedFlags
-    || answers.dangerousParasomnia
-    || answers.pregnant
-    || answers.severeSleepinessOrSafetyRisk
-    || answers.acuteInstability
+  return answers.age < MINIMUM_ADULT_AGE
     || answers.distress === 'a-lot'
+    || SCREENING_BOOLEAN_KEYS.some((key) => answers[key])
 }
 
 function needsStrongReferral(answers: ScreeningAnswers): boolean {
