@@ -241,6 +241,64 @@ function confirmedWake(time = '07:00') {
   return state({ wakeTimes: [{ time, decidedOn: '2026-11-02' }] })
 }
 
+test('a first wake time confirmed in W2 applies to the current week', () => {
+  const result = assess({
+    state: state({ wakeTimes: [{ time: '07:00', decidedOn: '2026-11-10' }] }),
+    entries: baselineNights,
+    today: '2026-11-10'
+  })
+
+  expect(result.progress.week).toBe(2)
+  expect(result.wakeTime.effective).toBe('07:00')
+  expect(result.wakeTime.pending).toBeNull()
+  expect(result.window).toMatchObject({ status: 'available', mode: 'preview', endTime: '07:00' })
+})
+
+test('several changes in one week show the latest one as pending', () => {
+  const changedTwice = state({
+    wakeTimes: [
+      { time: '07:00', decidedOn: '2026-11-02' },
+      { time: '06:30', decidedOn: '2026-11-09' },
+      { time: '07:15', decidedOn: '2026-11-10' }
+    ]
+  })
+  const result = assess({ state: changedTwice, entries: baselineNights, today: '2026-11-11' })
+
+  expect(result.wakeTime.effective).toBe('07:00')
+  expect(result.wakeTime.pending).toEqual({ time: '07:15', effectiveWeek: 3 })
+})
+
+test('a candidate window longer than ten hours pauses automation and suggests review', () => {
+  const result = assess({
+    state: confirmedWake(),
+    entries: nights(['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04'], { timeInBed: 660, totalSleep: 600 }),
+    today: '2026-11-10'
+  })
+
+  expect(result.window).toEqual({
+    status: 'unavailable',
+    reason: 'window-over-ten-hours',
+    completeNights: 4,
+    proposedMinutes: 630
+  })
+  expect(result.restriction).toBe('paused')
+})
+
+test('a computed window is never proposed above twelve hours', () => {
+  const result = assess({
+    state: confirmedWake(),
+    entries: nights(['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04'], { timeInBed: 840, totalSleep: 780 }),
+    today: '2026-11-10'
+  })
+
+  expect(result.window).toEqual({
+    status: 'unavailable',
+    reason: 'window-over-ten-hours',
+    completeNights: 4,
+    proposedMinutes: 720
+  })
+})
+
 test('W2 previews the candidate window from the baseline, with the 8-hour caffeine cutoff', () => {
   const result = assess({ state: confirmedWake(), entries: baselineNights, today: '2026-11-10' })
 
@@ -256,8 +314,8 @@ test('W2 previews the candidate window from the baseline, with the 8-hour caffei
       averageTimeInBedMinutes: 480,
       targetMinutes: 420,
       durationMinutes: 420,
-      limitedBy: 'average-tst',
-      fromWeek: 1
+      limitedBy: 'target',
+      calibratedFromWeek: 1
     },
     heldover: false,
     latestCompleteNights: 4
@@ -347,7 +405,7 @@ test('W3 recalibrates from the anchor week and activates the window', () => {
     durationMinutes: 480,
     mode: 'active',
     heldover: false,
-    calibration: { completeNights: 4, averageTotalSleepMinutes: 450, fromWeek: 2 }
+    calibration: { completeNights: 4, averageTotalSleepMinutes: 450, calibratedFromWeek: 2 }
   })
   expect(result.restriction).toBe('active')
   expect(result.caffeine).toEqual({ cutoff: '15:00', basis: 'window' })
@@ -368,7 +426,7 @@ test('W3 without four complete nights holds the previewed window and flags the g
     mode: 'active',
     heldover: true,
     latestCompleteNights: 2,
-    calibration: { completeNights: 4, fromWeek: 1 }
+    calibration: { completeNights: 4, calibratedFromWeek: 1 }
   })
   expect(result.restriction).toBe('active')
 })

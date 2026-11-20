@@ -12,7 +12,7 @@ import {
   type CourseProgress,
   type CourseState,
   type CourseWeek,
-  type WindowUnavailableReason,
+  type WindowView,
   type WorkPattern
 } from '../domain/course'
 import type { SleepDiaryEntry } from '../domain/diary'
@@ -76,8 +76,12 @@ function weekStatus(week: CourseWeek, currentWeek: CourseWeek, completed: boolea
   return 'locked'
 }
 
-function windowUnavailableBody(t: TFunction, reason: WindowUnavailableReason, hasScreening: boolean): string {
-  switch (reason) {
+function windowUnavailableBody(
+  t: TFunction,
+  view: Extract<WindowView, { status: 'unavailable' }>,
+  hasScreening: boolean
+): string {
+  switch (view.reason) {
     case 'baseline-in-progress':
       return t('windowBaseline')
     case 'insufficient-data':
@@ -86,6 +90,8 @@ function windowUnavailableBody(t: TFunction, reason: WindowUnavailableReason, ha
       return hasScreening ? t('windowScreeningPaused') : t('windowScreeningPending')
     case 'shift-work-paused':
       return t('windowShiftPaused')
+    case 'window-over-ten-hours':
+      return t('windowOverTenHours', { duration: durationText(t, view.proposedMinutes ?? 0) })
     case 'wake-time-not-set':
       return t('windowNeedsWakeTime')
     case 'course-not-started':
@@ -309,12 +315,14 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
             </p>
             {assessment.wakeTime.pending && (
               <p className="course-note is-warning" role="status">
-                {assessment.wakeTime.pending.effectiveWeek <= 6
-                  ? t('wakeTimePending', {
-                    time: assessment.wakeTime.pending.time,
-                    week: assessment.wakeTime.pending.effectiveWeek
-                  })
-                  : t('wakeTimePendingLater', { time: assessment.wakeTime.pending.time })}
+                {currentWeek === 1
+                  ? t('wakeTimePendingBaseline', { time: assessment.wakeTime.pending.time })
+                  : assessment.wakeTime.pending.effectiveWeek <= 6
+                    ? t('wakeTimePending', {
+                      time: assessment.wakeTime.pending.time,
+                      week: assessment.wakeTime.pending.effectiveWeek
+                    })
+                    : t('wakeTimePendingLater', { time: assessment.wakeTime.pending.time })}
               </p>
             )}
             <div className="wake-time-row">
@@ -369,8 +377,12 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
             </div>
 
             {windowView.status === 'unavailable' ? (
-              <p className={`course-card-copy ${windowView.reason === 'insufficient-data' ? 'is-warning' : ''}`}>
-                {windowUnavailableBody(t, windowView.reason, screening !== null)}
+              <p className={`course-card-copy ${
+                windowView.reason === 'insufficient-data' || windowView.reason === 'window-over-ten-hours'
+                  ? 'is-warning'
+                  : ''
+              }`}>
+                {windowUnavailableBody(t, windowView, screening !== null)}
               </p>
             ) : (
               <>

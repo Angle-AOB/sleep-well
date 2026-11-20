@@ -87,7 +87,7 @@ test('W2 previews the baseline window, defers a wake-time change, and W3 activat
   await startCourse(page)
   await completeScreening(page)
   await coursePanel(page).getByRole('button', { name: '确认起床时间' }).click()
-  await expect(coursePanel(page).getByText('07:00 将从第 2 周窗口周期生效；本周窗口保持不变。')).toBeVisible()
+  await expect(coursePanel(page).getByText('07:00 已确认，将从第 2 周开始执行。')).toBeVisible()
 
   await advanceTo(page, '2026-11-05T09:00:00')
   await recordBaseline(page)
@@ -155,7 +155,7 @@ test('a screening that needs review blocks the automatic window without blocking
   await advanceTo(page, '2026-11-08T09:00:00')
 
   const panel = coursePanel(page)
-  await expect(panel.getByText('安全筛查提示需要专业评估，自动睡眠窗口已暂停。仍可记录日记、查看训练内容并导出数据。')).toBeVisible()
+  await expect(panel.getByText('安全筛查提示需要专业评估，自动睡眠窗口已暂停。仍可记录日记和查看训练内容。')).toBeVisible()
   await expect(panel.getByText('窗口长度', { exact: false })).toHaveCount(0)
   await expect(panel.getByText('睡前 8 小时：15:00 前停止摄入咖啡因。')).toBeVisible()
   await expect(panel.getByText('按最近 7 夜入睡时间的中位数倒推 8 小时')).toBeVisible()

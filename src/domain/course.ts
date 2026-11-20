@@ -44,13 +44,12 @@ export type CourseProgress = {
   stage: CourseStage
   weekStartsOn: LocalDate
   weekEndsOn: LocalDate
-  daysSinceStart: number
   /** 第 1 周已满 7 天但完整夜不足，疗程继续停留在基线周。 */
   baselineExtended: boolean
   completed: boolean
 }
 
-export type WindowLimitedBy = 'average-tst' | 'average-tib' | 'floor'
+export type WindowLimitedBy = 'target' | 'average-tib' | 'floor'
 
 export type WindowCalibration = {
   completeNights: number
@@ -60,7 +59,8 @@ export type WindowCalibration = {
   targetMinutes: number
   durationMinutes: number
   limitedBy: WindowLimitedBy
-  fromWeek: 1 | 2
+  /** 校准使用的完整夜来自第 1 周基线还是第 2 周锚定周。 */
+  calibratedFromWeek: 1 | 2
 }
 
 export type WindowUnavailableReason =
@@ -69,10 +69,17 @@ export type WindowUnavailableReason =
   | 'insufficient-data'
   | 'screening-paused'
   | 'shift-work-paused'
+  | 'window-over-ten-hours'
   | 'wake-time-not-set'
 
 export type WindowView =
-  | { status: 'unavailable'; reason: WindowUnavailableReason; completeNights: number }
+  | {
+      status: 'unavailable'
+      reason: WindowUnavailableReason
+      completeNights: number
+      /** 超过 10 小时暂停时，给出规则计算出的候选时长供说明。 */
+      proposedMinutes?: number
+    }
   | {
       status: 'available'
       startTime: string
@@ -123,6 +130,8 @@ export type CourseInput = {
 
 export const MINIMUM_COMPLETE_NIGHTS = 4
 export const WINDOW_FLOOR_MINUTES = 5 * 60
+export const WINDOW_AUTOMATION_LIMIT_MINUTES = 10 * 60
+export const WINDOW_ABSOLUTE_LIMIT_MINUTES = 12 * 60
 export const CAFFEINE_CUTOFF_HOURS = 8
 
 const nightsPerCalibration = 7
@@ -225,7 +234,6 @@ function resolveProgress(
       stage: 'baseline',
       weekStartsOn: startedOn,
       weekEndsOn: fromDayNumber(startDay + baselineLengthDays - 1),
-      daysSinceStart,
       baselineExtended: daysSinceStart >= baselineLengthDays,
       completed: false
     }
@@ -241,7 +249,6 @@ function resolveProgress(
       stage: 'maintenance',
       weekStartsOn: fromDayNumber(lastWeekStart),
       weekEndsOn: fromDayNumber(lastWeekStart + daysPerWeek - 1),
-      daysSinceStart,
       baselineExtended: false,
       completed: true
     }
@@ -256,7 +263,6 @@ function resolveProgress(
     stage: stageForWeek(weekIndex),
     weekStartsOn: fromDayNumber(weekStartDay),
     weekEndsOn: fromDayNumber(weekStartDay + daysPerWeek - 1),
-    daysSinceStart,
     baselineExtended: false,
     completed: false
   }
@@ -265,6 +271,7 @@ function resolveProgress(
 type CalibrationOutcome =
   | { status: 'ready'; calibration: WindowCalibration }
   | { status: 'insufficient-data'; completeNights: number }
+  | { status: 'needs-review'; completeNights: number; proposedMinutes: number }
 
 /**
  * 候选窗口 = 完整夜平均 TST + 30 分钟，按 15 分钟舍入；不超过平均 TIB，
@@ -298,6 +305,12 @@ function calibrateWindow(entries: SleepDiaryEntry[], endDay: number, fromWeek: 1
   const roundedMinutes = Math.round(targetMinutes / roundingMinutes) * roundingMinutes
   const cappedMinutes = Math.min(roundedMinutes, averageTimeInBedMinutes)
   const durationMinutes = Math.max(cappedMinutes, WINDOW_FLOOR_MINUTES)
+  const proposedMinutes = Math.min(durationMinutes, WINDOW_ABSOLUTE_LIMIT_MINUTES)
+
+  // 超过 10 小时暂停自动窗口并建议专业评估；任何计算窗口不超过 12 小时。
+  if (proposedMinutes > WINDOW_AUTOMATION_LIMIT_MINUTES) {
+    return { status: 'needs-review', completeNights: assessments.length, proposedMinutes }
+  }
 
   return {
     status: 'ready',
@@ -311,17 +324,28 @@ function calibrateWindow(entries: SleepDiaryEntry[], endDay: number, fromWeek: 1
         ? 'floor'
         : cappedMinutes < roundedMinutes
           ? 'average-tib'
-          : 'average-tst',
-      fromWeek
+          : 'target',
+      calibratedFromWeek: fromWeek
     }
   }
 }
 
-function effectiveWeekOf(decision: WakeTimeDecision, startDay: number, baselineEnd: number | null): number {
+/**
+ * 首次确认是对锚点的建立，落在哪一周就从那一周生效（W1 内确认则 W2 执行）；
+ * 之后的修改才顺延到下一个窗口周期。这样在 W2 才确认的用户仍能在本周看到窗口，
+ * 而已有窗口不会因周内修改而移动。
+ */
+function effectiveWeekOf(
+  decision: WakeTimeDecision,
+  startDay: number,
+  baselineEnd: number | null,
+  firstDecision: boolean
+): number {
   const decisionDay = dayNumber(decision.decidedOn)
   if (decisionDay === null || decisionDay < startDay) return 1
   if (baselineEnd === null || decisionDay < baselineEnd) return 2
-  return 2 + Math.floor((decisionDay - baselineEnd) / daysPerWeek) + 1
+  const currentWeek = 2 + Math.floor((decisionDay - baselineEnd) / daysPerWeek)
+  return firstDecision ? Math.min(currentWeek, 6) : currentWeek + 1
 }
 
 function resolveWakeTime(
@@ -334,18 +358,21 @@ function resolveWakeTime(
 ): WakeTimeView {
   const decisions = [...state.wakeTimes].sort((left, right) => left.decidedOn.localeCompare(right.decidedOn))
   const week = progress.week
-  const effective = decisions.filter((decision) => {
-    return progress.completed || effectiveWeekOf(decision, startDay, baselineEnd) <= week
-  })
+  const effectiveWeek = (decision: WakeTimeDecision) => effectiveWeekOf(
+    decision,
+    startDay,
+    baselineEnd,
+    decision === decisions[0]
+  )
+  const effective = decisions.filter((decision) => progress.completed || effectiveWeek(decision) <= week)
+  // 同一周期内多次修改时，最后一条决定才是实际生效的那条。
   const pending = progress.completed
     ? undefined
-    : decisions.find((decision) => effectiveWeekOf(decision, startDay, baselineEnd) > week)
+    : [...decisions].reverse().find((decision) => effectiveWeek(decision) > week)
 
   return {
     effective: effective.length > 0 ? effective[effective.length - 1].time : null,
-    pending: pending
-      ? { time: pending.time, effectiveWeek: effectiveWeekOf(pending, startDay, baselineEnd) }
-      : null,
+    pending: pending ? { time: pending.time, effectiveWeek: effectiveWeek(pending) } : null,
     suggestion: medianOutOfBedTime(entries, today)
   }
 }
@@ -404,8 +431,14 @@ export function startCourse(startedOn: LocalDate, workPattern: WorkPattern = 're
   return dayNumber(startedOn) === null ? null : { startedOn, workPattern, wakeTimes: [] }
 }
 
-function unavailable(reason: WindowUnavailableReason, completeNights: number): WindowView {
-  return { status: 'unavailable', reason, completeNights }
+function unavailable(
+  reason: WindowUnavailableReason,
+  completeNights: number,
+  proposedMinutes?: number
+): WindowView {
+  return proposedMinutes === undefined
+    ? { status: 'unavailable', reason, completeNights }
+    : { status: 'unavailable', reason, completeNights, proposedMinutes }
 }
 
 function caffeineAdvice(
@@ -476,6 +509,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     : primary
 
   const calibrationNights = primary.status === 'ready' ? primary.calibration.completeNights : primary.completeNights
+  const needsReview = primary.status === 'needs-review' ? primary : null
   const chosen = primary.status === 'ready'
     ? { calibration: primary.calibration, heldover: false, latestCompleteNights: primary.calibration.completeNights }
     : baselineCalibration.status === 'ready'
@@ -494,6 +528,9 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
 
   if (gated) {
     window = unavailable(gated, calibrationNights)
+    restriction = 'paused'
+  } else if (needsReview) {
+    window = unavailable('window-over-ten-hours', needsReview.completeNights, needsReview.proposedMinutes)
     restriction = 'paused'
   } else if (!wakeTime.effective) {
     window = unavailable('wake-time-not-set', calibrationNights)

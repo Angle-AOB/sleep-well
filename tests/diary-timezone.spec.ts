@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { evaluateNight, type SleepDiaryEntry } from '../src/domain/diary'
+import { assessCourse } from '../src/domain/course'
 
 function entry(overrides: Partial<SleepDiaryEntry> = {}): SleepDiaryEntry {
   return {
@@ -45,5 +46,21 @@ test.describe('daylight saving transitions', () => {
     expect(assessment.timeInBed).toEqual({ status: 'available', value: 540 })
     expect(assessment.totalSleep).toEqual({ status: 'available', value: 480 })
     expect(assessment.sleepEfficiency).toEqual({ status: 'available', value: 88.9 })
+  })
+
+  test('course weeks advance by local calendar days across a daylight saving change', () => {
+    const entries = ['2026-03-01', '2026-03-02', '2026-03-03', '2026-03-04']
+      .map((date) => entry({ date }))
+
+    const result = assessCourse({
+      state: { startedOn: '2026-03-01', workPattern: 'regular', wakeTimes: [] },
+      entries,
+      screening: null,
+      today: '2026-03-08'
+    })
+
+    expect(result.progress?.week).toBe(2)
+    expect(result.progress?.weekStartsOn).toBe('2026-03-08')
+    expect(result.progress?.dayOfWeek).toBe(1)
   })
 })
