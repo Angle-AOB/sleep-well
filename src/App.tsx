@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { defaultPreferences, readPreferences, writePreferences, type Preferences } from './data/preferences'
+import { ScreeningPanel } from './components/ScreeningPanel'
+import { defaultPreferences, readPreferences, readScreening, writePreferences, writeScreening, type Preferences } from './data/preferences'
+import { canUseSleepRestriction } from './domain/screening'
+import type { ScreeningRecord } from './domain/screening'
 import './style.css'
 
 type OfflineStatus = 'pending' | 'ready' | 'unsupported' | 'error'
@@ -16,6 +19,8 @@ function App() {
   const { t } = useTranslation()
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
   const [savedPreferences, setSavedPreferences] = useState<Preferences>(defaultPreferences)
+  const [screening, setScreening] = useState<ScreeningRecord | null>(null)
+  const [screeningState, setScreeningState] = useState<'loading' | 'ready' | 'error'>(() => 'loading')
   const [storageState, setStorageState] = useState<'loading' | 'ready' | 'error' | 'unsupported'>(() =>
     'indexedDB' in window ? 'loading' : 'unsupported'
   )
@@ -32,14 +37,19 @@ function App() {
     if (!('indexedDB' in window)) return
 
     let active = true
-    readPreferences().then((saved) => {
+    Promise.all([readPreferences(), readScreening()]).then(([saved, savedScreening]) => {
       if (active) {
         setPreferences(saved)
         setSavedPreferences(saved)
+        setScreening(savedScreening)
         setStorageState('ready')
+        setScreeningState('ready')
       }
     }).catch(() => {
-      if (active) setStorageState('error')
+      if (active) {
+        setStorageState('error')
+        setScreeningState('error')
+      }
     })
     return () => { active = false }
   }, [])
@@ -98,6 +108,23 @@ function App() {
     })
     await saveQueue.current
   }
+
+  async function updateScreening(next: ScreeningRecord) {
+    if (storageState === 'unsupported') throw new Error('Local storage unavailable')
+    setScreeningState('loading')
+    try {
+      await writeScreening(next)
+      setScreening(next)
+      setScreeningState('ready')
+    } catch (error) {
+      setScreeningState('error')
+      throw error
+    }
+  }
+
+  const restrictionSettingLocked = screeningState !== 'ready'
+    || (screening !== null && !canUseSleepRestriction(screening.result))
+  const screeningAllowsRestriction = !restrictionSettingLocked
 
   const storageMessage = storageState === 'ready'
     ? t('saved')
@@ -182,7 +209,8 @@ function App() {
             type="time"
             value={preferences.wakeTime}
             onChange={(event) => void updatePreference({ ...preferences, wakeTime: event.target.value })}
-            disabled={storageState === 'unsupported'}
+            disabled={storageState === 'unsupported' || !screeningAllowsRestriction}
+            aria-describedby={!screeningAllowsRestriction ? 'restriction-paused-note' : undefined}
           />
           <label className="toggle-row" htmlFor="backup-reminders">
             <span>{t('reminderLabel')}</span>
@@ -194,9 +222,17 @@ function App() {
               disabled={storageState === 'unsupported'}
             />
           </label>
-          <p className={`storage-note ${storageState === 'error' || storageState === 'unsupported' ? 'note-error' : ''}`} role="status">{storageMessage}</p>
+          <p id="restriction-paused-note" className={`storage-note ${storageState === 'error' || storageState === 'unsupported' ? 'note-error' : ''}`} role="status">{!screeningAllowsRestriction ? t('restrictionSettingPaused') : storageMessage}</p>
         </section>
       </section>
+
+      <ScreeningPanel
+        key={screeningState}
+        initialRecord={screeningState === 'ready' ? screening : null}
+        loading={screeningState === 'loading'}
+        storageUnavailable={storageState === 'unsupported' || screeningState === 'error'}
+        onSave={updateScreening}
+      />
 
       <footer className="footer"><span>{t('footer')}</span><span>{t('footerMeta')}</span></footer>
     </main>
