@@ -183,7 +183,7 @@ const resources = {
       windowScreeningPaused: '安全筛查提示需要专业评估，自动睡眠窗口已暂停。仍可记录日记和查看训练内容。',
       windowScreeningPending: '完成安全筛查后才会生成自动睡眠窗口。',
       windowShiftPaused: '轮班/倒班作息不进入自动睡眠限制，因此不会生成睡眠窗口。',
-      windowOverTenHours: '按用于校准的最近 7 夜计算的窗口约为 {{duration}}，超过 10 小时的产品上限。自动睡眠窗口已暂停，建议先咨询睡眠或医疗专业人士。',
+      windowOverTenHours: '按校准所用的 7 个完整夜计算的窗口约为 {{duration}}，超过 10 小时的产品上限。自动睡眠窗口已暂停，建议先咨询睡眠或医疗专业人士。',
       windowDataInsufficient: '最近 7 夜的完整夜不足 4 夜，暂时不能校准睡眠窗口。继续记录日记，数据足够后会重新校准。',
       windowPreviewNote: '第 2 周仅预览候选窗口，不执行睡眠限制；第 3 周重新校准后才正式启用。',
       windowActiveNote: '窗口按固定起床时间倒推；长度来自最近一次校准，周内不会因为某一晚的数据而变化。',
