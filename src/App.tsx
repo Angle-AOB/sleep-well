@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { CoursePanel } from './components/CoursePanel'
 import { DiaryPanel } from './components/DiaryPanel'
 import { ScreeningPanel } from './components/ScreeningPanel'
 import { defaultPreferences, readPreferences, readScreening, writePreferences, writeScreening, type Preferences } from './data/preferences'
-import { canUseSleepRestriction } from './domain/screening'
 import type { ScreeningRecord } from './domain/screening'
 import './style.css'
 
@@ -32,6 +32,7 @@ function App() {
     if (!('serviceWorker' in navigator)) return 'unsupported'
     return window.__SW_READY__ ? 'pending' : 'error'
   })
+  const [diaryRevision, setDiaryRevision] = useState(0)
   const saveQueue = useRef(Promise.resolve())
 
   useEffect(() => {
@@ -123,10 +124,6 @@ function App() {
     }
   }
 
-  const restrictionSettingLocked = screeningState !== 'ready'
-    || (screening !== null && !canUseSleepRestriction(screening.result))
-  const screeningAllowsRestriction = !restrictionSettingLocked
-
   const storageMessage = storageState === 'ready'
     ? t('saved')
     : storageState === 'unsupported'
@@ -204,15 +201,6 @@ function App() {
             <div><p className="panel-kicker">{t('preferencesKicker')}</p><h2 id="preferences-title">{t('preferencesTitle')}</h2></div>
             <span className="panel-symbol" aria-hidden="true">◷</span>
           </div>
-          <label className="field-label" htmlFor="wake-time">{t('wakeTimeLabel')}</label>
-          <input
-            id="wake-time"
-            type="time"
-            value={preferences.wakeTime}
-            onChange={(event) => void updatePreference({ ...preferences, wakeTime: event.target.value })}
-            disabled={storageState === 'unsupported' || !screeningAllowsRestriction}
-            aria-describedby={!screeningAllowsRestriction ? 'restriction-paused-note' : undefined}
-          />
           <label className="toggle-row" htmlFor="backup-reminders">
             <span>{t('reminderLabel')}</span>
             <input
@@ -223,7 +211,7 @@ function App() {
               disabled={storageState === 'unsupported'}
             />
           </label>
-          <p id="restriction-paused-note" className={`storage-note ${storageState === 'error' || storageState === 'unsupported' ? 'note-error' : ''}`} role="status">{!screeningAllowsRestriction ? t('restrictionSettingPaused') : storageMessage}</p>
+          <p className={`storage-note ${storageState === 'error' || storageState === 'unsupported' ? 'note-error' : ''}`} role="status">{storageMessage}</p>
         </section>
       </section>
 
@@ -235,7 +223,16 @@ function App() {
         onSave={updateScreening}
       />
 
-      <DiaryPanel storageUnavailable={storageState === 'unsupported'} />
+      <CoursePanel
+        storageUnavailable={storageState === 'unsupported'}
+        screening={screeningState === 'ready' ? screening : null}
+        diaryRevision={diaryRevision}
+      />
+
+      <DiaryPanel
+        storageUnavailable={storageState === 'unsupported'}
+        onSaved={() => setDiaryRevision((revision) => revision + 1)}
+      />
 
       <footer className="footer"><span>{t('footer')}</span><span>{t('footerMeta')}</span></footer>
     </main>

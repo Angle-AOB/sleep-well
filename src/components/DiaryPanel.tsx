@@ -16,6 +16,7 @@ import {
   type WasoRange
 } from '../domain/diary'
 import { readDiaryEntries, writeDiaryEntry } from '../data/diary'
+import { durationText, localToday } from '../format'
 
 type WasoChoice = 'unknown' | 'none-remembered' | 'minutes' | WasoRange
 type QualityChoice = '' | '1' | '2' | '3' | '4' | '5'
@@ -82,13 +83,6 @@ const qualityOptions: { value: QualityChoice; labelKey: string }[] = [
   { value: '5', labelKey: 'diaryQuality5' }
 ]
 
-function localToday(): LocalDate {
-  const now = new Date()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${now.getFullYear()}-${month}-${day}`
-}
-
 function formatDiaryDate(t: TFunction, date: LocalDate): string {
   const [, month, day] = date.split('-')
   return t('diaryDateShort', { month: Number(month), day: Number(day) })
@@ -153,14 +147,6 @@ function entryFromForm(date: LocalDate, form: DiaryFormState, existing?: SleepDi
   }
 }
 
-function durationText(t: TFunction, minutes: number): string {
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
-  if (hours === 0) return t('durationMinutes', { minutes: rest })
-  if (rest === 0) return t('durationHours', { hours })
-  return t('durationHoursMinutes', { hours, minutes: rest })
-}
-
 function reasonText(t: TFunction, reason: MetricUnavailableReason): string {
   switch (reason) {
     case 'missing-input':
@@ -205,7 +191,7 @@ function MetricValue({ metric, format }: { metric: Metric<number>; format: (valu
   )
 }
 
-export function DiaryPanel({ storageUnavailable }: { storageUnavailable: boolean }) {
+export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable: boolean; onSaved?: () => void }) {
   const { t } = useTranslation()
   const [today] = useState(localToday)
   const [selectedDate, setSelectedDate] = useState<LocalDate>(today)
@@ -269,6 +255,7 @@ export function DiaryPanel({ storageUnavailable }: { storageUnavailable: boolean
       setEntries(loaded)
       setForm(formFromEntry(findEntry(loaded, selectedDate) ?? entry))
       setFeedback('saved')
+      onSaved?.()
     } catch {
       setFeedback('save-error')
     } finally {

@@ -2,12 +2,10 @@ import type { ScreeningRecord } from '../domain/screening'
 import { openDatabase } from './database'
 
 export type Preferences = {
-  wakeTime: string
   backupReminders: boolean
 }
 
 export const defaultPreferences: Preferences = {
-  wakeTime: '07:00',
   backupReminders: true
 }
 

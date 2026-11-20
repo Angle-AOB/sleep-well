@@ -121,7 +121,8 @@ test('a safety concern pauses restriction and can be cleared only by completing 
   await expect(page.getByText('睡眠限制与自动滴定暂时暂停。')).toBeVisible()
   await expect(page.getByText('建议先咨询睡眠或医疗专业人士，再决定是否进行睡眠限制。')).toBeVisible()
   await expect(page.getByText('睡眠限制与自动滴定暂停；睡眠日记仍可继续记录，教育内容与数据导出将在相应功能上线后可用。')).toBeVisible()
-  await expect(page.locator('#wake-time')).toBeDisabled()
+  await expect(page.getByRole('button', { name: '开始六周训练' })).toBeEnabled()
+  await expect(page.getByRole('heading', { name: '晨间睡眠日记' })).toBeVisible()
   await page.reload()
   await expect(page.getByText('睡眠限制与自动滴定暂时暂停。')).toBeVisible()
 
