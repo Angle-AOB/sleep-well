@@ -342,7 +342,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
           <h4>{t('weekTasksTitle')}</h4>
           <ul className="task-list">
             {content.tasks.map((key) => (
-              <li key={key}><span aria-hidden="true">+</span>{t(key)}</li>
+              <li key={key}><span aria-hidden="true">+</span>{t(key, { hours: CAFFEINE_CUTOFF_HOURS })}</li>
             ))}
           </ul>
         </section>
