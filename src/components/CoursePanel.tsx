@@ -27,7 +27,7 @@ import type { SleepDiaryEntry } from '../domain/diary'
 import type { ScreeningRecord } from '../domain/screening'
 import { readCourse, writeCourse } from '../data/course'
 import { readDiaryEntries } from '../data/diary'
-import { durationText, localToday } from '../format'
+import { durationText, efficiencyText, localToday } from '../format'
 
 type CoursePanelProps = {
   storageUnavailable: boolean
@@ -110,7 +110,8 @@ function windowUnavailableBody(
   }
 }
 
-function titrationBody(t: TFunction, view: TitrationView): string {
+/** 滴定卡文案；导出供展示层测试直接断言数字与判决一致。 */
+export function titrationBody(t: TFunction, view: TitrationView): string {
   const floorHours = WINDOW_FLOOR_MINUTES / 60
   const limitHours = WINDOW_AUTOMATION_LIMIT_MINUTES / 60
   const increaseThreshold = SE_INCREASE_THRESHOLD
@@ -133,7 +134,7 @@ function titrationBody(t: TFunction, view: TitrationView): string {
     case 'adjusted': {
       const values = {
         nights: view.change.basis.completeNights,
-        se: view.change.basis.averageSleepEfficiency,
+        se: efficiencyText(view.change.basis.averageSleepEfficiency),
         from: durationText(t, view.change.previousMinutes),
         to: durationText(t, view.change.durationMinutes),
         increaseThreshold,
@@ -146,14 +147,14 @@ function titrationBody(t: TFunction, view: TitrationView): string {
       return view.reason === 'in-band'
         ? t('titrationKeptInBand', {
           nights: view.basis.completeNights,
-          se: view.basis.averageSleepEfficiency,
+          se: efficiencyText(view.basis.averageSleepEfficiency),
           duration: durationText(t, view.durationMinutes),
           increaseThreshold,
           decreaseThreshold
         })
         : t('titrationKeptFloor', {
           nights: view.basis.completeNights,
-          se: view.basis.averageSleepEfficiency,
+          se: efficiencyText(view.basis.averageSleepEfficiency),
           floorHours,
           decreaseThreshold
         })
@@ -161,7 +162,7 @@ function titrationBody(t: TFunction, view: TitrationView): string {
       return view.basis
         ? t('titrationReview', {
           nights: view.basis.completeNights,
-          se: view.basis.averageSleepEfficiency,
+          se: efficiencyText(view.basis.averageSleepEfficiency),
           proposed: durationText(t, view.proposedMinutes),
           limitHours,
           increaseThreshold
@@ -504,7 +505,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
                             {
                               week: adjustment.week,
                               nights: adjustment.basis.completeNights,
-                              se: adjustment.basis.averageSleepEfficiency,
+                              se: efficiencyText(adjustment.basis.averageSleepEfficiency),
                               from: durationText(t, adjustment.previousMinutes),
                               change: durationText(t, adjustment.changeMinutes),
                               to: durationText(t, adjustment.durationMinutes)

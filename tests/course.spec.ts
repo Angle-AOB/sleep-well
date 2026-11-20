@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test'
+import i18n from '../src/i18n'
+import { titrationBody } from '../src/components/CoursePanel'
 import type { SleepDiaryEntry } from '../src/domain/diary'
 import { assessScreening, type ScreeningResult } from '../src/domain/screening'
 import {
@@ -748,7 +750,7 @@ function wideNights(latencies: number[]): SleepDiaryEntry[] {
   }))
 }
 
-test('a mean of 84.96 percent shortens the window even though it displays as 85', () => {
+test('a mean of 84.96 percent shortens the window and is displayed as 84.96', () => {
   const result = assess({
     state: confirmedWake(),
     entries: withAnchorWeek(wideNights([151, 151, 150, 150, 150])),
@@ -758,13 +760,13 @@ test('a mean of 84.96 percent shortens the window even though it displays as 85'
   expect(result.window).toMatchObject({ status: 'available', durationMinutes: 465 })
   expect(result.titration).toMatchObject({
     status: 'adjusted',
-    change: { rule: 'decrease', basis: { completeNights: 5, averageSleepEfficiency: 85 } }
+    change: { rule: 'decrease', basis: { completeNights: 5, averageSleepEfficiency: 84.96 } }
   })
   if (result.titration.status !== 'adjusted') throw new Error('expected an adjustment')
   expect(result.titration.change.basis.unroundedSleepEfficiency).toBeCloseTo(84.96, 5)
 })
 
-test('a mean of 90.04 percent lengthens the window even though it displays as 90', () => {
+test('a mean of 90.04 percent lengthens the window and is displayed as 90.04', () => {
   const result = assess({
     state: confirmedWake(),
     entries: withAnchorWeek(wideNights([100, 100, 100, 100, 98])),
@@ -774,7 +776,7 @@ test('a mean of 90.04 percent lengthens the window even though it displays as 90
   expect(result.window).toMatchObject({ status: 'available', durationMinutes: 495 })
   expect(result.titration).toMatchObject({
     status: 'adjusted',
-    change: { rule: 'increase', basis: { completeNights: 5, averageSleepEfficiency: 90 } }
+    change: { rule: 'increase', basis: { completeNights: 5, averageSleepEfficiency: 90.04 } }
   })
   if (result.titration.status !== 'adjusted') throw new Error('expected an adjustment')
   expect(result.titration.change.basis.unroundedSleepEfficiency).toBeCloseTo(90.04, 5)
@@ -813,4 +815,39 @@ test('the titration step never returns a duration above the twelve-hour ceiling'
       if (duration !== null) expect(duration).toBeLessThanOrEqual(WINDOW_CEILING_MINUTES)
     }
   }
+})
+
+test('the titration copy shows two decimals so the number never contradicts the decision', () => {
+  const t = i18n.getFixedT('zh-CN')
+  // 84.96% 若按一位小数显示成 85%，就会和“低于 85%”的判决自相矛盾。
+  const below = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(wideNights([151, 151, 150, 150, 150])),
+    today: '2026-11-22'
+  })
+  if (below.titration.status !== 'adjusted') throw new Error('expected a decrease')
+  const belowText = titrationBody(t, below.titration)
+  expect(belowText).toContain('84.96%')
+  expect(belowText).toContain('低于 85%')
+  expect(belowText).not.toContain('85.00%')
+
+  // 90.04% 同理不能显示成 90% 后仍写“高于 90%”。
+  const above = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(wideNights([100, 100, 100, 100, 98])),
+    today: '2026-11-22'
+  })
+  if (above.titration.status !== 'adjusted') throw new Error('expected an increase')
+  const aboveText = titrationBody(t, above.titration)
+  expect(aboveText).toContain('90.04%')
+  expect(aboveText).toContain('高于 90%')
+  expect(aboveText).not.toContain('90.00%')
+
+  // 常见的 92.5% 也必须补齐成 92.50%，同一张卡的数字格式保持一致。
+  const exact = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(nightsAtLatency(fourthWeekDates, 36)),
+    today: '2026-11-22'
+  })
+  expect(titrationBody(t, exact.titration)).toContain('92.50%')
 })

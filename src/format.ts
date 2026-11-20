@@ -9,6 +9,15 @@ export function durationText(t: TFunction, minutes: number): string {
   return t('durationHoursMinutes', { hours, minutes: rest })
 }
 
+/**
+ * 滴定依据的平均 SE 固定显示两位小数。
+ * 平均值可能落在阈值边界（84.96 / 90.04），按一位小数显示会把判决在文案里
+ * 说反，因此这里不做四舍五入到整数或一位小数。
+ */
+export function efficiencyText(value: number): string {
+  return value.toFixed(2)
+}
+
 /** 用户本地的今天，格式为 YYYY-MM-DD；不使用 UTC，避免夜间记录落到错误日期。 */
 export function localToday(): string {
   const now = new Date()

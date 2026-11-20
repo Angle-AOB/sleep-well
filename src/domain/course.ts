@@ -107,7 +107,7 @@ export type RestrictionStatus = 'not-started' | 'preview' | 'active' | 'paused' 
 /** 滴定的数据依据：先算每夜 SE，再取算术平均；不是总 TST ÷ 总 TIB。 */
 export type TitrationBasis = {
   completeNights: number
-  /** 展示用平均值，保留 1 位小数。 */
+  /** 展示用平均值，保留两位小数；阈值比较只用 unroundedSleepEfficiency。 */
   averageSleepEfficiency: number
   /** 未舍入的算术平均，只用于阈值比较；避免 84.96 被显示成 85 后误判为保持。 */
   unroundedSleepEfficiency: number
@@ -427,7 +427,7 @@ function weeklyTitrationBasis(entries: SleepDiaryEntry[], weekStartDay: number):
   const average = total / efficiencies.length
   return {
     completeNights: efficiencies.length,
-    averageSleepEfficiency: Math.round(average * 10) / 10,
+    averageSleepEfficiency: Math.round(average * 100) / 100,
     unroundedSleepEfficiency: average
   }
 }
