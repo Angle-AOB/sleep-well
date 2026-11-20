@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { BackupPanel } from './components/BackupPanel'
 import { CoursePanel } from './components/CoursePanel'
 import { DiaryPanel } from './components/DiaryPanel'
 import { ScreeningPanel } from './components/ScreeningPanel'
@@ -33,6 +34,7 @@ function App() {
     return window.__SW_READY__ ? 'pending' : 'error'
   })
   const [diaryRevision, setDiaryRevision] = useState(0)
+  const [screeningRevision, setScreeningRevision] = useState(0)
   const saveQueue = useRef(Promise.resolve())
 
   useEffect(() => {
@@ -122,6 +124,18 @@ function App() {
       setScreeningState('error')
       throw error
     }
+  }
+
+  /** 导入提交成功后重新读取所有 store，避免界面继续展示导入前的状态。 */
+  async function reloadAfterImport() {
+    if (storageState === 'unsupported') return
+    const [saved, savedScreening] = await Promise.all([readPreferences(), readScreening()])
+    setPreferences(saved)
+    setSavedPreferences(saved)
+    setScreening(savedScreening)
+    setScreeningState('ready')
+    setDiaryRevision((revision) => revision + 1)
+    setScreeningRevision((revision) => revision + 1)
   }
 
   const storageMessage = storageState === 'ready'
@@ -216,7 +230,7 @@ function App() {
       </section>
 
       <ScreeningPanel
-        key={screeningState}
+        key={`${screeningState}-${screeningRevision}`}
         initialRecord={screeningState === 'ready' ? screening : null}
         loading={screeningState === 'loading'}
         storageUnavailable={storageState === 'unsupported' || screeningState === 'error'}
@@ -232,7 +246,13 @@ function App() {
 
       <DiaryPanel
         storageUnavailable={storageState === 'unsupported'}
+        refreshToken={screeningRevision}
         onSaved={() => setDiaryRevision((revision) => revision + 1)}
+      />
+
+      <BackupPanel
+        storageUnavailable={storageState === 'unsupported'}
+        onImported={reloadAfterImport}
       />
 
       <footer className="footer"><span>{t('footer')}</span><span>{t('footerMeta')}</span></footer>

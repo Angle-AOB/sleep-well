@@ -142,3 +142,30 @@ input[type="radio"], input[type="checkbox"] { width: 20px; height: 20px; accent-
 @media (max-width: 700px) {
   .course-panel { padding: 22px; }.week-track { grid-template-columns: repeat(2, minmax(0, 1fr)); }.window-range { font-size: 28px; }
 }
+
+.backup-panel { margin-bottom: 48px; padding: 28px; background: #e7eee9; border: 1px solid #d2dfd7; }
+.backup-intro { margin: 0 0 10px; color: #52635c; font-size: 13px; line-height: 1.7; }
+.backup-caution { margin: 0 0 16px; padding: 12px 14px; color: #7a5a33; background: #f3ece4; border-left: 3px solid #c69a62; font-size: 12px; line-height: 1.7; }
+.backup-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+.backup-actions button { min-height: 44px; }
+.backup-import { margin-top: 26px; padding-top: 20px; border-top: 1px solid #cbd9d0; }
+.backup-import h3 { margin: 0 0 6px; font-size: 15px; }
+.backup-file-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0 18px; }
+.backup-file-button { display: inline-flex; align-items: center; justify-content: center; border: 1px solid #344d45; color: #344d45; background: transparent; cursor: pointer; }
+.backup-file-button.is-disabled { opacity: .55; cursor: not-allowed; }
+.backup-preview h3 { margin: 0 0 4px; font-size: 15px; }
+.backup-compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 14px 0; }
+.backup-compare section { padding: 14px 16px; background: #f4f7f3; border: 1px solid #d2dfd7; }
+.backup-compare h4 { margin: 0 0 8px; color: #263b36; font-size: 13px; }
+.backup-compare ul { margin: 0; padding-left: 18px; color: #52635c; font-size: 12px; line-height: 1.8; }
+.backup-confirm { margin: 14px 0; padding: 16px; background: #f7e9e3; border: 1px solid #d8ab97; }
+.backup-confirm h4 { margin: 0 0 6px; color: #8a3d2b; font-size: 14px; }
+.backup-confirm p { margin: 0; color: #7a4a3c; font-size: 12px; line-height: 1.7; }
+.backup-status { margin: 14px 0 0; color: #47765f; font-size: 13px; line-height: 1.6; }
+.danger-button { min-height: 48px; padding: 0 22px; color: #f7faf6; background: #8a3d2b; border: 1px solid #8a3d2b; font-size: 14px; font-weight: 700; cursor: pointer; }
+.danger-button:disabled { opacity: .55; cursor: not-allowed; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+@media (max-width: 700px) {
+  .backup-panel { padding: 22px; }.backup-compare { grid-template-columns: 1fr; }
+}

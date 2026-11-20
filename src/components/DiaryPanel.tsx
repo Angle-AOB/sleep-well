@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
@@ -192,7 +192,7 @@ function MetricValue({ metric, format }: { metric: Metric<number>; format: (valu
   )
 }
 
-export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable: boolean; onSaved?: () => void }) {
+export function DiaryPanel({ storageUnavailable, onSaved, refreshToken = 0 }: { storageUnavailable: boolean; onSaved?: () => void; refreshToken?: number }) {
   const { t } = useTranslation()
   const [initialDate] = useState(localToday)
   const [today, setToday] = useState(initialDate)
@@ -203,6 +203,7 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const lastRefresh = useRef(refreshToken)
   const loadState = storageUnavailable ? 'error' : fetchState
 
   useEffect(() => {
@@ -223,6 +224,27 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
       })
     return () => { active = false }
   }, [storageUnavailable, initialDate])
+
+  // 导入备份后由外部递增 refreshToken，重新读取日记并把当前选中日期同步到新数据。
+  useEffect(() => {
+    if (lastRefresh.current === refreshToken) return
+    lastRefresh.current = refreshToken
+    if (storageUnavailable) return
+
+    let active = true
+    readDiaryEntries()
+      .then((loaded) => {
+        if (!active) return
+        setEntries(loaded)
+        setForm(formFromEntry(findEntry(loaded, selectedDate) ?? null))
+        setDirty(false)
+        setFetchState('ready')
+      })
+      .catch(() => {
+        if (active) setFetchState('error')
+      })
+    return () => { active = false }
+  }, [refreshToken, storageUnavailable, selectedDate])
 
   useEffect(() => {
     function syncLocalDate() {
