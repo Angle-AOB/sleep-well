@@ -28,8 +28,6 @@ import {
 } from '../data/backupDelivery'
 import { dateLongText, localToday, momentText } from '../format'
 
-type Operation = 'export-zip' | 'export-csv' | 'import'
-
 type FailureReason =
   | 'storage-unavailable'
   | 'compression-unsupported'
@@ -44,8 +42,8 @@ type FailureReason =
   | 'refresh-failed'
   | 'export-failed'
 
-/** 界面本地的脱敏失败状态；#8 的错误面板接入时可从这里取操作与原因分类。 */
-type LocalBackupError = { operation: Operation; reason: FailureReason }
+/** 界面本地的脱敏失败状态；只保留界面真正渲染的失败原因。 */
+type LocalBackupError = { reason: FailureReason }
 
 type Notice = { key: string; values?: Record<string, unknown> }
 
@@ -170,64 +168,63 @@ export function BackupPanel({ storageUnavailable, onImported }: BackupPanelProps
     setLocalError(null)
   }
 
-  function fail(operation: Operation, reason: FailureReason) {
-    setLocalError({ operation, reason })
+  function fail(reason: FailureReason) {
+    setLocalError({ reason })
     setNotice(null)
   }
 
   /** 读取当前数据失败是存储故障，不是备份文件损坏；两者必须给出不同文案。 */
-  async function readCurrent(operation: Operation) {
+  async function readCurrent() {
     try {
       return await readBackupData()
     } catch {
-      fail(operation, 'storage-error')
+      fail('storage-error')
       return null
     }
   }
 
-  async function deliver(blob: Blob, filename: string, operation: Operation) {
+  async function deliver(blob: Blob, filename: string) {
     const outcome = await deliverFile(blob, filename)
     const mapped = deliveryNotice(outcome)
     if (mapped) setNotice(mapped)
-    else fail(operation, 'delivery-failed')
+    else fail('delivery-failed')
   }
 
   async function exportZip() {
-    if (storageUnavailable) return fail('export-zip', 'storage-unavailable')
-    if (!supportsBackupCompression()) return fail('export-zip', 'compression-unsupported')
+    if (storageUnavailable) return fail('storage-unavailable')
+    if (!supportsBackupCompression()) return fail('compression-unsupported')
 
     setActivity('export')
     clearNotice()
     try {
-      const data = await readCurrent('export-zip')
+      const data = await readCurrent()
       if (!data) return
       const payload = createBackupPayload(data, { exportedAt: new Date().toISOString() })
       const bytes = await createArchiveBytes(payload)
-      await deliver(bytesBlob(bytes), backupFileName(payload.exportedAt), 'export-zip')
+      await deliver(bytesBlob(bytes), backupFileName(payload.exportedAt))
     } catch {
-      fail('export-zip', 'export-failed')
+      fail('export-failed')
     } finally {
       setActivity(null)
     }
   }
 
   async function exportCsv() {
-    if (storageUnavailable) return fail('export-csv', 'storage-unavailable')
+    if (storageUnavailable) return fail('storage-unavailable')
 
     setActivity('export')
     clearNotice()
     try {
-      const data = await readCurrent('export-csv')
+      const data = await readCurrent()
       if (!data) return
       setCsvWasEmpty(data.diary.length === 0)
       const csv = diaryCsv(data.diary, csvLabels(t))
       await deliver(
         new Blob([csv], { type: 'text/csv;charset=utf-8' }),
-        diaryFileName(today),
-        'export-csv'
+        diaryFileName(today)
       )
     } catch {
-      fail('export-csv', 'export-failed')
+      fail('export-failed')
     } finally {
       setActivity(null)
     }
@@ -244,23 +241,23 @@ export function BackupPanel({ storageUnavailable, onImported }: BackupPanelProps
     setConfirmingOverwrite(false)
     setActivity('read')
     try {
-      if (file.size > MAX_COMPRESSED_BYTES) return fail('import', 'archive-too-large')
+      if (file.size > MAX_COMPRESSED_BYTES) return fail('archive-too-large')
 
       let bytes: Uint8Array
       try {
         bytes = new Uint8Array(await file.arrayBuffer())
       } catch {
-        return fail('import', 'unreadable-file')
+        return fail('unreadable-file')
       }
 
       let archive
       try {
         archive = await readArchiveBytes(bytes)
       } catch (error) {
-        return fail('import', archiveFailureReason(error))
+        return fail(archiveFailureReason(error))
       }
 
-      const current = await readCurrent('import')
+      const current = await readCurrent()
       if (!current) return
       setPreview({
         payload: archive.payload,
@@ -281,7 +278,7 @@ export function BackupPanel({ storageUnavailable, onImported }: BackupPanelProps
     try {
       result = await applyBackupImport(preview.payload, strategy)
     } catch {
-      fail('import', 'import-failed')
+      fail('import-failed')
       setActivity(null)
       return
     }
@@ -295,7 +292,7 @@ export function BackupPanel({ storageUnavailable, onImported }: BackupPanelProps
         : { key: 'backupImportedAppend', values: { added: result.added, skipped: result.skipped } })
     } catch {
       // 导入已经提交，不能说“当前数据未变”；这条错误留给后续错误面板。
-      fail('import', 'refresh-failed')
+      fail('refresh-failed')
     } finally {
       setActivity(null)
     }
