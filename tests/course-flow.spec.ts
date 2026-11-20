@@ -158,7 +158,7 @@ test('shift work keeps the course and diary available while pausing automatic wi
   }
   await advanceTo(page, '2026-11-15T09:00:00')
   await expect(panel.getByRole('heading', { name: '每周滴定' })).toBeVisible()
-  await expect(panel.getByText('轮班/倒班作息不进入自动滴定：窗口保持不变。')).toBeVisible()
+  await expect(panel.getByText('轮班/倒班作息不进入自动睡眠限制与滴定：窗口保持不变。如仍希望进行睡眠限制，建议先咨询睡眠或医疗专业人士。')).toBeVisible()
 })
 
 test('a screening that needs review blocks the automatic window without blocking the diary', async ({ page }) => {
@@ -185,7 +185,7 @@ test('a screening that needs review blocks the automatic window without blocking
   }
   await advanceTo(page, '2026-11-15T09:00:00')
   await expect(panel.getByRole('heading', { name: '每周滴定' })).toBeVisible()
-  await expect(panel.getByText('安全筛查提示需要专业评估：自动滴定已暂停，窗口保持不变。')).toBeVisible()
+  await expect(panel.getByText('安全筛查提示需要专业评估：睡眠限制与每周滴定已暂停，窗口保持不变。')).toBeVisible()
 })
 
 test('W4 explains the weekly adjustment, teaches stimulus control, and can defer the change', async ({ page }) => {

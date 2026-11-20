@@ -879,3 +879,22 @@ test('rule copy takes every rule number from the caller instead of hardcoding it
   expect(t('courseBaselineExtended', { required: 5 })).toContain('不足 5 夜')
   expect(t('titrationScheduled', { week: 4, nights: 8 })).toContain('开始前 8 夜')
 })
+
+// ---- 暂停措辞：W3 起筛查/轮班拦截时，滴定尚未开始，不能写成“曾运行后暂停” ----
+
+test('a W3 pause says restriction and titration are paused without implying titration ran', () => {
+  const t = i18n.getFixedT('zh-CN')
+  const result = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(),
+    today: '2026-11-15',
+    screening: needsReview
+  })
+
+  expect(result.progress.week).toBe(3)
+  expect(result.titration).toEqual({ status: 'paused', reason: 'screening' })
+  const text = titrationBody(t, result.titration)
+  expect(text).toContain('睡眠限制与每周滴定已暂停')
+  expect(text).not.toContain('自动滴定已暂停')
+  expect(text).toContain('专业评估')
+})
