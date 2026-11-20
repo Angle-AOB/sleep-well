@@ -206,6 +206,14 @@ const titrationWeeks: readonly CourseWeek[] = [4, 5]
 const datePattern = /^(\d{4})-(\d{2})-(\d{2})$/
 const clockPattern = /^([01][0-9]|2[0-3]):([0-5][0-9])$/
 
+/**
+ * 所有对外提议的窗口时长都经过这里。产品流程会先在 10 小时处进入 review，
+ * 12 小时只是硬不变量：极端 TIB 也不能让界面显示超过 12 小时的窗口。
+ */
+function proposeWindowMinutes(minutes: number): number {
+  return Math.min(minutes, WINDOW_CEILING_MINUTES)
+}
+
 type DateParts = { year: number; month: number; day: number }
 
 function parseDate(value: LocalDate): DateParts | null {
@@ -381,10 +389,10 @@ function calibrateWindow(entries: SleepDiaryEntry[], endDay: number, fromWeek: 1
   const targetMinutes = averageTotalSleepMinutes + targetSurplusMinutes
   const roundedMinutes = Math.round(targetMinutes / roundingMinutes) * roundingMinutes
   const cappedMinutes = Math.min(roundedMinutes, averageTimeInBedMinutes)
-  const durationMinutes = Math.max(cappedMinutes, WINDOW_FLOOR_MINUTES)
+  const durationMinutes = proposeWindowMinutes(Math.max(cappedMinutes, WINDOW_FLOOR_MINUTES))
 
   // 超过 10 小时即暂停自动窗口并建议专业评估；因为不生成该窗口，实际交付的窗口
-  // 不可能超过 12 小时。每周调整的 12 小时绝对上限由滴定规则单独遵守。
+  // 不可能超过 12 小时。12 小时钳制在 proposeWindowMinutes 里统一执行。
   if (durationMinutes > WINDOW_AUTOMATION_LIMIT_MINUTES) {
     return { status: 'needs-review', completeNights: assessments.length, proposedMinutes: durationMinutes }
   }
@@ -441,22 +449,19 @@ export type TitrationDecision =
  * 单周 +/-15 分钟决策。阈值是严格比较：正好 85% 或 90% 属于保持区间。
  * 调用方必须传入**未舍入**的平均 SE，否则 84.96 会被显示值 85 掩盖成保持。
  * 5 小时下限优先于缩短；12 小时是硬不变量——正常流程先在 10 小时处进入 review，
- * 这里的 Math.min 只是最后一道钳制，任何返回的时长都不会超过 720 分钟。
+ * proposeWindowMinutes 只是最后一道钳制，任何返回的时长都不会超过 720 分钟。
  * 超过 10 小时时不生成新窗口（返回 review），由调用方暂停窗口并提示专业评估。
  */
 export function decideTitration(previousMinutes: number, averageSleepEfficiency: number): TitrationDecision {
   if (averageSleepEfficiency > SE_INCREASE_THRESHOLD) {
-    const proposed = Math.min(previousMinutes + TITRATION_STEP_MINUTES, WINDOW_CEILING_MINUTES)
+    const proposed = proposeWindowMinutes(previousMinutes + TITRATION_STEP_MINUTES)
     return proposed > WINDOW_AUTOMATION_LIMIT_MINUTES
       ? { kind: 'review', proposedMinutes: proposed }
       : { kind: 'increase', durationMinutes: proposed }
   }
 
   if (averageSleepEfficiency < SE_DECREASE_THRESHOLD) {
-    const proposed = Math.min(
-      Math.max(previousMinutes - TITRATION_STEP_MINUTES, WINDOW_FLOOR_MINUTES),
-      WINDOW_CEILING_MINUTES
-    )
+    const proposed = proposeWindowMinutes(Math.max(previousMinutes - TITRATION_STEP_MINUTES, WINDOW_FLOOR_MINUTES))
     return proposed >= previousMinutes
       ? { kind: 'keep', reason: 'floor' }
       : { kind: 'decrease', durationMinutes: proposed }

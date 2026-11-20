@@ -293,19 +293,24 @@ test('a W2 candidate over the limit stays a candidate and never claims titration
   expect(result.titration).toEqual({ status: 'not-applicable' })
 })
 
-test('an over-limit candidate reports its computed duration without generating a window', () => {
+test('a proposed window from more than twelve hours in bed is capped at the twelve-hour ceiling', () => {
   const result = assess({
     state: confirmedWake(),
     entries: nights(['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04'], { timeInBed: 840, totalSleep: 780 }),
     today: '2026-11-10'
   })
 
-  expect(result.window).toEqual({
+  // 原始计算值是 810 分钟，但任何对外提议都不得超过 12 小时硬上限。
+  expect(result.window).toMatchObject({
     status: 'unavailable',
     reason: 'window-over-ten-hours',
-    completeNights: 4,
-    proposedMinutes: 810
+    completeNights: 4
   })
+  if (result.window.status !== 'unavailable' || result.window.reason !== 'window-over-ten-hours') {
+    throw new Error('expected an over-limit candidate')
+  }
+  expect(result.window.proposedMinutes).toBe(720)
+  expect(result.window.proposedMinutes).toBeLessThanOrEqual(WINDOW_CEILING_MINUTES)
 })
 
 test('W2 previews the candidate window from the baseline, with the 8-hour caffeine cutoff', () => {
