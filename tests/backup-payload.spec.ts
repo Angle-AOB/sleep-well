@@ -144,6 +144,15 @@ test('the summary reports diary count, date range, complete nights and course we
   expect(summary.courseStartedOn).toBe('2026-11-01')
   expect(summary.screeningStatus).toBe('cleared')
   expect(summary.backupReminders).toBe(false)
+  expect(summary.wakeTime).toBe('06:45')
+})
+
+test('the summary distinguishes a missing prefilled wake time from an empty one', () => {
+  const withoutWakeTime: BackupData = {
+    ...backupData(),
+    preferences: { backupReminders: true }
+  }
+  expect(summarizeBackup(withoutWakeTime, '2026-11-20').wakeTime).toBeNull()
 })
 
 test('the comparison counts diary nights that would actually be added', () => {

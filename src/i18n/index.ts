@@ -329,6 +329,8 @@ const resources = {
       backupSummaryScreeningNone: '没有筛查结果',
       backupSummaryRemindersOn: '备份提醒：开启',
       backupSummaryRemindersOff: '备份提醒：关闭',
+      backupSummaryWakeTime: '预填起床时间：{{time}}',
+      backupSummaryWakeTimeNone: '预填起床时间：—',
       backupSummaryExportedAt: '导出于 {{time}}',
       backupRulesRecomputed: '备份由 {{version}} 规则生成；导入后安全筛查与睡眠窗口将按当前规则重新计算。',
       backupAppendPreview: '「只新增日记」会追加 {{added}} 夜，跳过 {{skipped}} 夜与当前重复的记录；当前设置、疗程与筛查状态保持不变。',

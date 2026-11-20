@@ -253,6 +253,8 @@ export type BackupSummary = {
   courseCompleted: boolean
   screeningStatus: ScreeningRecord['result']['status'] | null
   backupReminders: boolean
+  /** 旧版遗留的预填起床时间；没有值时用 null 与合法的 "HH:mm" 区分。 */
+  wakeTime: string | null
 }
 
 /** 摘要使用与疗程相同的一套推导，避免备份预览与主界面给出不同的周次。 */
@@ -274,7 +276,8 @@ export function summarizeBackup(data: BackupData, today: LocalDate): BackupSumma
     courseWeek: assessment.progress?.week ?? null,
     courseCompleted: assessment.progress?.completed ?? false,
     screeningStatus: data.screening?.result.status ?? null,
-    backupReminders: data.preferences.backupReminders
+    backupReminders: data.preferences.backupReminders,
+    wakeTime: data.preferences.wakeTime ?? null
   }
 }
 

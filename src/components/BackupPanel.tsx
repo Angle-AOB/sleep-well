@@ -109,6 +109,9 @@ function summaryLines(t: TFunction, summary: BackupSummary): string[] {
   lines.push(summary.backupReminders
     ? t('backupSummaryRemindersOn')
     : t('backupSummaryRemindersOff'))
+  lines.push(summary.wakeTime === null
+    ? t('backupSummaryWakeTimeNone')
+    : t('backupSummaryWakeTime', { time: summary.wakeTime }))
   return lines
 }
 
