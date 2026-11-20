@@ -118,7 +118,8 @@ function noticeForReason(reason: BackupFailureReason): Notice {
 export function BackupPanel({ storageUnavailable, onImported, onFailure }: BackupPanelProps) {
   const { t } = useTranslation()
   const today = localToday()
-  const [busy, setBusy] = useState(false)
+  const [activity, setActivity] = useState<'export' | 'read' | 'import' | null>(null)
+  const busy = activity !== null
   const [notice, setNotice] = useState<Notice | null>(null)
   const [preview, setPreview] = useState<Preview | null>(null)
   const [confirmingOverwrite, setConfirmingOverwrite] = useState(false)
@@ -134,7 +135,7 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
     if (storageUnavailable) return fail('export-zip', 'storage-unavailable')
     if (!supportsBackupCompression()) return fail('export-zip', 'compression-unsupported')
 
-    setBusy(true)
+    setActivity('export')
     setNotice(null)
     try {
       const data = await readBackupData()
@@ -148,14 +149,14 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
     } catch {
       fail('export-zip', 'export-failed')
     } finally {
-      setBusy(false)
+      setActivity(null)
     }
   }
 
   async function exportCsv() {
     if (storageUnavailable) return fail('export-csv', 'storage-unavailable')
 
-    setBusy(true)
+    setActivity('export')
     setNotice(null)
     try {
       const data = await readBackupData()
@@ -172,7 +173,7 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
     } catch {
       fail('export-csv', 'export-failed')
     } finally {
-      setBusy(false)
+      setActivity(null)
     }
   }
 
@@ -185,7 +186,7 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
     setNotice(null)
     setPreview(null)
     setConfirmingOverwrite(false)
-    setBusy(true)
+    setActivity('read')
     try {
       if (file.size > MAX_COMPRESSED_BYTES) return fail('import', 'archive-too-large')
       const bytes = new Uint8Array(await file.arrayBuffer())
@@ -199,13 +200,13 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
     } catch (error) {
       fail('import', archiveFailureReason(error))
     } finally {
-      setBusy(false)
+      setActivity(null)
     }
   }
 
   async function runImport(strategy: 'overwrite' | 'append') {
     if (!preview) return
-    setBusy(true)
+    setActivity('import')
     setNotice(null)
     try {
       const result = await applyBackupImport(preview.payload, strategy)
@@ -218,7 +219,7 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
     } catch {
       fail('import', 'import-failed')
     } finally {
-      setBusy(false)
+      setActivity(null)
     }
   }
 
@@ -273,7 +274,6 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
               disabled={disabled}
             />
           </label>
-          {busy && <span role="status">{t('backupReading')}</span>}
         </div>
 
         {comparison && preview && (
@@ -338,7 +338,11 @@ export function BackupPanel({ storageUnavailable, onImported, onFailure }: Backu
           </div>
         )}
 
-        {busy && preview === null && <p role="status">{t('backupImporting')}</p>}
+        {activity && (
+          <p role="status">
+            {activity === 'export' ? t('backupExporting') : activity === 'read' ? t('backupReading') : t('backupImporting')}
+          </p>
+        )}
         {notice && (
           <p className={notice.tone === 'error' ? 'diary-alert' : 'backup-status'} role={notice.tone === 'error' ? 'alert' : 'status'}>
             {t(notice.key, notice.values ?? {})}
