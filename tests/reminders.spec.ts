@@ -63,3 +63,19 @@ test('after seven days the reminder returns, still capped at one per week', () =
 
   expect(decision).toEqual({ remind: true, kind: 'weekly', entryCount: 3 })
 })
+
+test('a fresh backup keeps the reminder quiet until a newer night arrives', () => {
+  const preferences = {
+    backupReminders: true,
+    lastBackupReminderOn: '2026-11-01',
+    lastBackupAt: '2026-11-05T09:00:00.000Z'
+  }
+  const backedUp = [night('2026-11-01'), night('2026-11-02'), night('2026-11-03')]
+
+  expect(evaluateBackupReminder({ entries: backedUp, preferences, today: '2026-11-20' }))
+    .toEqual({ remind: false })
+
+  const afterBackup = [...backedUp, night('2026-11-06', '2026-11-06T07:10:00.000Z')]
+  expect(evaluateBackupReminder({ entries: afterBackup, preferences, today: '2026-11-20' }))
+    .toEqual({ remind: true, kind: 'weekly', entryCount: 4 })
+})
