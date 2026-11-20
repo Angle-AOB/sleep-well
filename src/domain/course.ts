@@ -244,6 +244,16 @@ export function isClockTime(value: string): boolean {
   return clockPattern.test(value)
 }
 
+const workPatternValues: readonly WorkPattern[] = ['regular', 'shift-work']
+
+export function isWorkPattern(value: unknown): value is WorkPattern {
+  return typeof value === 'string' && (workPatternValues as readonly string[]).includes(value)
+}
+
+export function isCourseWeek(value: unknown): value is CourseWeek {
+  return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 6
+}
+
 function formatClock(minutes: number): string {
   const normalized = ((minutes % 1440) + 1440) % 1440
   const hours = String(Math.floor(normalized / 60)).padStart(2, '0')
