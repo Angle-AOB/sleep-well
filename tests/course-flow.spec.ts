@@ -104,7 +104,7 @@ test('W2 previews the baseline window, defers a wake-time change, and W3 activat
   await expect(panel.getByText('00:00', { exact: true })).toBeVisible()
   await expect(panel.getByText('07:00', { exact: true })).toBeVisible()
   await expect(panel.getByText('窗口长度 7 小时')).toBeVisible()
-  await expect(panel.getByText('依据最近 7 夜中的 4 个完整夜：平均 TST 6 小时 30 分钟，平均 TIB 8 小时。')).toBeVisible()
+  await expect(panel.getByText('依据第 1 周基线中的 4 个完整夜：平均 TST 6 小时 30 分钟，平均 TIB 8 小时。')).toBeVisible()
   await expect(panel.getByText('第 2 周仅预览候选窗口，不执行睡眠限制；第 3 周重新校准后才正式启用。')).toBeVisible()
   await expect(panel.getByText('睡前 8 小时：16:00 前停止摄入咖啡因。')).toBeVisible()
   await expect(panel.getByText('近 7 夜实际起床时间中位数是 07:00，可以作为预填建议。')).toBeVisible()
@@ -127,6 +127,7 @@ test('W2 previews the baseline window, defers a wake-time change, and W3 activat
   await expect(panel.getByText('22:30', { exact: true })).toBeVisible()
   await expect(panel.getByText('06:30', { exact: true })).toBeVisible()
   await expect(panel.getByText('窗口长度 8 小时')).toBeVisible()
+  await expect(panel.getByText('依据第 2 周锚定周中的 4 个完整夜：平均 TST 7 小时 30 分钟，平均 TIB 8 小时。')).toBeVisible()
   await expect(panel.getByText('睡前 8 小时：14:30 前停止摄入咖啡因。')).toBeVisible()
 })
 
@@ -204,7 +205,7 @@ test('W4 explains the weekly adjustment, teaches stimulus control, and can defer
   await expect(panel.getByRole('heading', { name: '刺激控制' })).toBeVisible()
   await expect(panel.getByText('“约 20 分钟”是近似判断，不必看钟，也不需要夜间使用手机计时器。')).toBeVisible()
   await expect(panel.getByText('窗口长度由规则计算，不能手动修改。')).toBeVisible()
-  await expect(panel.getByText('第 4 周将进行第一次滴定：依据最近 7 夜的完整夜平均 SE，窗口最多调整一次。')).toBeVisible()
+  await expect(panel.getByText('第 4 周将进行第一次滴定：依据该周开始前 7 夜的完整夜平均 SE，窗口最多调整一次。')).toBeVisible()
 
   await advanceTo(page, '2026-11-18T09:00:00')
   for (const date of ['2026-11-15', '2026-11-16', '2026-11-17', '2026-11-18']) {
@@ -215,13 +216,15 @@ test('W4 explains the weekly adjustment, teaches stimulus control, and can defer
   await expect(panel.getByText('第 4 周 · 第 1 天')).toBeVisible()
   await expect(panel.getByText('窗口长度 8 小时 15 分钟')).toBeVisible()
   await expect(panel.getByText('22:45', { exact: true })).toBeVisible()
+  // W4 的窗口校准仍来自第 2 周锚定周，而不是“最近 7 夜”的滑动窗口。
+  await expect(panel.getByText('依据第 2 周锚定周中的 4 个完整夜：平均 TST 7 小时 30 分钟，平均 TIB 8 小时。')).toBeVisible()
   await expect(panel.getByText(
-    '最近 7 夜的 4 个完整夜平均 SE 93.75%（高于 90%）：窗口从 8 小时延长到 8 小时 15 分钟（+15 分钟）。'
+    '该滴定周之前的 4 个完整夜平均 SE 93.80%（高于 90%）：窗口从 8 小时延长到 8 小时 15 分钟（+15 分钟）。'
   )).toBeVisible()
   // 8 小时 15 分钟必须能追溯到它来自第 4 周的 +15 分钟。
   await expect(panel.getByRole('heading', { name: '滴定明细' })).toBeVisible()
   await expect(panel.getByText(
-    '第 4 周：依据最近 7 夜中的 4 个完整夜（平均 SE 93.75%），窗口从 8 小时延长 15 分钟，变为 8 小时 15 分钟。'
+    '第 4 周：依据该周之前的 4 个完整夜（平均 SE 93.80%），窗口从 8 小时延长 15 分钟，变为 8 小时 15 分钟。'
   )).toBeVisible()
 
   await panel.getByRole('button', { name: '推迟本周滴定' }).click()

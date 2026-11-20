@@ -473,11 +473,16 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
                   {t('windowDuration', { duration: durationText(t, windowView.durationMinutes) })}
                 </p>
                 <p className="course-card-copy">
-                  {t('windowBasis', {
-                    nights: windowView.calibration.completeNights,
-                    tst: durationText(t, windowView.calibration.averageTotalSleepMinutes),
-                    tib: durationText(t, windowView.calibration.averageTimeInBedMinutes)
-                  })}
+                  {t(
+                    windowView.calibration.calibratedFromWeek === 1
+                      ? 'windowBasisBaseline'
+                      : 'windowBasisAnchor',
+                    {
+                      nights: windowView.calibration.completeNights,
+                      tst: durationText(t, windowView.calibration.averageTotalSleepMinutes),
+                      tib: durationText(t, windowView.calibration.averageTimeInBedMinutes)
+                    }
+                  )}
                 </p>
                 <p className="course-card-copy">
                   {t('windowTarget', { target: durationText(t, windowView.calibration.targetMinutes) })}
