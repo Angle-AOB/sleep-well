@@ -3,10 +3,14 @@ import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import {
   assessCourse,
+  CAFFEINE_CUTOFF_HOURS,
   isClockTime,
   medianOutOfBedTime,
   MINIMUM_COMPLETE_NIGHTS,
+  SE_DECREASE_THRESHOLD,
+  SE_INCREASE_THRESHOLD,
   startCourse,
+  TITRATION_STEP_MINUTES,
   WINDOW_AUTOMATION_LIMIT_MINUTES,
   WINDOW_FLOOR_MINUTES,
   withTitrationDeferral,
@@ -109,6 +113,9 @@ function windowUnavailableBody(
 function titrationBody(t: TFunction, view: TitrationView): string {
   const floorHours = WINDOW_FLOOR_MINUTES / 60
   const limitHours = WINDOW_AUTOMATION_LIMIT_MINUTES / 60
+  const increaseThreshold = SE_INCREASE_THRESHOLD
+  const decreaseThreshold = SE_DECREASE_THRESHOLD
+  const stepMinutes = TITRATION_STEP_MINUTES
 
   switch (view.status) {
     case 'not-applicable':
@@ -128,7 +135,10 @@ function titrationBody(t: TFunction, view: TitrationView): string {
         nights: view.change.basis.completeNights,
         se: view.change.basis.averageSleepEfficiency,
         from: durationText(t, view.change.previousMinutes),
-        to: durationText(t, view.change.durationMinutes)
+        to: durationText(t, view.change.durationMinutes),
+        increaseThreshold,
+        decreaseThreshold,
+        stepMinutes
       }
       return view.change.rule === 'increase' ? t('titrationIncreased', values) : t('titrationDecreased', values)
     }
@@ -137,12 +147,15 @@ function titrationBody(t: TFunction, view: TitrationView): string {
         ? t('titrationKeptInBand', {
           nights: view.basis.completeNights,
           se: view.basis.averageSleepEfficiency,
-          duration: durationText(t, view.durationMinutes)
+          duration: durationText(t, view.durationMinutes),
+          increaseThreshold,
+          decreaseThreshold
         })
         : t('titrationKeptFloor', {
           nights: view.basis.completeNights,
           se: view.basis.averageSleepEfficiency,
-          floorHours
+          floorHours,
+          decreaseThreshold
         })
     case 'review':
       return view.basis
@@ -150,7 +163,8 @@ function titrationBody(t: TFunction, view: TitrationView): string {
           nights: view.basis.completeNights,
           se: view.basis.averageSleepEfficiency,
           proposed: durationText(t, view.proposedMinutes),
-          limitHours
+          limitHours,
+          increaseThreshold
         })
         : t('titrationReviewCalibration', {
           proposed: durationText(t, view.proposedMinutes),
@@ -542,9 +556,11 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
           {assessment.caffeine && (
             <section className="course-card caffeine-card" aria-labelledby="caffeine-title">
               <h3 id="caffeine-title">{t('caffeineTitle')}</h3>
-              <p className="caffeine-time">{t('caffeineCutoff', { time: assessment.caffeine.cutoff })}</p>
+              <p className="caffeine-time">{t('caffeineCutoff', { time: assessment.caffeine.cutoff, hours: CAFFEINE_CUTOFF_HOURS })}</p>
               <p className="field-hint">
-                {assessment.caffeine.basis === 'window' ? t('caffeineNoteWindow') : t('caffeineNoteRecent')}
+                {assessment.caffeine.basis === 'window'
+                  ? t('caffeineNoteWindow', { hours: CAFFEINE_CUTOFF_HOURS })
+                  : t('caffeineNoteRecent', { hours: CAFFEINE_CUTOFF_HOURS })}
               </p>
             </section>
           )}
