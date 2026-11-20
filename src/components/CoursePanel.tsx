@@ -7,6 +7,8 @@ import {
   medianOutOfBedTime,
   MINIMUM_COMPLETE_NIGHTS,
   startCourse,
+  WINDOW_AUTOMATION_LIMIT_MINUTES,
+  WINDOW_FLOOR_MINUTES,
   withTitrationDeferral,
   withWakeTime,
   withWorkPattern,
@@ -93,7 +95,10 @@ function windowUnavailableBody(
     case 'shift-work-paused':
       return t('windowShiftPaused')
     case 'window-over-ten-hours':
-      return t('windowOverTenHours', { duration: durationText(t, view.proposedMinutes) })
+      return t('windowOverTenHours', {
+        duration: durationText(t, view.proposedMinutes),
+        limitHours: WINDOW_AUTOMATION_LIMIT_MINUTES / 60
+      })
     case 'wake-time-not-set':
       return t('windowNeedsWakeTime')
     case 'course-not-started':
@@ -101,7 +106,10 @@ function windowUnavailableBody(
   }
 }
 
-function titrationBody(t: TFunction, view: TitrationView, durationMinutes: number): string {
+function titrationBody(t: TFunction, view: TitrationView): string {
+  const floorHours = WINDOW_FLOOR_MINUTES / 60
+  const limitHours = WINDOW_AUTOMATION_LIMIT_MINUTES / 60
+
   switch (view.status) {
     case 'not-applicable':
       return ''
@@ -112,13 +120,13 @@ function titrationBody(t: TFunction, view: TitrationView, durationMinutes: numbe
     case 'insufficient-data':
       return t('titrationInsufficient', { complete: view.completeNights, required: view.required })
     case 'deferred':
-      return t('titrationDeferred', { duration: durationText(t, durationMinutes) })
+      return t('titrationDeferred', { duration: durationText(t, view.durationMinutes) })
     case 'paused':
       return view.reason === 'screening' ? t('titrationPausedScreening') : t('titrationPausedShift')
     case 'adjusted': {
       const values = {
-        nights: view.basis.completeNights,
-        se: view.basis.averageSleepEfficiency,
+        nights: view.change.basis.completeNights,
+        se: view.change.basis.averageSleepEfficiency,
         from: durationText(t, view.change.previousMinutes),
         to: durationText(t, view.change.durationMinutes)
       }
@@ -129,18 +137,25 @@ function titrationBody(t: TFunction, view: TitrationView, durationMinutes: numbe
         ? t('titrationKeptInBand', {
           nights: view.basis.completeNights,
           se: view.basis.averageSleepEfficiency,
-          duration: durationText(t, durationMinutes)
+          duration: durationText(t, view.durationMinutes)
         })
         : t('titrationKeptFloor', {
           nights: view.basis.completeNights,
-          se: view.basis.averageSleepEfficiency
+          se: view.basis.averageSleepEfficiency,
+          floorHours
         })
     case 'review':
-      return t('titrationReview', {
-        nights: view.basis.completeNights,
-        se: view.basis.averageSleepEfficiency,
-        proposed: durationText(t, view.proposedMinutes)
-      })
+      return view.basis
+        ? t('titrationReview', {
+          nights: view.basis.completeNights,
+          se: view.basis.averageSleepEfficiency,
+          proposed: durationText(t, view.proposedMinutes),
+          limitHours
+        })
+        : t('titrationReviewCalibration', {
+          proposed: durationText(t, view.proposedMinutes),
+          limitHours
+        })
   }
 }
 
@@ -458,7 +473,33 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
                   </p>
                 )}
                 {windowView.calibration.limitedBy === 'floor' && (
-                  <p className="course-card-copy">{t('windowLimitFloor')}</p>
+                  <p className="course-card-copy">
+                    {t('windowLimitFloor', { floorHours: WINDOW_FLOOR_MINUTES / 60 })}
+                  </p>
+                )}
+                {windowView.adjustments.length > 0 && (
+                  <div className="window-adjustments">
+                    <h4>{t('windowAdjustmentsTitle')}</h4>
+                    <ul>
+                      {windowView.adjustments.map((adjustment) => (
+                        <li key={adjustment.week}>
+                          {t(
+                            adjustment.rule === 'increase'
+                              ? 'windowAdjustmentIncrease'
+                              : 'windowAdjustmentDecrease',
+                            {
+                              week: adjustment.week,
+                              nights: adjustment.basis.completeNights,
+                              se: adjustment.basis.averageSleepEfficiency,
+                              from: durationText(t, adjustment.previousMinutes),
+                              change: durationText(t, adjustment.changeMinutes),
+                              to: durationText(t, adjustment.durationMinutes)
+                            }
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
                 {windowView.heldover && (
                   <p className="course-note is-warning" role="status">
@@ -476,13 +517,13 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
             )}
           </section>
 
-          {windowView.status === 'available' && assessment.titration.status !== 'not-applicable' && (
+          {assessment.titration.status !== 'not-applicable' && (
             <section className="course-card titration-card" aria-labelledby="titration-title">
               <h3 id="titration-title">{t('titrationTitle')}</h3>
               <p className="course-card-copy">
-                {titrationBody(t, assessment.titration, windowView.durationMinutes)}
+                {titrationBody(t, assessment.titration)}
               </p>
-              {assessment.titration.status === 'adjusted' && !completed && (
+              {assessment.canDeferTitration && (
                 <button
                   type="button"
                   className="link-button"
@@ -491,6 +532,9 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
                 >
                   {t('titrationDefer')}
                 </button>
+              )}
+              {assessment.titration.status === 'adjusted' && !assessment.canDeferTitration && !completed && (
+                <p className="field-hint">{t('titrationDeferLocked')}</p>
               )}
             </section>
           )}

@@ -286,6 +286,8 @@ test('a candidate window longer than ten hours pauses automation and suggests re
     proposedMinutes: 630
   })
   expect(result.restriction).toBe('paused')
+  // 超过 10 小时与 #5 的窗口语义一致：滴定也进入可区分的 review，而不是 not-applicable。
+  expect(result.titration).toEqual({ status: 'review', proposedMinutes: 630, basis: null })
 })
 
 test('an over-limit candidate reports its computed duration without generating a window', () => {
@@ -477,9 +479,15 @@ test('a mean sleep efficiency above ninety percent lengthens the window by fifte
   })
   expect(result.titration).toMatchObject({
     status: 'adjusted',
-    basis: { completeNights: 4, averageSleepEfficiency: 92.5 },
-    change: { week: 4, changeMinutes: 15, previousMinutes: 480, durationMinutes: 495 }
+    change: {
+      week: 4,
+      changeMinutes: 15,
+      previousMinutes: 480,
+      durationMinutes: 495,
+      basis: { completeNights: 4, averageSleepEfficiency: 92.5 }
+    }
   })
+  expect(result.canDeferTitration).toBe(true)
   expect(result.restriction).toBe('active')
 })
 
@@ -527,8 +535,14 @@ test('a mean sleep efficiency just below eighty-five percent shortens the window
   })
   expect(result.titration).toMatchObject({
     status: 'adjusted',
-    basis: { completeNights: 4, averageSleepEfficiency: 84.8 },
-    change: { week: 4, rule: 'decrease', changeMinutes: 15, previousMinutes: 480, durationMinutes: 465 }
+    change: {
+      week: 4,
+      rule: 'decrease',
+      changeMinutes: 15,
+      previousMinutes: 480,
+      durationMinutes: 465,
+      basis: { completeNights: 4, averageSleepEfficiency: 84.8 }
+    }
   })
 })
 
@@ -567,7 +581,7 @@ test('a deferred weekly review keeps the previous window for that week', () => {
   const result = assess({ state: deferred, entries: withAnchorWeek(fourthWeekNights(36)), today: '2026-11-22' })
 
   expect(result.window).toMatchObject({ status: 'available', durationMinutes: 480, adjustments: [] })
-  expect(result.titration).toEqual({ status: 'deferred' })
+  expect(result.titration).toEqual({ status: 'deferred', durationMinutes: 480 })
 })
 
 test('deferring one week does not block the next week review', () => {
@@ -626,7 +640,7 @@ test('the weekly review averages nightly sleep efficiency instead of total sleep
   expect(result.window).toMatchObject({ status: 'available', durationMinutes: 480 })
 })
 
-test('a proposed extension past ten hours keeps the current window and suggests review', () => {
+test('a proposed extension past ten hours pauses the window and suggests professional review', () => {
   const longAnchorWeek = nights(['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11'], {
     timeInBed: 600,
     totalSleep: 570
@@ -638,17 +652,18 @@ test('a proposed extension past ten hours keeps the current window and suggests 
   })
 
   expect(result.progress.week).toBe(4)
-  expect(result.window).toMatchObject({
-    status: 'available',
-    startTime: '21:00',
-    durationMinutes: 600,
-    adjustments: []
+  // 提议的 615 分钟超过 10 小时：不再展示 600 分钟的可用窗口，而是按 #5 的语义暂停。
+  expect(result.window).toEqual({
+    status: 'unavailable',
+    reason: 'window-over-ten-hours',
+    completeNights: 4,
+    proposedMinutes: 615
   })
+  expect(result.restriction).toBe('paused')
   expect(result.titration).toEqual({
     status: 'review',
-    week: 4,
     proposedMinutes: 615,
-    basis: { completeNights: 4, averageSleepEfficiency: 94 }
+    basis: { completeNights: 4, averageSleepEfficiency: 94, unroundedSleepEfficiency: 94 }
   })
 })
 
@@ -668,8 +683,14 @@ test('a review does not compound: the next week evaluates the same unchanged win
     today: '2026-11-29'
   })
 
-  expect(result.window).toMatchObject({ status: 'available', durationMinutes: 600, adjustments: [] })
-  expect(result.titration).toMatchObject({ status: 'review', week: 5, proposedMinutes: 615 })
+  expect(result.window).toEqual({
+    status: 'unavailable',
+    reason: 'window-over-ten-hours',
+    completeNights: 4,
+    proposedMinutes: 615
+  })
+  expect(result.restriction).toBe('paused')
+  expect(result.titration).toMatchObject({ status: 'review', proposedMinutes: 615 })
 })
 
 test('W4 and W5 adjustments chain from the calibrated window in order', () => {
@@ -713,4 +734,83 @@ test('the titration step respects the five-hour floor and twelve-hour ceiling di
   expect(decideTitration(480, 84)).toEqual({ kind: 'decrease', durationMinutes: 465 })
   expect(decideTitration(WINDOW_FLOOR_MINUTES, 84)).toEqual({ kind: 'keep', reason: 'floor' })
   expect(decideTitration(810, 95)).toEqual({ kind: 'review', proposedMinutes: WINDOW_CEILING_MINUTES })
+})
+
+// ---- 审查修正：阈值用未舍入均值、推迟时机、12 小时硬不变量 ----
+
+/** 卧床 1000 分钟时 SE = (1000 − SOL) ÷ 1000，可按 0.1% 精确构造边界值。 */
+function wideNights(latencies: number[]): SleepDiaryEntry[] {
+  const dates = ['2026-11-15', '2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19']
+  return dates.map((date, index) => night(date, {
+    timeInBed: 1000,
+    latency: latencies[index],
+    totalSleep: 1000 - latencies[index]
+  }))
+}
+
+test('a mean of 84.96 percent shortens the window even though it displays as 85', () => {
+  const result = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(wideNights([151, 151, 150, 150, 150])),
+    today: '2026-11-22'
+  })
+
+  expect(result.window).toMatchObject({ status: 'available', durationMinutes: 465 })
+  expect(result.titration).toMatchObject({
+    status: 'adjusted',
+    change: { rule: 'decrease', basis: { completeNights: 5, averageSleepEfficiency: 85 } }
+  })
+  if (result.titration.status !== 'adjusted') throw new Error('expected an adjustment')
+  expect(result.titration.change.basis.unroundedSleepEfficiency).toBeCloseTo(84.96, 5)
+})
+
+test('a mean of 90.04 percent lengthens the window even though it displays as 90', () => {
+  const result = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(wideNights([100, 100, 100, 100, 98])),
+    today: '2026-11-22'
+  })
+
+  expect(result.window).toMatchObject({ status: 'available', durationMinutes: 495 })
+  expect(result.titration).toMatchObject({
+    status: 'adjusted',
+    change: { rule: 'increase', basis: { completeNights: 5, averageSleepEfficiency: 90 } }
+  })
+  if (result.titration.status !== 'adjusted') throw new Error('expected an adjustment')
+  expect(result.titration.change.basis.unroundedSleepEfficiency).toBeCloseTo(90.04, 5)
+})
+
+test('a weekly adjustment cannot be deferred once the week already has a diary entry', () => {
+  const beforeAnyEntry = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(fourthWeekNights(36)),
+    today: '2026-11-22'
+  })
+  const afterFirstEntry = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek([...fourthWeekNights(36), night('2026-11-22', { latency: 36 })]),
+    today: '2026-11-22'
+  })
+
+  expect(beforeAnyEntry.titration.status).toBe('adjusted')
+  expect(beforeAnyEntry.canDeferTitration).toBe(true)
+  expect(afterFirstEntry.titration.status).toBe('adjusted')
+  expect(afterFirstEntry.canDeferTitration).toBe(false)
+})
+
+test('the titration step never returns a duration above the twelve-hour ceiling', () => {
+  const efficiencies = [0, 50, 84, 84.9, 85, 90, 90.1, 100]
+  const previousMinutes = [300, 480, 600, 705, 720, 900]
+
+  for (const base of previousMinutes) {
+    for (const se of efficiencies) {
+      const decision = decideTitration(base, se)
+      const duration = decision.kind === 'increase' || decision.kind === 'decrease'
+        ? decision.durationMinutes
+        : decision.kind === 'review'
+          ? decision.proposedMinutes
+          : null
+      if (duration !== null) expect(duration).toBeLessThanOrEqual(WINDOW_CEILING_MINUTES)
+    }
+  }
 })

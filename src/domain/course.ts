@@ -11,7 +11,7 @@
  * 窗口周期生效。每周滴定与刺激控制由后续规则补充，本模块只负责窗口的基线校准。
  */
 
-import { evaluateNight, type LocalDate, type SleepDiaryEntry } from './diary'
+import { evaluateNight, type LocalDate, type NightAssessment, type SleepDiaryEntry } from './diary'
 import { canUseSleepRestriction, type ScreeningResult } from './screening'
 
 export type CourseWeek = 1 | 2 | 3 | 4 | 5 | 6
@@ -107,7 +107,10 @@ export type RestrictionStatus = 'not-started' | 'preview' | 'active' | 'paused' 
 /** 滴定的数据依据：先算每夜 SE，再取算术平均；不是总 TST ÷ 总 TIB。 */
 export type TitrationBasis = {
   completeNights: number
+  /** 展示用平均值，保留 1 位小数。 */
   averageSleepEfficiency: number
+  /** 未舍入的算术平均，只用于阈值比较；避免 84.96 被显示成 85 后误判为保持。 */
+  unroundedSleepEfficiency: number
 }
 
 export type WindowAdjustment = {
@@ -125,12 +128,15 @@ export type TitrationView =
   | { status: 'scheduled'; nextWeek: CourseWeek }
   | { status: 'consolidation' }
   | { status: 'insufficient-data'; completeNights: number; required: number }
-  | { status: 'deferred' }
-  | { status: 'adjusted'; basis: TitrationBasis; change: WindowAdjustment }
-  | { status: 'kept'; basis: TitrationBasis; reason: 'in-band' | 'floor' }
+  | { status: 'deferred'; durationMinutes: number }
+  | { status: 'adjusted'; change: WindowAdjustment }
+  | { status: 'kept'; basis: TitrationBasis; reason: 'in-band' | 'floor'; durationMinutes: number }
   | { status: 'paused'; reason: 'screening' | 'shift-work' }
-  /** 规则想延长到超过 10 小时：本周不生成新窗口，保留当前窗口并建议专业评估。 */
-  | { status: 'review'; week: CourseWeek; proposedMinutes: number; basis: TitrationBasis }
+  /**
+   * 规则算出的窗口超过 10 小时产品上限：不生成新窗口，建议专业评估。
+   * 校准阶段没有逐夜 SE 依据，basis 为 null；周滴定阶段带上依据。
+   */
+  | { status: 'review'; proposedMinutes: number; basis: TitrationBasis | null }
 
 export type WakeTimeView = {
   /** 本周实际执行的固定起床时间；尚未生效时为 null。 */
@@ -157,6 +163,11 @@ export type CourseAssessment = {
   caffeine: CaffeineAdvice | null
   /** 近 7 夜的完整夜数量，用于显示基线进度。 */
   recentCompleteNights: number
+  /**
+   * 本周的滴定调整是否还能推迟。规则是“执行前才能决定”：本周一旦有日记，
+   * 已按新窗口执行的天数不能被回溯成旧窗口。
+   */
+  canDeferTitration: boolean
 }
 
 export type CourseInput = {
@@ -168,7 +179,15 @@ export type CourseInput = {
 
 export const MINIMUM_COMPLETE_NIGHTS = 4
 export const WINDOW_FLOOR_MINUTES = 5 * 60
+/**
+ * 自动化上限：候选/新窗口一旦超过 10 小时，就暂停自动窗口并建议专业评估。
+ * 它触发的是“暂停 + 建议”，不是静默裁剪。
+ */
 export const WINDOW_AUTOMATION_LIMIT_MINUTES = 10 * 60
+/**
+ * 12 小时绝对上限：产品边界，任何规则计算出的窗口都不得超过它。
+ * 这是硬不变量，正常流程不可达（超过 10 小时会先进入 review），只作最后一道钳制。
+ */
 export const WINDOW_CEILING_MINUTES = 12 * 60
 export const TITRATION_STEP_MINUTES = 15
 export const SE_INCREASE_THRESHOLD = 90
@@ -241,10 +260,22 @@ function stageForWeek(week: number): CourseStage {
 }
 
 function completeNightsBetween(entries: SleepDiaryEntry[], startDay: number, endDay: number): number {
-  return entries.filter((entry) => {
-    const day = dayNumber(entry.date)
-    return day !== null && day >= startDay && day <= endDay && evaluateNight(entry).complete
-  }).length
+  return completeNightsInWindow(entries, startDay, endDay).length
+}
+
+/** 某个闭区间内的完整夜，按日期升序；校准与周滴定共用同一套取数与过滤规则。 */
+function completeNightsInWindow(
+  entries: SleepDiaryEntry[],
+  startDay: number,
+  endDay: number
+): NightAssessment[] {
+  return entries
+    .filter((entry) => {
+      const day = dayNumber(entry.date)
+      return day !== null && day >= startDay && day <= endDay
+    })
+    .map((entry) => evaluateNight(entry))
+    .filter((night) => night.complete)
 }
 
 /**
@@ -322,13 +353,7 @@ type CalibrationOutcome =
  */
 function calibrateWindow(entries: SleepDiaryEntry[], endDay: number, fromWeek: 1 | 2): CalibrationOutcome {
   const startDay = endDay - nightsPerCalibration + 1
-  const assessments = entries
-    .filter((entry) => {
-      const day = dayNumber(entry.date)
-      return day !== null && day >= startDay && day <= endDay
-    })
-    .map((entry) => evaluateNight(entry))
-    .filter((night) => night.complete)
+  const assessments = completeNightsInWindow(entries, startDay, endDay)
 
   if (assessments.length < MINIMUM_COMPLETE_NIGHTS) {
     return { status: 'insufficient-data', completeNights: assessments.length }
@@ -379,23 +404,21 @@ function calibrateWindow(entries: SleepDiaryEntry[], endDay: number, fromWeek: 1
 function weeklyTitrationBasis(entries: SleepDiaryEntry[], weekStartDay: number): TitrationBasis {
   const endDay = weekStartDay - 1
   const startDay = endDay - nightsPerCalibration + 1
-  const efficiencies = entries
-    .filter((entry) => {
-      const day = dayNumber(entry.date)
-      return day !== null && day >= startDay && day <= endDay
-    })
-    .map((entry) => evaluateNight(entry))
-    .filter((night) => night.complete && night.sleepEfficiency.status === 'available')
-    .map((night) => night.sleepEfficiency.status === 'available' ? night.sleepEfficiency.value : 0)
+  const efficiencies = completeNightsInWindow(entries, startDay, endDay)
+    .map((night) => night.sleepEfficiency)
+    .filter((metric): metric is { status: 'available'; value: number } => metric.status === 'available')
+    .map((metric) => metric.value)
 
   if (efficiencies.length === 0) {
-    return { completeNights: 0, averageSleepEfficiency: 0 }
+    return { completeNights: 0, averageSleepEfficiency: 0, unroundedSleepEfficiency: 0 }
   }
 
   const total = efficiencies.reduce((sum, value) => sum + value, 0)
+  const average = total / efficiencies.length
   return {
     completeNights: efficiencies.length,
-    averageSleepEfficiency: Math.round((total / efficiencies.length) * 10) / 10
+    averageSleepEfficiency: Math.round(average * 10) / 10,
+    unroundedSleepEfficiency: average
   }
 }
 
@@ -406,8 +429,10 @@ export type TitrationDecision =
 
 /**
  * 单周 +/-15 分钟决策。阈值是严格比较：正好 85% 或 90% 属于保持区间。
- * 5 小时下限优先于缩短；任何计算结果都不会超过 12 小时绝对上限。
- * 超过 10 小时时不生成新窗口（返回 review），由调用方保留当前窗口并提示专业评估。
+ * 调用方必须传入**未舍入**的平均 SE，否则 84.96 会被显示值 85 掩盖成保持。
+ * 5 小时下限优先于缩短；12 小时是硬不变量——正常流程先在 10 小时处进入 review，
+ * 这里的 Math.min 只是最后一道钳制，任何返回的时长都不会超过 720 分钟。
+ * 超过 10 小时时不生成新窗口（返回 review），由调用方暂停窗口并提示专业评估。
  */
 export function decideTitration(previousMinutes: number, averageSleepEfficiency: number): TitrationDecision {
   if (averageSleepEfficiency > SE_INCREASE_THRESHOLD) {
@@ -418,7 +443,10 @@ export function decideTitration(previousMinutes: number, averageSleepEfficiency:
   }
 
   if (averageSleepEfficiency < SE_DECREASE_THRESHOLD) {
-    const proposed = Math.max(previousMinutes - TITRATION_STEP_MINUTES, WINDOW_FLOOR_MINUTES)
+    const proposed = Math.min(
+      Math.max(previousMinutes - TITRATION_STEP_MINUTES, WINDOW_FLOOR_MINUTES),
+      WINDOW_CEILING_MINUTES
+    )
     return proposed >= previousMinutes
       ? { kind: 'keep', reason: 'floor' }
       : { kind: 'decrease', durationMinutes: proposed }
@@ -470,7 +498,7 @@ function resolveTitration(options: {
     const isCurrentWeek = titrationWeek === week
 
     if (deferred.includes(titrationWeek)) {
-      if (isCurrentWeek) currentView = { status: 'deferred' }
+      if (isCurrentWeek) currentView = { status: 'deferred', durationMinutes }
       continue
     }
 
@@ -485,13 +513,12 @@ function resolveTitration(options: {
       continue
     }
 
-    const decision = decideTitration(durationMinutes, basis.averageSleepEfficiency)
+    const decision = decideTitration(durationMinutes, basis.unroundedSleepEfficiency)
 
     if (decision.kind === 'review') {
       if (isCurrentWeek) {
         currentView = {
           status: 'review',
-          week: titrationWeek,
           proposedMinutes: decision.proposedMinutes,
           basis
         }
@@ -500,7 +527,9 @@ function resolveTitration(options: {
     }
 
     if (decision.kind === 'keep') {
-      if (isCurrentWeek) currentView = { status: 'kept', basis, reason: decision.reason }
+      if (isCurrentWeek) {
+        currentView = { status: 'kept', basis, reason: decision.reason, durationMinutes }
+      }
       continue
     }
 
@@ -514,7 +543,7 @@ function resolveTitration(options: {
     }
     adjustments.push(adjustment)
     durationMinutes = decision.durationMinutes
-    if (isCurrentWeek) currentView = { status: 'adjusted', basis, change: adjustment }
+    if (isCurrentWeek) currentView = { status: 'adjusted', change: adjustment }
   }
 
   // 第 6 周起不再产生新的周调整，但前两周的调整继续生效。
@@ -622,9 +651,14 @@ export function withWorkPattern(state: CourseState, workPattern: WorkPattern): C
   return { ...state, workPattern }
 }
 
+/** 推迟记录可能来自旧状态而缺失；只在这一个地方兜底。 */
+function deferredWeeks(state: CourseState): CourseWeek[] {
+  return state.deferredTitrations ?? []
+}
+
 /** 推迟某一周的窗口调整；同一周只记录一次，窗口保持上一周的长度。 */
 export function withTitrationDeferral(state: CourseState, week: CourseWeek): CourseState {
-  const deferred = state.deferredTitrations ?? []
+  const deferred = deferredWeeks(state)
   return deferred.includes(week)
     ? state
     : { ...state, deferredTitrations: [...deferred, week].sort((left, right) => left - right) }
@@ -674,7 +708,8 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     restriction: 'not-started',
     titration: { status: 'not-applicable' },
     caffeine: null,
-    recentCompleteNights: 0
+    recentCompleteNights: 0,
+    canDeferTitration: false
   }
 
   if (!state) return notStarted
@@ -698,7 +733,8 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
       restriction: 'not-started',
       titration: { status: 'not-applicable' },
       caffeine: null,
-      recentCompleteNights
+      recentCompleteNights,
+      canDeferTitration: false
     }
   }
 
@@ -735,6 +771,9 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
   let window: WindowView
   let restriction: RestrictionStatus
   let titration: TitrationView
+  const firstTitration: TitrationView = progress.week === 3
+    ? { status: 'scheduled', nextWeek: 4 }
+    : { status: 'not-applicable' }
 
   if (gated) {
     window = unavailable(gated, calibrationNights)
@@ -750,15 +789,15 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
       proposedMinutes: needsReview.proposedMinutes
     }
     restriction = 'paused'
-    titration = { status: 'not-applicable' }
+    titration = { status: 'review', proposedMinutes: needsReview.proposedMinutes, basis: null }
   } else if (!wakeTime.effective) {
     window = unavailable('wake-time-not-set', calibrationNights)
     restriction = progress.week === 2 ? 'preview' : 'awaiting-window'
-    titration = progress.week === 3 ? { status: 'scheduled', nextWeek: 4 } : { status: 'not-applicable' }
+    titration = firstTitration
   } else if (!chosen) {
     window = unavailable('insufficient-data', calibrationNights)
     restriction = progress.week === 2 ? 'preview' : 'awaiting-window'
-    titration = progress.week === 3 ? { status: 'scheduled', nextWeek: 4 } : { status: 'not-applicable' }
+    titration = firstTitration
   } else {
     // 窗口时长 = 第 3 周的校准值 + 已生效的周滴定；校准与调整分开保存，
     // 这样界面既能看到“窗口从哪来”，也能看到“这周为什么变了”。
@@ -767,23 +806,42 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
       week: progress.week,
       baselineEnd: baselineEnd!,
       baseMinutes: chosen.calibration.durationMinutes,
-      deferred: state.deferredTitrations ?? [],
+      deferred: deferredWeeks(state),
       paused: null
     })
-    window = {
-      status: 'available',
-      startTime: formatClock(clockMinutes(wakeTime.effective)! - resolution.durationMinutes),
-      endTime: wakeTime.effective,
-      durationMinutes: resolution.durationMinutes,
-      mode,
-      calibration: chosen.calibration,
-      adjustments: resolution.adjustments,
-      heldover: chosen.heldover,
-      latestCompleteNights: chosen.latestCompleteNights
+    if (resolution.view.status === 'review') {
+      // 规则提议的新窗口超过 10 小时：按 #5 的语义暂停窗口，而不是保留一个
+      // 看似可执行、实际已触及产品上限的窗口。
+      window = {
+        status: 'unavailable',
+        reason: 'window-over-ten-hours',
+        completeNights: resolution.view.basis?.completeNights ?? chosen.latestCompleteNights,
+        proposedMinutes: resolution.view.proposedMinutes
+      }
+      restriction = 'paused'
+      titration = resolution.view
+    } else {
+      window = {
+        status: 'available',
+        startTime: formatClock(clockMinutes(wakeTime.effective)! - resolution.durationMinutes),
+        endTime: wakeTime.effective,
+        durationMinutes: resolution.durationMinutes,
+        mode,
+        calibration: chosen.calibration,
+        adjustments: resolution.adjustments,
+        heldover: chosen.heldover,
+        latestCompleteNights: chosen.latestCompleteNights
+      }
+      restriction = mode === 'preview' ? 'preview' : 'active'
+      titration = resolution.view
     }
-    restriction = mode === 'preview' ? 'preview' : 'active'
-    titration = resolution.view
   }
+
+  const weekStartDay = dayNumber(progress.weekStartsOn)
+  const weekStarted = weekStartDay !== null && entries.some((entry) => {
+    const day = dayNumber(entry.date)
+    return day !== null && day >= weekStartDay
+  })
 
   return {
     started: true,
@@ -793,6 +851,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     restriction,
     titration,
     caffeine: caffeineAdvice(window, progress.week, entries, today),
-    recentCompleteNights
+    recentCompleteNights,
+    canDeferTitration: titration.status === 'adjusted' && !progress.completed && !weekStarted
   }
 }
