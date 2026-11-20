@@ -66,6 +66,45 @@ async function recordBaseline(page: Page) {
   }
 }
 
+/** 卧床 11 小时（22:00–09:00）的一夜，用于构造超过 10 小时的产品上限。 */
+async function recordLongNight(page: Page, date: string) {
+  const diary = diaryPanel(page)
+  await diary.locator('#diary-date').fill(date)
+  await diary.locator('#lights-off').fill('22:00')
+  await diary.locator('#sleep-onset').fill('30')
+  await diary.locator('#final-wake').fill('08:30')
+  await diary.locator('#out-of-bed').fill('09:00')
+  await diary.locator('#waso').selectOption('none-remembered')
+  await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
+  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+}
+
+test('an over-limit W2 candidate is shown as a candidate, with no titration or pause claim', async ({ page }) => {
+  await openAt(page, '2026-11-01T09:00:00')
+  await startCourse(page)
+  await completeScreening(page)
+  await coursePanel(page).locator('#fixed-wake-time').fill('09:00')
+  await coursePanel(page).getByRole('button', { name: '确认起床时间' }).click()
+  await expect(coursePanel(page).getByText('09:00 已确认，将从第 2 周开始执行。')).toBeVisible()
+
+  await advanceTo(page, '2026-11-05T09:00:00')
+  for (const date of ['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04']) {
+    await recordLongNight(page, date)
+  }
+  await advanceTo(page, '2026-11-08T09:00:00')
+
+  const panel = coursePanel(page)
+  await expect(panel.getByText('第 2 周 · 第 1 天')).toBeVisible()
+  await expect(panel.getByRole('heading', { name: '候选睡眠窗口' })).toHaveCount(0)
+  await expect(panel.getByText('睡眠限制：预览')).toBeVisible()
+  await expect(panel.getByText(
+    '按规则计算的候选窗口约为 10 小时 30 分钟，超过 10 小时的产品上限：候选窗口暂不生成，建议先咨询睡眠或医疗专业人士，或进行专业评估。'
+  )).toBeVisible()
+  // W2 还没有滴定：既没有滴定卡，也不应出现“已暂停”的说法。
+  await expect(panel.getByRole('heading', { name: '每周滴定' })).toHaveCount(0)
+  await expect(panel.getByText(/睡眠限制：暂停/)).toHaveCount(0)
+})
+
 test('starting the course opens the baseline week and survives a reload', async ({ page }) => {
   await openAt(page, '2026-11-01T09:00:00')
   const panel = coursePanel(page)
