@@ -222,7 +222,20 @@ export function evaluateNight(entry: SleepDiaryEntry): NightAssessment {
   let totalSleep: Metric<number> = unavailable('missing-input')
   let sleepEfficiency: Metric<number> = unavailable('missing-input')
 
-  if (problems.length > 0) {
+  // 已知部分（缺失或区间字段按 0 计）已经超过卧床时间时，无论其余字段是否齐全都要求修正。
+  const knownComponentMinutes = (latency ?? 0)
+    + (waso.status === 'minutes' ? waso.value : 0)
+    + (terminalAwake.status === 'available' ? terminalAwake.value : 0)
+
+  if (timeInBed.status === 'available' && knownComponentMinutes > timeInBed.value) {
+    problems.push({
+      kind: 'night-components-exceed-time-in-bed',
+      timeInBedMinutes: timeInBed.value,
+      componentMinutes: knownComponentMinutes
+    })
+    totalSleep = unavailable('invalid-input')
+    sleepEfficiency = unavailable('invalid-input')
+  } else if (problems.length > 0) {
     totalSleep = unavailable('invalid-input')
     sleepEfficiency = unavailable('invalid-input')
   } else if (timeInBed.status === 'available' && terminalAwake.status === 'available' && latency !== undefined) {
@@ -230,20 +243,9 @@ export function evaluateNight(entry: SleepDiaryEntry): NightAssessment {
       totalSleep = unavailable('approximate-input')
       sleepEfficiency = unavailable('approximate-input')
     } else if (waso.status === 'minutes') {
-      const componentMinutes = latency + waso.value + terminalAwake.value
-      if (componentMinutes > timeInBed.value) {
-        problems.push({
-          kind: 'night-components-exceed-time-in-bed',
-          timeInBedMinutes: timeInBed.value,
-          componentMinutes
-        })
-        totalSleep = unavailable('invalid-input')
-        sleepEfficiency = unavailable('invalid-input')
-      } else {
-        const totalSleepMinutes = timeInBed.value - componentMinutes
-        totalSleep = available(totalSleepMinutes)
-        sleepEfficiency = available(roundToTenth((totalSleepMinutes / timeInBed.value) * 100))
-      }
+      const totalSleepMinutes = timeInBed.value - knownComponentMinutes
+      totalSleep = available(totalSleepMinutes)
+      sleepEfficiency = available(roundToTenth((totalSleepMinutes / timeInBed.value) * 100))
     }
   }
 

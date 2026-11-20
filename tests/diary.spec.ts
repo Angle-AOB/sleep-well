@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { evaluateNight, isCompleteNight, type SleepDiaryEntry } from '../src/domain/diary'
+
+async function openDiary(page: Page) {
+  // 固定本地日期，避免测试依赖真实系统时钟、在本地午夜边界上失败。
+  await page.clock.setFixedTime(new Date(2026, 10, 20, 8, 0, 0))
+  await page.goto('/')
+}
 
 function entry(overrides: Partial<SleepDiaryEntry> = {}): SleepDiaryEntry {
   return {
@@ -86,6 +93,7 @@ test('a range WASO is reported as approximate instead of being turned into exact
     waso: { kind: 'range', range: '15-to-30' }
   }))
 
+  expect(assessment.problems).toEqual([])
   expect(assessment.totalSleep).toEqual({ status: 'unavailable', reason: 'approximate-input' })
   expect(assessment.sleepEfficiency).toEqual({ status: 'unavailable', reason: 'approximate-input' })
   expect(assessment.complete).toBe(false)
@@ -153,6 +161,20 @@ test('a morning lights-off later than the final wake is an ordering contradictio
   expect(assessment.complete).toBe(false)
 })
 
+test('known components longer than time in bed are rejected even when WASO is unknown', () => {
+  const assessment = evaluateNight(entry({
+    lightsOffTime: '23:00',
+    sleepOnsetLatencyMinutes: 240,
+    finalWakeTime: '00:30',
+    outOfBedTime: '01:00',
+    waso: { kind: 'unknown' }
+  }))
+
+  expect(assessment.timeInBed).toEqual({ status: 'available', value: 120 })
+  expect(assessment.problems.map((problem) => problem.kind)).toContain('night-components-exceed-time-in-bed')
+  expect(assessment.totalSleep).toEqual({ status: 'unavailable', reason: 'invalid-input' })
+})
+
 test('components longer than time in bed are rejected instead of being clamped', () => {
   const assessment = evaluateNight(entry({
     lightsOffTime: '00:30',
@@ -205,7 +227,7 @@ test('a complete night needs every necessary field, not just valid times', () =>
 })
 
 test('a saved complete night shows TIB, TST and SE and survives reload', async ({ page }) => {
-  await page.goto('/')
+  await openDiary(page)
   await expect(page.getByRole('heading', { name: '晨间睡眠日记' })).toBeVisible()
 
   const date = await page.locator('#diary-date').inputValue()
@@ -239,7 +261,7 @@ test('a saved complete night shows TIB, TST and SE and survives reload', async (
 })
 
 test('a partial diary saves first and can be completed later', async ({ page }) => {
-  await page.goto('/')
+  await openDiary(page)
 
   await page.locator('#lights-off').fill('23:00')
   await page.locator('#out-of-bed').fill('07:00')
@@ -271,7 +293,7 @@ test('a partial diary saves first and can be completed later', async ({ page }) 
 })
 
 test('unknown WASO is shown as not computable rather than zero', async ({ page }) => {
-  await page.goto('/')
+  await openDiary(page)
 
   await page.locator('#lights-off').fill('23:30')
   await page.locator('#sleep-onset').fill('25')
@@ -289,7 +311,7 @@ test('unknown WASO is shown as not computable rather than zero', async ({ page }
 })
 
 test('a range WASO is reported as approximate instead of exact minutes', async ({ page }) => {
-  await page.goto('/')
+  await openDiary(page)
 
   await page.locator('#lights-off').fill('23:30')
   await page.locator('#sleep-onset').fill('25')
@@ -303,7 +325,7 @@ test('a range WASO is reported as approximate instead of exact minutes', async (
 })
 
 test('contradictory times must be corrected before the diary is saved', async ({ page }) => {
-  await page.goto('/')
+  await openDiary(page)
 
   await page.locator('#lights-off').fill('23:00')
   await page.locator('#sleep-onset').fill('30')
@@ -320,7 +342,7 @@ test('contradictory times must be corrected before the diary is saved', async ({
 })
 
 test('selecting exact WASO minutes without a value asks for correction instead of saving unknown', async ({ page }) => {
-  await page.goto('/')
+  await openDiary(page)
 
   await page.locator('#lights-off').fill('23:30')
   await page.locator('#sleep-onset').fill('25')
@@ -331,4 +353,26 @@ test('selecting exact WASO minutes without a value asks for correction instead o
   await expect(page.getByText('选择“精确分钟”后需要填写具体分钟数。')).toBeVisible()
   await page.getByRole('button', { name: '保存日记' }).click()
   await expect(page.getByText('日记已保存在此设备')).toHaveCount(0)
+})
+
+test('a future date cannot be saved as a night', async ({ page }) => {
+  await openDiary(page)
+
+  await page.locator('#diary-date').fill('2026-11-25')
+  await page.locator('#lights-off').fill('23:00')
+  await page.locator('#out-of-bed').fill('07:00')
+
+  await expect(page.getByText('记录日期不能晚于今天，请选择今天或更早的一夜。')).toBeVisible()
+  await page.getByRole('button', { name: '保存日记' }).click()
+  await expect(page.getByText('日记已保存在此设备')).toHaveCount(0)
+})
+
+test('without local storage the diary says nothing will be saved', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(2026, 10, 20, 8, 0, 0))
+  await page.addInitScript(() => {
+    Reflect.deleteProperty(window, 'indexedDB')
+  })
+  await page.goto('/')
+
+  await expect(page.getByText('此浏览器无法使用本地存储，日记不会保存。')).toBeVisible()
 })

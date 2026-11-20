@@ -48,6 +48,7 @@ const emptyForm = (): DiaryFormState => ({
 })
 
 const diaryTags: DiaryTag[] = ['caffeine', 'alcohol', 'nap', 'exercise']
+const recentEntryLimit = 7
 
 const tagLabelKeys: Record<DiaryTag, string> = {
   caffeine: 'diaryTagCaffeine',
@@ -95,7 +96,8 @@ function optionalNumber(value: string): number | undefined {
   return Number.isNaN(parsed) ? undefined : parsed
 }
 
-function wasoFromForm(form: DiaryFormState): WasoEstimate {
+// 返回 null 表示选择了“精确分钟”却没填数值；调用方必须阻止保存，不能悄悄改成未知。
+function wasoFromForm(form: DiaryFormState): WasoEstimate | null {
   switch (form.wasoChoice) {
     case 'unknown':
       return { kind: 'unknown' }
@@ -103,7 +105,7 @@ function wasoFromForm(form: DiaryFormState): WasoEstimate {
       return { kind: 'none-remembered' }
     case 'minutes': {
       const minutes = optionalNumber(form.wasoMinutes)
-      return minutes === undefined ? { kind: 'unknown' } : { kind: 'minutes', minutes }
+      return minutes === undefined ? null : { kind: 'minutes', minutes }
     }
     default:
       return { kind: 'range', range: form.wasoChoice }
@@ -130,8 +132,7 @@ function formFromEntry(entry: SleepDiaryEntry | null): DiaryFormState {
   }
 }
 
-function entryFromForm(date: LocalDate, form: DiaryFormState, existing?: SleepDiaryEntry): SleepDiaryEntry {
-  const timestamp = new Date().toISOString()
+function draftFromForm(date: LocalDate, form: DiaryFormState): SleepDiaryEntry {
   return {
     date,
     lightsOffTime: form.lightsOffTime || undefined,
@@ -139,11 +140,11 @@ function entryFromForm(date: LocalDate, form: DiaryFormState, existing?: SleepDi
     finalWakeTime: form.finalWakeTime || undefined,
     outOfBedTime: form.outOfBedTime || undefined,
     nightWakes: form.nightWakes,
-    waso: wasoFromForm(form),
+    waso: wasoFromForm(form) ?? { kind: 'unknown' },
     sleepQuality: form.sleepQuality === '' ? undefined : (Number(form.sleepQuality) as SleepQuality),
     tags: form.tags,
-    recordedAt: existing?.recordedAt ?? timestamp,
-    updatedAt: timestamp
+    recordedAt: '',
+    updatedAt: ''
   }
 }
 
@@ -220,9 +221,12 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
   }, [storageUnavailable, today])
 
   const savedEntry = findEntry(entries, selectedDate)
-  const assessment = evaluateNight(entryFromForm(selectedDate, form, savedEntry))
+  const draft = draftFromForm(selectedDate, form)
+  const assessment = evaluateNight(draft)
   const problems = assessment.problems
-  const wasoMinutesMissing = form.wasoChoice === 'minutes' && optionalNumber(form.wasoMinutes) === undefined
+  const wasoMinutesMissing = wasoFromForm(form) === null
+  const futureDate = selectedDate > today
+  const blocked = problems.length > 0 || wasoMinutesMissing || futureDate
 
   function update(changes: Partial<DiaryFormState>) {
     setForm((current) => ({ ...current, ...changes }))
@@ -242,14 +246,19 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (problems.length > 0 || wasoMinutesMissing) {
+    if (blocked) {
       setFeedback('invalid')
       return
     }
 
     setSaving(true)
     try {
-      const entry = entryFromForm(selectedDate, form, savedEntry)
+      const timestamp = new Date().toISOString()
+      const entry: SleepDiaryEntry = {
+        ...draft,
+        recordedAt: savedEntry?.recordedAt ?? timestamp,
+        updatedAt: timestamp
+      }
       await writeDiaryEntry(entry)
       const loaded = await readDiaryEntries()
       setEntries(loaded)
@@ -430,7 +439,7 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
               <p className="field-hint">{t('diaryMetricsNote')}</p>
             </section>
 
-            {(problems.length > 0 || wasoMinutesMissing) && (
+            {blocked && (
               <div className="diary-alert" role="alert">
                 <p>{t('diaryProblemsTitle')}</p>
                 <ul>
@@ -438,6 +447,7 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
                     <li key={`${problem.kind}-${index}`}>{problemText(t, problem)}</li>
                   ))}
                   {wasoMinutesMissing && <li>{t('diaryProblemWasoMinutesMissing')}</li>}
+                  {futureDate && <li>{t('diaryProblemFutureDate')}</li>}
                 </ul>
               </div>
             )}
@@ -459,7 +469,7 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
               <p className="field-hint">{t('diaryEmpty')}</p>
             ) : (
               <ul>
-                {entries.slice(0, 7).map((entry) => {
+                {entries.slice(0, recentEntryLimit).map((entry) => {
                   const entryAssessment = evaluateNight(entry)
                   return (
                     <li key={entry.date}>

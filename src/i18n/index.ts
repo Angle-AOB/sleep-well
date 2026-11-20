@@ -263,10 +263,11 @@ const resources = {
       diaryPartial: '部分记录',
       diaryProblemsTitle: '这些输入需要修正后才能保存：',
       diaryProblemFinalWakeAfterOutOfBed: '最终醒来时间晚于起床时间，请修正。',
-      diaryProblemComponentsExceed: 'SOL、WASO 与终末清醒合计 {{components}}，超过卧床时间 {{timeInBed}}，请检查时间与估计值。',
+      diaryProblemComponentsExceed: 'SOL、WASO 与终末清醒的已知部分合计 {{components}}，超过卧床时间 {{timeInBed}}，请检查时间与估计值。',
       diaryProblemInvalidLatency: '入睡潜伏期请输入 0 或更大的整数分钟。',
       diaryProblemInvalidWaso: 'WASO 分钟数请输入 0 或更大的整数分钟。',
       diaryProblemWasoMinutesMissing: '选择“精确分钟”后需要填写具体分钟数。',
+      diaryProblemFutureDate: '记录日期不能晚于今天，请选择今天或更早的一夜。',
       diaryProblemInvalidTime: '时间格式无效，请重新填写。',
       diaryProblemLightsOffAfterWake: '关灯时间在早晨却晚于最终醒来时间，请检查是否填错了时间。',
       diaryProblemEmptyTimeInBed: '关灯时间与起床时间相同，无法形成卧床时间，请修正。'
