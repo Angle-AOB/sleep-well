@@ -37,3 +37,29 @@ test('turning reminders off suppresses them no matter how much history exists', 
 
   expect(decision).toEqual({ remind: false })
 })
+
+test('the weekly cap keeps the reminder quiet for six days', () => {
+  const decision = evaluateBackupReminder({
+    entries: [night('2026-11-01'), night('2026-11-02'), night('2026-11-03')],
+    preferences: {
+      backupReminders: true,
+      lastBackupReminderOn: '2026-11-14'
+    },
+    today: '2026-11-20'
+  })
+
+  expect(decision).toEqual({ remind: false })
+})
+
+test('after seven days the reminder returns, still capped at one per week', () => {
+  const decision = evaluateBackupReminder({
+    entries: [night('2026-11-01'), night('2026-11-02'), night('2026-11-03')],
+    preferences: {
+      backupReminders: true,
+      lastBackupReminderOn: '2026-11-13'
+    },
+    today: '2026-11-20'
+  })
+
+  expect(decision).toEqual({ remind: true, kind: 'weekly', entryCount: 3 })
+})
