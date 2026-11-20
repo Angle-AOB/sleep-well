@@ -7,10 +7,7 @@ import {
   isClockTime,
   medianOutOfBedTime,
   MINIMUM_COMPLETE_NIGHTS,
-  SE_DECREASE_THRESHOLD,
-  SE_INCREASE_THRESHOLD,
   startCourse,
-  TITRATION_STEP_MINUTES,
   WINDOW_AUTOMATION_LIMIT_MINUTES,
   WINDOW_FLOOR_MINUTES,
   withTitrationDeferral,
@@ -19,7 +16,7 @@ import {
   type CourseProgress,
   type CourseState,
   type CourseWeek,
-  type TitrationView,
+  type RestrictionStatus,
   type WindowView,
   type WorkPattern
 } from '../domain/course'
@@ -28,6 +25,7 @@ import type { ScreeningRecord } from '../domain/screening'
 import { readCourse, writeCourse } from '../data/course'
 import { readDiaryEntries } from '../data/diary'
 import { durationText, efficiencyText, localToday } from '../format'
+import { titrationBody } from '../titrationText'
 
 type CoursePanelProps = {
   storageUnavailable: boolean
@@ -110,68 +108,26 @@ function windowUnavailableBody(
   }
 }
 
-/** 滴定卡文案；导出供展示层测试直接断言数字与判决一致。 */
-export function titrationBody(t: TFunction, view: TitrationView): string {
-  const floorHours = WINDOW_FLOOR_MINUTES / 60
-  const limitHours = WINDOW_AUTOMATION_LIMIT_MINUTES / 60
-  const increaseThreshold = SE_INCREASE_THRESHOLD
-  const decreaseThreshold = SE_DECREASE_THRESHOLD
-  const stepMinutes = TITRATION_STEP_MINUTES
+const restrictionStatusKeys: Record<RestrictionStatus, string> = {
+  'not-started': 'restrictionStatusNotStarted',
+  preview: 'restrictionStatusPreview',
+  active: 'restrictionStatusActive',
+  paused: 'restrictionStatusPaused',
+  'awaiting-window': 'restrictionStatusAwaitingWindow'
+}
 
-  switch (view.status) {
-    case 'not-applicable':
-      return ''
-    case 'scheduled':
-      return t('titrationScheduled', { week: view.nextWeek })
-    case 'consolidation':
-      return t('titrationConsolidation')
-    case 'insufficient-data':
-      return t('titrationInsufficient', { complete: view.completeNights, required: view.required })
-    case 'deferred':
-      return t('titrationDeferred', { duration: durationText(t, view.durationMinutes) })
-    case 'paused':
-      return view.reason === 'screening' ? t('titrationPausedScreening') : t('titrationPausedShift')
-    case 'adjusted': {
-      const values = {
-        nights: view.change.basis.completeNights,
-        se: efficiencyText(view.change.basis.averageSleepEfficiency),
-        from: durationText(t, view.change.previousMinutes),
-        to: durationText(t, view.change.durationMinutes),
-        increaseThreshold,
-        decreaseThreshold,
-        stepMinutes
-      }
-      return view.change.rule === 'increase' ? t('titrationIncreased', values) : t('titrationDecreased', values)
+/** 睡眠限制状态行；暂停时同时说明原因，让 A15 的暂停语义对用户可见。 */
+function restrictionText(t: TFunction, restriction: RestrictionStatus, window: WindowView): string {
+  if (restriction === 'paused') {
+    if (window.status === 'unavailable') {
+      if (window.reason === 'screening-paused') return t('restrictionPausedScreening')
+      if (window.reason === 'shift-work-paused') return t('restrictionPausedShift')
+      if (window.reason === 'window-over-ten-hours') return t('restrictionPausedReview')
     }
-    case 'kept':
-      return view.reason === 'in-band'
-        ? t('titrationKeptInBand', {
-          nights: view.basis.completeNights,
-          se: efficiencyText(view.basis.averageSleepEfficiency),
-          duration: durationText(t, view.durationMinutes),
-          increaseThreshold,
-          decreaseThreshold
-        })
-        : t('titrationKeptFloor', {
-          nights: view.basis.completeNights,
-          se: efficiencyText(view.basis.averageSleepEfficiency),
-          floorHours,
-          decreaseThreshold
-        })
-    case 'review':
-      return view.basis
-        ? t('titrationReview', {
-          nights: view.basis.completeNights,
-          se: efficiencyText(view.basis.averageSleepEfficiency),
-          proposed: durationText(t, view.proposedMinutes),
-          limitHours,
-          increaseThreshold
-        })
-        : t('titrationReviewCalibration', {
-          proposed: durationText(t, view.proposedMinutes),
-          limitHours
-        })
+    return t('restrictionStatusLabel', { status: t('restrictionStatusPaused') })
   }
+
+  return t('restrictionStatusLabel', { status: t(restrictionStatusKeys[restriction]) })
 }
 
 export function CoursePanel({ storageUnavailable, screening, diaryRevision, initialWakeTime }: CoursePanelProps) {
@@ -462,6 +418,13 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
                 </span>
               )}
             </div>
+
+            <p
+              className={`restriction-status ${assessment.restriction === 'paused' ? 'is-paused' : ''}`}
+              role="status"
+            >
+              {restrictionText(t, assessment.restriction, windowView)}
+            </p>
 
             {windowView.status === 'unavailable' ? (
               <p className={`course-card-copy ${windowWarning ? 'is-warning' : ''}`}>

@@ -99,6 +99,7 @@ test('W2 previews the baseline window, defers a wake-time change, and W3 activat
   await expect(panel.getByText('第 2 周 · 第 1 天')).toBeVisible()
   await expect(panel.getByRole('heading', { name: '候选睡眠窗口' })).toBeVisible()
   await expect(panel.getByText('预览', { exact: true })).toBeVisible()
+  await expect(panel.getByText('睡眠限制：预览')).toBeVisible()
   // W2 仍未进入刺激控制。
   await expect(panel.getByRole('heading', { name: '刺激控制' })).toHaveCount(0)
   await expect(panel.getByText('00:00', { exact: true })).toBeVisible()
@@ -145,6 +146,7 @@ test('shift work keeps the course and diary available while pausing automatic wi
   await panel.getByRole('radio', { name: '轮班/倒班' }).check()
 
   await expect(panel.getByText('轮班/倒班作息不进入自动睡眠限制，因此不会生成睡眠窗口。')).toBeVisible()
+  await expect(panel.getByText('睡眠限制：暂停（轮班/倒班作息）')).toBeVisible()
   await expect(panel.getByText('窗口长度', { exact: false })).toHaveCount(0)
   await expect(panel.getByRole('heading', { name: '第 2 周 · 锚定固定起床时间' })).toBeVisible()
   await expect(diaryPanel(page)).toBeVisible()
@@ -170,6 +172,7 @@ test('a screening that needs review blocks the automatic window without blocking
 
   const panel = coursePanel(page)
   await expect(panel.getByText('安全筛查提示需要专业评估，自动睡眠窗口已暂停。仍可记录日记和查看训练内容。')).toBeVisible()
+  await expect(panel.getByText('睡眠限制：暂停（安全筛查提示需要专业评估）')).toBeVisible()
   await expect(panel.getByText('窗口长度', { exact: false })).toHaveCount(0)
   await expect(panel.getByText('睡前 8 小时：15:00 前停止摄入咖啡因。')).toBeVisible()
   await expect(panel.getByText('按最近 7 夜入睡时间的中位数倒推 8 小时')).toBeVisible()
@@ -216,6 +219,7 @@ test('W4 explains the weekly adjustment, teaches stimulus control, and can defer
   await expect(panel.getByText('第 4 周 · 第 1 天')).toBeVisible()
   await expect(panel.getByText('窗口长度 8 小时 15 分钟')).toBeVisible()
   await expect(panel.getByText('22:45', { exact: true })).toBeVisible()
+  await expect(panel.getByText('睡眠限制：进行中')).toBeVisible()
   // W4 的窗口校准仍来自第 2 周锚定周，而不是“最近 7 夜”的滑动窗口。
   await expect(panel.getByText('依据第 2 周锚定周中的 4 个完整夜：平均 TST 7 小时 30 分钟，平均 TIB 8 小时。')).toBeVisible()
   await expect(panel.getByText(

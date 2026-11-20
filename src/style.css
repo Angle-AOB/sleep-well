@@ -125,6 +125,8 @@ input[type="radio"], input[type="checkbox"] { width: 20px; height: 20px; accent-
 .window-badge { padding: 3px 8px; border: 1px solid currentColor; font-size: 10px; letter-spacing: .08em; white-space: nowrap; }
 .window-badge.is-preview { color: #8a6b52; }.window-badge.is-active { color: #47765f; }
 .window-range { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 4px; color: #213630; font-family: Georgia, "Times New Roman", serif; font-size: 34px; }
+.restriction-status { margin: 8px 0 12px; padding: 8px 12px; color: #344d45; background: #eef4ef; border-left: 3px solid #9bb9a9; font-size: 12px; line-height: 1.6; }
+.restriction-status.is-paused { color: #8a3d2b; background: #f7e9e3; border-left-color: #ba6e4f; }
 .window-duration { margin: 0 0 14px; color: #66736e; font-size: 12px; }
 .window-adjustments { margin: 0 0 14px; padding: 12px 14px; background: #eef4ef; border-left: 3px solid #9bb9a9; }
 .window-adjustments h4 { margin: 0 0 8px; color: #52635c; font-size: 11px; font-weight: 800; letter-spacing: .08em; }

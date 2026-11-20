@@ -482,15 +482,11 @@ function resolveTitration(options: {
   baselineEnd: number
   baseMinutes: number
   deferred: CourseWeek[]
-  paused: 'screening' | 'shift-work' | null
 }): TitrationResolution {
-  const { entries, week, baselineEnd, baseMinutes, deferred, paused } = options
+  const { entries, week, baselineEnd, baseMinutes, deferred } = options
 
   if (week < 3) {
     return { adjustments: [], durationMinutes: baseMinutes, view: { status: 'not-applicable' } }
-  }
-  if (paused) {
-    return { adjustments: [], durationMinutes: baseMinutes, view: { status: 'paused', reason: paused } }
   }
   if (week === 3) {
     return { adjustments: [], durationMinutes: baseMinutes, view: { status: 'scheduled', nextWeek: 4 } }
@@ -837,8 +833,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
       week: progress.week,
       baselineEnd: baselineEnd!,
       baseMinutes: chosen.calibration.durationMinutes,
-      deferred: deferredWeeks(state),
-      paused: null
+      deferred: deferredWeeks(state)
     })
     if (resolution.view.status === 'review') {
       // 规则提议的新窗口超过 10 小时：按 #5 的语义暂停窗口，而不是保留一个

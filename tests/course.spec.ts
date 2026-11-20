@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import i18n from '../src/i18n'
-import { titrationBody } from '../src/components/CoursePanel'
+import { titrationBody } from '../src/titrationText'
 import type { SleepDiaryEntry } from '../src/domain/diary'
 import { assessScreening, type ScreeningResult } from '../src/domain/screening'
 import {
