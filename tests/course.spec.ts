@@ -579,7 +579,7 @@ test('fewer than four complete nights keeps the window and reports the data gap'
 })
 
 test('a deferred weekly review keeps the previous window for that week', () => {
-  const deferred = withTitrationDeferral(confirmedWake(), 4)
+  const deferred = withTitrationDeferral(confirmedWake(), 4, [], '2026-11-22')
   const result = assess({ state: deferred, entries: withAnchorWeek(fourthWeekNights(36)), today: '2026-11-22' })
 
   expect(result.window).toMatchObject({ status: 'available', durationMinutes: 480, adjustments: [] })
@@ -587,7 +587,7 @@ test('a deferred weekly review keeps the previous window for that week', () => {
 })
 
 test('deferring one week does not block the next week review', () => {
-  const deferred = withTitrationDeferral(confirmedWake(), 4)
+  const deferred = withTitrationDeferral(confirmedWake(), 4, [], '2026-11-22')
   const result = assess({
     state: deferred,
     entries: withAnchorWeek([...fourthWeekNights(36), ...fifthWeekNights(36)]),
@@ -600,6 +600,15 @@ test('deferring one week does not block the next week review', () => {
     adjustments: [{ week: 5, rule: 'increase', previousMinutes: 480, durationMinutes: 495 }]
   })
   expect(result.titration).toMatchObject({ status: 'adjusted', change: { week: 5 } })
+})
+
+test('the domain refuses to defer a titration week that has already started', () => {
+  const state = confirmedWake()
+  const started = withTitrationDeferral(state, 4, [night('2026-11-22', { latency: 36 })], '2026-11-22')
+
+  // 已开始执行后再推迟会回溯已按新窗口执行的天数，因此领域层直接拒绝且不写入。
+  expect(started).toBe(state)
+  expect(started.deferredTitrations ?? []).not.toContain(4)
 })
 
 test('a screening pause stops automatic titration without ending the course', () => {

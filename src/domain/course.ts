@@ -666,8 +666,29 @@ function deferredWeeks(state: CourseState): CourseWeek[] {
   return state.deferredTitrations ?? []
 }
 
-/** 推迟某一周的窗口调整；同一周只记录一次，窗口保持上一周的长度。 */
-export function withTitrationDeferral(state: CourseState, week: CourseWeek): CourseState {
+/** 该周是否已经留下日记；只有尚未开始执行的一周才允许推迟。 */
+function weekHasStarted(entries: SleepDiaryEntry[], weekStartsOn: LocalDate): boolean {
+  const startDay = dayNumber(weekStartsOn)
+  if (startDay === null) return true
+  return entries.some((entry) => {
+    const day = dayNumber(entry.date)
+    return day !== null && day >= startDay
+  })
+}
+
+/**
+ * 推迟某一周的窗口调整；同一周只记录一次，窗口保持上一周的长度。
+ * 本周一旦已有日记（已开始执行），推迟会把已按新窗口执行的天数回溯成旧窗口，
+ * 因此领域层直接返回原状态，界面层的 `canDeferTitration` 只是展示依据。
+ */
+export function withTitrationDeferral(
+  state: CourseState,
+  week: CourseWeek,
+  entries: SleepDiaryEntry[],
+  weekStartsOn: LocalDate
+): CourseState {
+  if (weekHasStarted(entries, weekStartsOn)) return state
+
   const deferred = deferredWeeks(state)
   return deferred.includes(week)
     ? state
@@ -847,12 +868,6 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     }
   }
 
-  const weekStartDay = dayNumber(progress.weekStartsOn)
-  const weekStarted = weekStartDay !== null && entries.some((entry) => {
-    const day = dayNumber(entry.date)
-    return day !== null && day >= weekStartDay
-  })
-
   return {
     started: true,
     progress,
@@ -862,6 +877,8 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     titration,
     caffeine: caffeineAdvice(window, progress.week, entries, today),
     recentCompleteNights,
-    canDeferTitration: titration.status === 'adjusted' && !progress.completed && !weekStarted
+    canDeferTitration: titration.status === 'adjusted'
+      && !progress.completed
+      && !weekHasStarted(entries, progress.weekStartsOn)
   }
 }

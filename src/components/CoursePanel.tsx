@@ -251,7 +251,12 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
 
   async function deferTitration() {
     if (!course || !assessment.progress) return
-    await persist(withTitrationDeferral(course, assessment.progress.week))
+    await persist(withTitrationDeferral(
+      course,
+      assessment.progress.week,
+      entries,
+      assessment.progress.weekStartsOn
+    ))
   }
 
   const heading = (
