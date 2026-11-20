@@ -104,6 +104,9 @@ export type WindowView =
 
 export type RestrictionStatus = 'not-started' | 'preview' | 'active' | 'paused' | 'awaiting-window'
 
+/** 睡眠限制暂停的原因；与窗口不可用的原因一一对应，供界面直接选文案。 */
+export type RestrictionPauseReason = 'screening' | 'shift-work' | 'window-limit'
+
 /** 滴定的数据依据：先算每夜 SE，再取算术平均；不是总 TST ÷ 总 TIB。 */
 export type TitrationBasis = {
   completeNights: number
@@ -159,6 +162,8 @@ export type CourseAssessment = {
   wakeTime: WakeTimeView
   window: WindowView
   restriction: RestrictionStatus
+  /** 仅当 restriction 为 paused 时给出原因；界面据此选择说明，不再自行推断。 */
+  restrictionPausedBy: RestrictionPauseReason | null
   titration: TitrationView
   caffeine: CaffeineAdvice | null
   /** 近 7 夜的完整夜数量，用于显示基线进度。 */
@@ -482,6 +487,14 @@ type TitrationResolution = {
 }
 
 /**
+ * W3 只启动限制并预告 W4 的第一次回顾；W3 之前没有滴定。
+ * 未生成窗口的分支也用它，避免“W3 → scheduled”在两处各写一遍。
+ */
+function firstTitrationView(week: CourseWeek): TitrationView {
+  return week === 3 ? { status: 'scheduled', nextWeek: 4 } : { status: 'not-applicable' }
+}
+
+/**
  * 窗口时长从 W3 的校准值出发，按周链式叠加 W4、W5 的调整；每周只回顾一次，
  * 且只看该周开始前的 7 夜。推迟、数据不足、风险暂停都会跳过当周调整而不清空
  * 之前的调整，因此窗口始终等于“校准值 + 已生效的周调整”。
@@ -495,11 +508,8 @@ function resolveTitration(options: {
 }): TitrationResolution {
   const { entries, week, baselineEnd, baseMinutes, deferred } = options
 
-  if (week < 3) {
-    return { adjustments: [], durationMinutes: baseMinutes, view: { status: 'not-applicable' } }
-  }
-  if (week === 3) {
-    return { adjustments: [], durationMinutes: baseMinutes, view: { status: 'scheduled', nextWeek: 4 } }
+  if (week <= 3) {
+    return { adjustments: [], durationMinutes: baseMinutes, view: firstTitrationView(week) }
   }
 
   const adjustments: WindowAdjustment[] = []
@@ -743,6 +753,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     wakeTime: { effective: null, pending: null, suggestion: null },
     window: unavailable('course-not-started', 0),
     restriction: 'not-started',
+    restrictionPausedBy: null,
     titration: { status: 'not-applicable' },
     caffeine: null,
     recentCompleteNights: 0,
@@ -768,6 +779,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
       wakeTime,
       window: unavailable(insufficient ? 'insufficient-data' : 'baseline-in-progress', recentCompleteNights),
       restriction: 'not-started',
+      restrictionPausedBy: null,
       titration: { status: 'not-applicable' },
       caffeine: null,
       recentCompleteNights,
@@ -807,14 +819,14 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
       : null
   let window: WindowView
   let restriction: RestrictionStatus
+  let restrictionPausedBy: RestrictionPauseReason | null = null
   let titration: TitrationView
-  const firstTitration: TitrationView = progress.week === 3
-    ? { status: 'scheduled', nextWeek: 4 }
-    : { status: 'not-applicable' }
+  const firstTitration = firstTitrationView(progress.week)
 
   if (gated) {
     window = unavailable(gated, calibrationNights)
     restriction = 'paused'
+    restrictionPausedBy = pauseReason
     titration = progress.week >= 3 && pauseReason
       ? { status: 'paused', reason: pauseReason }
       : { status: 'not-applicable' }
@@ -828,8 +840,9 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
       proposedMinutes: needsReview.proposedMinutes
     }
     restriction = candidate ? 'preview' : 'paused'
+    restrictionPausedBy = candidate ? null : 'window-limit'
     titration = candidate
-      ? { status: 'not-applicable' }
+      ? firstTitration
       : { status: 'review', proposedMinutes: needsReview.proposedMinutes, basis: null }
   } else if (!wakeTime.effective) {
     window = unavailable('wake-time-not-set', calibrationNights)
@@ -859,6 +872,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
         proposedMinutes: resolution.view.proposedMinutes
       }
       restriction = 'paused'
+      restrictionPausedBy = 'window-limit'
       titration = resolution.view
     } else {
       window = {
@@ -883,6 +897,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     wakeTime,
     window,
     restriction,
+    restrictionPausedBy,
     titration,
     caffeine: caffeineAdvice(window, progress.week, entries, today),
     recentCompleteNights,

@@ -18,6 +18,7 @@ import {
   type CourseProgress,
   type CourseState,
   type CourseWeek,
+  type RestrictionPauseReason,
   type RestrictionStatus,
   type WindowView,
   type WorkPattern
@@ -124,18 +125,22 @@ const restrictionStatusKeys: Record<RestrictionStatus, string> = {
   'awaiting-window': 'restrictionStatusAwaitingWindow'
 }
 
-/** 睡眠限制状态行；暂停时同时说明原因，让 A15 的暂停语义对用户可见。 */
-function restrictionText(t: TFunction, restriction: RestrictionStatus, window: WindowView): string {
-  if (restriction === 'paused') {
-    if (window.status === 'unavailable') {
-      if (window.reason === 'screening-paused') return t('restrictionPausedScreening')
-      if (window.reason === 'shift-work-paused') return t('restrictionPausedShift')
-      if (window.reason === 'window-over-ten-hours') return t('restrictionPausedReview')
-    }
-    return t('restrictionStatusLabel', { status: t('restrictionStatusPaused') })
+/** 睡眠限制状态行；暂停原因由领域层给出，这里只选对应文案，不做推断。 */
+function restrictionText(
+  t: TFunction,
+  restriction: RestrictionStatus,
+  pausedBy: RestrictionPauseReason | null
+): string {
+  switch (pausedBy) {
+    case 'screening':
+      return t('restrictionPausedScreening')
+    case 'shift-work':
+      return t('restrictionPausedShift')
+    case 'window-limit':
+      return t('restrictionPausedReview')
+    case null:
+      return t('restrictionStatusLabel', { status: t(restrictionStatusKeys[restriction]) })
   }
-
-  return t('restrictionStatusLabel', { status: t(restrictionStatusKeys[restriction]) })
 }
 
 export function CoursePanel({ storageUnavailable, screening, diaryRevision, initialWakeTime }: CoursePanelProps) {
@@ -435,7 +440,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
               className={`restriction-status ${assessment.restriction === 'paused' ? 'is-paused' : ''}`}
               role="status"
             >
-              {restrictionText(t, assessment.restriction, windowView)}
+              {restrictionText(t, assessment.restriction, assessment.restrictionPausedBy)}
             </p>
 
             {windowView.status === 'unavailable' ? (

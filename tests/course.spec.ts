@@ -898,3 +898,22 @@ test('a W3 pause says restriction and titration are paused without implying titr
   expect(text).not.toContain('自动滴定已暂停')
   expect(text).toContain('专业评估')
 })
+
+test('the domain names why restriction is paused instead of letting the interface infer it', () => {
+  const candidate = assess({
+    state: confirmedWake(),
+    entries: nights(['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04'], { timeInBed: 660, totalSleep: 600 }),
+    today: '2026-11-10'
+  })
+  const blocked = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(),
+    today: '2026-11-15',
+    screening: needsReview
+  })
+
+  expect(candidate.restriction).toBe('preview')
+  expect(candidate.restrictionPausedBy).toBeNull()
+  expect(blocked.restriction).toBe('paused')
+  expect(blocked.restrictionPausedBy).toBe('screening')
+})
