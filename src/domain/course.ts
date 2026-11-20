@@ -100,6 +100,16 @@ export type WindowView =
 
 export type RestrictionStatus = 'not-started' | 'preview' | 'active' | 'paused' | 'awaiting-window'
 
+/** 滴定的数据依据：先算每夜 SE，再取算术平均；不是总 TST ÷ 总 TIB。 */
+export type TitrationBasis = {
+  completeNights: number
+  averageSleepEfficiency: number
+}
+
+export type TitrationView =
+  | { status: 'not-applicable' }
+  | { status: 'scheduled'; nextWeek: CourseWeek }
+
 export type WakeTimeView = {
   /** 本周实际执行的固定起床时间；尚未生效时为 null。 */
   effective: string | null
@@ -121,6 +131,7 @@ export type CourseAssessment = {
   wakeTime: WakeTimeView
   window: WindowView
   restriction: RestrictionStatus
+  titration: TitrationView
   caffeine: CaffeineAdvice | null
   /** 近 7 夜的完整夜数量，用于显示基线进度。 */
   recentCompleteNights: number
@@ -471,6 +482,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     wakeTime: { effective: null, pending: null, suggestion: null },
     window: unavailable('course-not-started', 0),
     restriction: 'not-started',
+    titration: { status: 'not-applicable' },
     caffeine: null,
     recentCompleteNights: 0
   }
@@ -494,6 +506,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
       wakeTime,
       window: unavailable(insufficient ? 'insufficient-data' : 'baseline-in-progress', recentCompleteNights),
       restriction: 'not-started',
+      titration: { status: 'not-applicable' },
       caffeine: null,
       recentCompleteNights
     }
@@ -564,6 +577,7 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     wakeTime,
     window,
     restriction,
+    titration: progress.week === 3 ? { status: 'scheduled', nextWeek: 4 } : { status: 'not-applicable' },
     caffeine: caffeineAdvice(window, progress.week, entries, today),
     recentCompleteNights
   }

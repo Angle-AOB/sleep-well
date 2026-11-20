@@ -430,3 +430,24 @@ test('W3 without four complete nights holds the previewed window and flags the g
   })
   expect(result.restriction).toBe('active')
 })
+
+// ---- 每周滴定：窗口是派生的，从 W3 校准值开始按周链式 ±15 ----
+
+const anchorWeekNights = nights(['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11'], { totalSleep: 450 })
+
+/** 卧床 8 小时、终末清醒为 0 时，SE 只由入睡潜伏期决定：SE = (TIB − SOL) ÷ TIB。 */
+function nightsAtLatency(dates: string[], latency: number, timeInBed = 480): SleepDiaryEntry[] {
+  return nights(dates, { timeInBed, totalSleep: timeInBed - latency, latency })
+}
+
+function withAnchorWeek(extra: SleepDiaryEntry[] = []) {
+  return [...baselineNights, ...anchorWeekNights, ...extra]
+}
+
+test('W3 only starts restriction and announces the first weekly review in W4', () => {
+  const result = assess({ state: confirmedWake(), entries: withAnchorWeek(), today: '2026-11-15' })
+
+  expect(result.progress.week).toBe(3)
+  expect(result.window).toMatchObject({ status: 'available', durationMinutes: 480, mode: 'active' })
+  expect(result.titration).toEqual({ status: 'scheduled', nextWeek: 4 })
+})
