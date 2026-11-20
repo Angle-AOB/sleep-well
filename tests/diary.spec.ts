@@ -400,3 +400,25 @@ test('a resumed app moves to the new local date after midnight', async ({ page }
 
   await expect(page.locator('#diary-date')).toHaveValue('2026-11-21')
 })
+
+test('a resumed app keeps a backfilled past date selected after midnight', async ({ page }) => {
+  await openDiary(page)
+
+  await page.locator('#lights-off').fill('23:00')
+  await page.locator('#out-of-bed').fill('07:00')
+  await page.getByRole('button', { name: '保存日记' }).click()
+  await expect(page.getByText('日记已保存在此设备')).toBeVisible()
+
+  await page.locator('#diary-date').fill('2026-11-15')
+  await page.locator('#lights-off').fill('22:30')
+  await page.locator('#out-of-bed').fill('06:30')
+  await page.getByRole('button', { name: '保存日记' }).click()
+  await expect(page.getByText('日记已保存在此设备')).toBeVisible()
+
+  await page.clock.setFixedTime(new Date(2026, 10, 21, 7, 0, 0))
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+
+  await expect(page.locator('#diary-date')).toHaveValue('2026-11-15')
+  await expect(page.locator('#lights-off')).toHaveValue('22:30')
+  await expect(page.locator('#out-of-bed')).toHaveValue('06:30')
+})

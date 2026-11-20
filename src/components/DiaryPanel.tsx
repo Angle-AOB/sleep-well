@@ -194,8 +194,9 @@ function MetricValue({ metric, format }: { metric: Metric<number>; format: (valu
 
 export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable: boolean; onSaved?: () => void }) {
   const { t } = useTranslation()
-  const [today, setToday] = useState(localToday)
-  const [selectedDate, setSelectedDate] = useState<LocalDate>(today)
+  const [initialDate] = useState(localToday)
+  const [today, setToday] = useState(initialDate)
+  const [selectedDate, setSelectedDate] = useState<LocalDate>(initialDate)
   const [form, setForm] = useState<DiaryFormState>(emptyForm)
   const [entries, setEntries] = useState<SleepDiaryEntry[]>([])
   const [fetchState, setFetchState] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -212,7 +213,8 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
       .then((loaded) => {
         if (!active) return
         setEntries(loaded)
-        setForm(formFromEntry(findEntry(loaded, today) ?? null))
+        // 只按首次进入应用时的日期预填一次，后续本地日期变化由 syncLocalDate 处理。
+        setForm(formFromEntry(findEntry(loaded, initialDate) ?? null))
         setDirty(false)
         setFetchState('ready')
       })
@@ -220,7 +222,7 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
         if (active) setFetchState('error')
       })
     return () => { active = false }
-  }, [storageUnavailable, today])
+  }, [storageUnavailable, initialDate])
 
   useEffect(() => {
     function syncLocalDate() {
