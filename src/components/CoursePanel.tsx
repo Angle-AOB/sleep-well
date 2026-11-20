@@ -89,27 +89,28 @@ function windowUnavailableBody(
   t: TFunction,
   view: Extract<WindowView, { status: 'unavailable' }>,
   hasScreening: boolean,
-  candidateOnly: boolean
+  restriction: RestrictionStatus
 ): string {
+  // “W2 = 候选”由领域层通过 restriction 给出，界面不再按周次自己推断。
+  const preview = restriction === 'preview'
+  const limitHours = WINDOW_AUTOMATION_LIMIT_MINUTES / 60
+
   switch (view.reason) {
     case 'baseline-in-progress':
       return t('windowBaseline')
     case 'insufficient-data':
       return t('windowDataInsufficient', { required: MINIMUM_COMPLETE_NIGHTS })
     case 'screening-paused':
-      return hasScreening ? t('windowScreeningPaused') : t('windowScreeningPending')
+      if (!hasScreening) return t('windowScreeningPending')
+      return preview ? t('windowCandidateScreeningBlocked') : t('windowScreeningPaused')
     case 'shift-work-paused':
       return t('windowShiftPaused')
-    case 'window-over-ten-hours':
-      return candidateOnly
-        ? t('windowCandidateOverLimit', {
-          duration: durationText(t, view.proposedMinutes),
-          limitHours: WINDOW_AUTOMATION_LIMIT_MINUTES / 60
-        })
-        : t('windowOverTenHours', {
-          duration: durationText(t, view.proposedMinutes),
-          limitHours: WINDOW_AUTOMATION_LIMIT_MINUTES / 60
-        })
+    case 'window-over-ten-hours': {
+      const values = { duration: durationText(t, view.proposedMinutes), limitHours }
+      return preview
+        ? t('windowCandidateOverLimit', values)
+        : t('windowOverTenHours', values)
+    }
     case 'wake-time-not-set':
       return t('windowNeedsWakeTime')
     case 'course-not-started':
@@ -445,7 +446,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
 
             {windowView.status === 'unavailable' ? (
               <p className={`course-card-copy ${windowWarning ? 'is-warning' : ''}`}>
-                {windowUnavailableBody(t, windowView, screening !== null, currentWeek === 2)}
+                {windowUnavailableBody(t, windowView, screening !== null, assessment.restriction)}
               </p>
             ) : (
               <>

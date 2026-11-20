@@ -216,22 +216,25 @@ test('a wake time change inside a week waits for the next window cycle', () => {
   expect(nextCycle.window).toMatchObject({ startTime: '00:00', endTime: '08:00', durationMinutes: 480 })
 })
 
-test('switching to shift work pauses automatic windows while keeping the course available', () => {
+test('W2 shift work keeps the course available but only previews: nothing is paused yet', () => {
   const shift = withWorkPattern(state({ wakeTimes: [{ time: '07:00', decidedOn: '2026-11-02' }] }), 'shift-work')
   const result = assess({ state: shift, entries: baselineNights, today: '2026-11-10' })
 
   expect(result.progress.week).toBe(2)
   expect(result.window).toEqual({ status: 'unavailable', reason: 'shift-work-paused', completeNights: 4 })
-  expect(result.restriction).toBe('paused')
+  // W2 还没有开始睡眠限制：安全闸门照旧拦截窗口，但状态仍是预览。
+  expect(result.restriction).toBe('preview')
+  expect(result.restrictionPausedBy).toBeNull()
   expect(result.caffeine).toEqual({ cutoff: '15:00', basis: 'recent-bedtime' })
 })
 
-test('a screening that needs review blocks every automatic window', () => {
+test('W2 screening that needs review blocks the window but never says restriction is paused', () => {
   const confirmed = state({ wakeTimes: [{ time: '07:00', decidedOn: '2026-11-02' }] })
   const result = assess({ state: confirmed, entries: baselineNights, today: '2026-11-10', screening: needsReview })
 
   expect(result.window).toEqual({ status: 'unavailable', reason: 'screening-paused', completeNights: 4 })
-  expect(result.restriction).toBe('paused')
+  expect(result.restriction).toBe('preview')
+  expect(result.restrictionPausedBy).toBeNull()
   expect(result.caffeine).toEqual({ cutoff: '15:00', basis: 'recent-bedtime' })
 })
 

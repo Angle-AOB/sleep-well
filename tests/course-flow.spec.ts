@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import i18n from '../src/i18n'
+import { durationText } from '../src/format'
 
 function coursePanel(page: Page) {
   return page.getByRole('region', { name: '六周训练' })
@@ -97,12 +99,15 @@ test('an over-limit W2 candidate is shown as a candidate, with no titration or p
   await expect(panel.getByText('第 2 周 · 第 1 天')).toBeVisible()
   await expect(panel.getByRole('heading', { name: '候选睡眠窗口' })).toHaveCount(0)
   await expect(panel.getByText('睡眠限制：预览')).toBeVisible()
-  await expect(panel.getByText(
-    '按规则计算的候选窗口约为 10 小时 30 分钟，超过 10 小时的产品上限：候选窗口暂不生成，建议先咨询睡眠或医疗专业人士，或进行专业评估。'
-  )).toBeVisible()
+  // 22:00–09:00 卧床 660 分钟，SOL 30、终末清醒 30、WASO 0 → TST 600；+30 分钟 = 630。
+  const expectedCandidate = durationText(i18n.getFixedT('zh-CN'), 630)
+  await expect(panel.getByText(new RegExp(
+    `^按规则计算的候选窗口约为 ${expectedCandidate}，超过 10 小时的产品上限：候选窗口暂不生成`
+  ))).toBeVisible()
   // W2 还没有滴定：既没有滴定卡，也不应出现“已暂停”的说法。
   await expect(panel.getByRole('heading', { name: '每周滴定' })).toHaveCount(0)
   await expect(panel.getByText(/睡眠限制：暂停/)).toHaveCount(0)
+  await expect(panel.getByText(/暂停/)).toHaveCount(0)
 })
 
 test('starting the course opens the baseline week and survives a reload', async ({ page }) => {
@@ -185,7 +190,9 @@ test('shift work keeps the course and diary available while pausing automatic wi
   await panel.getByRole('radio', { name: '轮班/倒班' }).check()
 
   await expect(panel.getByText('轮班/倒班作息不进入自动睡眠限制，因此不会生成睡眠窗口。')).toBeVisible()
-  await expect(panel.getByText('睡眠限制：暂停（轮班/倒班作息）')).toBeVisible()
+  // W2 只预览：安全闸门仍然拦截窗口，但此刻没有可暂停的睡眠限制。
+  await expect(panel.getByText('睡眠限制：预览')).toBeVisible()
+  await expect(panel.getByText(/暂停/)).toHaveCount(0)
   await expect(panel.getByText('窗口长度', { exact: false })).toHaveCount(0)
   await expect(panel.getByRole('heading', { name: '第 2 周 · 锚定固定起床时间' })).toBeVisible()
   await expect(diaryPanel(page)).toBeVisible()
@@ -210,8 +217,10 @@ test('a screening that needs review blocks the automatic window without blocking
   await advanceTo(page, '2026-11-08T09:00:00')
 
   const panel = coursePanel(page)
-  await expect(panel.getByText('安全筛查提示需要专业评估，自动睡眠窗口已暂停。仍可记录日记和查看训练内容。')).toBeVisible()
-  await expect(panel.getByText('睡眠限制：暂停（安全筛查提示需要专业评估）')).toBeVisible()
+  await expect(panel.getByText('安全筛查提示需要专业评估：本周不生成候选窗口。仍可记录日记和查看训练内容。')).toBeVisible()
+  // W2 尚未启用睡眠限制：状态是预览，不能出现“暂停”。
+  await expect(panel.getByText('睡眠限制：预览')).toBeVisible()
+  await expect(panel.getByText(/暂停/)).toHaveCount(0)
   await expect(panel.getByText('窗口长度', { exact: false })).toHaveCount(0)
   await expect(panel.getByText('睡前 8 小时：15:00 前停止摄入咖啡因。')).toBeVisible()
   await expect(panel.getByText('按最近 7 夜入睡时间的中位数倒推 8 小时')).toBeVisible()

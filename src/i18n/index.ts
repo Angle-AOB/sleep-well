@@ -182,6 +182,7 @@ const resources = {
       windowBaseline: '基线周只记录日记，不生成睡眠窗口。第 1 周结束后才会显示候选窗口。',
       windowNeedsWakeTime: '确认固定起床时间后，才会生成睡眠窗口。',
       windowScreeningPaused: '安全筛查提示需要专业评估，自动睡眠窗口已暂停。仍可记录日记和查看训练内容。',
+      windowCandidateScreeningBlocked: '安全筛查提示需要专业评估：本周不生成候选窗口。仍可记录日记和查看训练内容。',
       windowScreeningPending: '完成安全筛查后才会生成自动睡眠窗口。',
       windowShiftPaused: '轮班/倒班作息不进入自动睡眠限制，因此不会生成睡眠窗口。',
       windowOverTenHours: '按规则计算的窗口约为 {{duration}}，超过 {{limitHours}} 小时的产品上限。自动睡眠窗口已暂停，建议先咨询睡眠或医疗专业人士，或进行专业评估。',

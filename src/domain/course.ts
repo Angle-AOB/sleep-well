@@ -825,8 +825,10 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
 
   if (gated) {
     window = unavailable(gated, calibrationNights)
-    restriction = 'paused'
-    restrictionPausedBy = pauseReason
+    // W2 只有候选窗口，还没有可暂停的睡眠限制；W3 起才进入暂停语义。
+    const candidate = progress.week === 2
+    restriction = candidate ? 'preview' : 'paused'
+    restrictionPausedBy = candidate ? null : pauseReason
     titration = progress.week >= 3 && pauseReason
       ? { status: 'paused', reason: pauseReason }
       : { status: 'not-applicable' }
