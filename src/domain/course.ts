@@ -399,7 +399,7 @@ function weeklyTitrationBasis(entries: SleepDiaryEntry[], weekStartDay: number):
   }
 }
 
-type TitrationDecision =
+export type TitrationDecision =
   | { kind: 'increase' | 'decrease'; durationMinutes: number }
   | { kind: 'keep'; reason: 'in-band' | 'floor' }
   | { kind: 'review'; proposedMinutes: number }
@@ -409,7 +409,7 @@ type TitrationDecision =
  * 5 小时下限优先于缩短；任何计算结果都不会超过 12 小时绝对上限。
  * 超过 10 小时时不生成新窗口（返回 review），由调用方保留当前窗口并提示专业评估。
  */
-function decideTitration(previousMinutes: number, averageSleepEfficiency: number): TitrationDecision {
+export function decideTitration(previousMinutes: number, averageSleepEfficiency: number): TitrationDecision {
   if (averageSleepEfficiency > SE_INCREASE_THRESHOLD) {
     const proposed = Math.min(previousMinutes + TITRATION_STEP_MINUTES, WINDOW_CEILING_MINUTES)
     return proposed > WINDOW_AUTOMATION_LIMIT_MINUTES

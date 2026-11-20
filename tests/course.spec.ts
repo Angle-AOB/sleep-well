@@ -3,7 +3,11 @@ import type { SleepDiaryEntry } from '../src/domain/diary'
 import { assessScreening, type ScreeningResult } from '../src/domain/screening'
 import {
   assessCourse,
+  decideTitration,
   medianOutOfBedTime,
+  WINDOW_CEILING_MINUTES,
+  WINDOW_FLOOR_MINUTES,
+  withTitrationDeferral,
   withWakeTime,
   withWorkPattern,
   type CourseState
@@ -477,4 +481,236 @@ test('a mean sleep efficiency above ninety percent lengthens the window by fifte
     change: { week: 4, changeMinutes: 15, previousMinutes: 480, durationMinutes: 495 }
   })
   expect(result.restriction).toBe('active')
+})
+
+const fourthWeekDates = ['2026-11-15', '2026-11-16', '2026-11-17', '2026-11-18']
+const fifthWeekDates = ['2026-11-22', '2026-11-23', '2026-11-24', '2026-11-25']
+
+function fourthWeekNights(latency: number, timeInBed = 480): SleepDiaryEntry[] {
+  return nightsAtLatency(fourthWeekDates, latency, timeInBed)
+}
+
+function fifthWeekNights(latency: number, timeInBed = 480): SleepDiaryEntry[] {
+  return nightsAtLatency(fifthWeekDates, latency, timeInBed)
+}
+
+test('sleep efficiency of exactly eighty-five or ninety percent keeps the window unchanged', () => {
+  const at85 = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(fourthWeekNights(72)),
+    today: '2026-11-22'
+  })
+  const at90 = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(fourthWeekNights(48)),
+    today: '2026-11-22'
+  })
+
+  expect(at85.window).toMatchObject({ status: 'available', durationMinutes: 480, startTime: '23:00' })
+  expect(at85.titration).toMatchObject({ status: 'kept', reason: 'in-band', basis: { averageSleepEfficiency: 85 } })
+  expect(at90.window).toMatchObject({ status: 'available', durationMinutes: 480 })
+  expect(at90.titration).toMatchObject({ status: 'kept', reason: 'in-band', basis: { averageSleepEfficiency: 90 } })
+})
+
+test('a mean sleep efficiency just below eighty-five percent shortens the window by fifteen minutes', () => {
+  const result = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(fourthWeekNights(73)),
+    today: '2026-11-22'
+  })
+
+  expect(result.window).toMatchObject({
+    status: 'available',
+    startTime: '23:15',
+    endTime: '07:00',
+    durationMinutes: 465
+  })
+  expect(result.titration).toMatchObject({
+    status: 'adjusted',
+    basis: { completeNights: 4, averageSleepEfficiency: 84.8 },
+    change: { week: 4, rule: 'decrease', changeMinutes: 15, previousMinutes: 480, durationMinutes: 465 }
+  })
+})
+
+test('the window never shrinks below the five-hour floor', () => {
+  const shortAnchorWeek = nights(['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11'], {
+    totalSleep: 240,
+    latency: 120
+  })
+  const result = assess({
+    state: confirmedWake(),
+    entries: [...baselineNights, ...shortAnchorWeek, ...fourthWeekNights(73)],
+    today: '2026-11-22'
+  })
+
+  expect(result.window).toMatchObject({
+    status: 'available',
+    startTime: '02:00',
+    durationMinutes: 300
+  })
+  expect(result.titration).toMatchObject({ status: 'kept', reason: 'floor', basis: { averageSleepEfficiency: 84.8 } })
+})
+
+test('fewer than four complete nights keeps the window and reports the data gap', () => {
+  const result = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(nightsAtLatency(['2026-11-15', '2026-11-16', '2026-11-17'], 36)),
+    today: '2026-11-22'
+  })
+
+  expect(result.window).toMatchObject({ status: 'available', durationMinutes: 480, adjustments: [] })
+  expect(result.titration).toEqual({ status: 'insufficient-data', completeNights: 3, required: 4 })
+})
+
+test('a deferred weekly review keeps the previous window for that week', () => {
+  const deferred = withTitrationDeferral(confirmedWake(), 4)
+  const result = assess({ state: deferred, entries: withAnchorWeek(fourthWeekNights(36)), today: '2026-11-22' })
+
+  expect(result.window).toMatchObject({ status: 'available', durationMinutes: 480, adjustments: [] })
+  expect(result.titration).toEqual({ status: 'deferred' })
+})
+
+test('deferring one week does not block the next week review', () => {
+  const deferred = withTitrationDeferral(confirmedWake(), 4)
+  const result = assess({
+    state: deferred,
+    entries: withAnchorWeek([...fourthWeekNights(36), ...fifthWeekNights(36)]),
+    today: '2026-11-29'
+  })
+
+  expect(result.window).toMatchObject({
+    status: 'available',
+    durationMinutes: 495,
+    adjustments: [{ week: 5, rule: 'increase', previousMinutes: 480, durationMinutes: 495 }]
+  })
+  expect(result.titration).toMatchObject({ status: 'adjusted', change: { week: 5 } })
+})
+
+test('a screening pause stops automatic titration without ending the course', () => {
+  const result = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek(fourthWeekNights(36)),
+    today: '2026-11-22',
+    screening: needsReview
+  })
+
+  expect(result.progress.week).toBe(4)
+  expect(result.window).toEqual({ status: 'unavailable', reason: 'screening-paused', completeNights: 4 })
+  expect(result.titration).toEqual({ status: 'paused', reason: 'screening' })
+  expect(result.restriction).toBe('paused')
+})
+
+test('shift work pauses titration with its own reason', () => {
+  const shift = withWorkPattern(confirmedWake(), 'shift-work')
+  const result = assess({ state: shift, entries: withAnchorWeek(fourthWeekNights(36)), today: '2026-11-22' })
+
+  expect(result.window).toEqual({ status: 'unavailable', reason: 'shift-work-paused', completeNights: 4 })
+  expect(result.titration).toEqual({ status: 'paused', reason: 'shift-work' })
+})
+
+test('the weekly review averages nightly sleep efficiency instead of total sleep over total time', () => {
+  // 两个 100% 夜与两个 75% 夜：逐夜平均 87.5%（保持），而合并计算只有 83.9%（会缩短）。
+  const efficient = nights(['2026-11-15', '2026-11-16'], { timeInBed: 400, totalSleep: 400, latency: 0 })
+  const inefficient = nights(['2026-11-17', '2026-11-18'], { timeInBed: 720, totalSleep: 540, latency: 30 })
+  const result = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek([...efficient, ...inefficient]),
+    today: '2026-11-22'
+  })
+
+  expect(result.titration).toMatchObject({
+    status: 'kept',
+    reason: 'in-band',
+    basis: { completeNights: 4, averageSleepEfficiency: 87.5 }
+  })
+  expect(result.window).toMatchObject({ status: 'available', durationMinutes: 480 })
+})
+
+test('a proposed extension past ten hours keeps the current window and suggests review', () => {
+  const longAnchorWeek = nights(['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11'], {
+    timeInBed: 600,
+    totalSleep: 570
+  })
+  const result = assess({
+    state: confirmedWake(),
+    entries: [...baselineNights, ...longAnchorWeek, ...fourthWeekNights(36, 600)],
+    today: '2026-11-22'
+  })
+
+  expect(result.progress.week).toBe(4)
+  expect(result.window).toMatchObject({
+    status: 'available',
+    startTime: '21:00',
+    durationMinutes: 600,
+    adjustments: []
+  })
+  expect(result.titration).toEqual({
+    status: 'review',
+    week: 4,
+    proposedMinutes: 615,
+    basis: { completeNights: 4, averageSleepEfficiency: 94 }
+  })
+})
+
+test('a review does not compound: the next week evaluates the same unchanged window', () => {
+  const longAnchorWeek = nights(['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11'], {
+    timeInBed: 600,
+    totalSleep: 570
+  })
+  const result = assess({
+    state: confirmedWake(),
+    entries: [
+      ...baselineNights,
+      ...longAnchorWeek,
+      ...fourthWeekNights(36, 600),
+      ...fifthWeekNights(36, 600)
+    ],
+    today: '2026-11-29'
+  })
+
+  expect(result.window).toMatchObject({ status: 'available', durationMinutes: 600, adjustments: [] })
+  expect(result.titration).toMatchObject({ status: 'review', week: 5, proposedMinutes: 615 })
+})
+
+test('W4 and W5 adjustments chain from the calibrated window in order', () => {
+  const result = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek([...fourthWeekNights(36), ...fifthWeekNights(36)]),
+    today: '2026-11-29'
+  })
+
+  expect(result.progress.week).toBe(5)
+  expect(result.window).toMatchObject({
+    status: 'available',
+    startTime: '22:30',
+    endTime: '07:00',
+    durationMinutes: 510,
+    adjustments: [
+      { week: 4, rule: 'increase', changeMinutes: 15, previousMinutes: 480, durationMinutes: 495 },
+      { week: 5, rule: 'increase', changeMinutes: 15, previousMinutes: 495, durationMinutes: 510 }
+    ]
+  })
+  expect(result.titration).toMatchObject({ status: 'adjusted', change: { week: 5, durationMinutes: 510 } })
+})
+
+test('the consolidation week keeps the final window without another adjustment', () => {
+  const result = assess({
+    state: confirmedWake(),
+    entries: withAnchorWeek([...fourthWeekNights(36), ...fifthWeekNights(36)]),
+    today: '2026-12-06'
+  })
+
+  expect(result.progress.week).toBe(6)
+  expect(result.progress.stage).toBe('consolidation')
+  expect(result.window).toMatchObject({ status: 'available', durationMinutes: 510 })
+  if (result.window.status !== 'available') throw new Error('expected an available window')
+  expect(result.window.adjustments).toHaveLength(2)
+  expect(result.titration).toEqual({ status: 'consolidation' })
+})
+
+test('the titration step respects the five-hour floor and twelve-hour ceiling directly', () => {
+  expect(decideTitration(480, 95)).toEqual({ kind: 'increase', durationMinutes: 495 })
+  expect(decideTitration(480, 84)).toEqual({ kind: 'decrease', durationMinutes: 465 })
+  expect(decideTitration(WINDOW_FLOOR_MINUTES, 84)).toEqual({ kind: 'keep', reason: 'floor' })
+  expect(decideTitration(810, 95)).toEqual({ kind: 'review', proposedMinutes: WINDOW_CEILING_MINUTES })
 })
