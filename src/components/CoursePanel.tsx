@@ -91,7 +91,7 @@ function windowUnavailableBody(
     case 'shift-work-paused':
       return t('windowShiftPaused')
     case 'window-over-ten-hours':
-      return t('windowOverTenHours', { duration: durationText(t, view.proposedMinutes ?? 0) })
+      return t('windowOverTenHours', { duration: durationText(t, view.proposedMinutes) })
     case 'wake-time-not-set':
       return t('windowNeedsWakeTime')
     case 'course-not-started':
@@ -246,6 +246,8 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
   const shownWeek = (selectedWeek === null ? currentWeek : Math.min(selectedWeek, currentWeek)) as CourseWeek
   const content = weekContent[shownWeek]
   const windowView = assessment.window
+  const windowWarning = windowView.status === 'unavailable'
+    && (windowView.reason === 'insufficient-data' || windowView.reason === 'window-over-ten-hours')
 
   return (
     <section className="course-panel" aria-labelledby="course-title">
@@ -377,11 +379,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
             </div>
 
             {windowView.status === 'unavailable' ? (
-              <p className={`course-card-copy ${
-                windowView.reason === 'insufficient-data' || windowView.reason === 'window-over-ten-hours'
-                  ? 'is-warning'
-                  : ''
-              }`}>
+              <p className={`course-card-copy ${windowWarning ? 'is-warning' : ''}`}>
                 {windowUnavailableBody(t, windowView, screening !== null)}
               </p>
             ) : (

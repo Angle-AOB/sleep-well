@@ -44,7 +44,7 @@ async function completeScreening(page: Page, options: { pausesRestriction?: bool
   await page.getByRole('button', { name: '提交自查' }).click()
 
   await expect(page.getByText(
-    options.pausesRestriction ? '睡眠限制与自动滴定暂时暂停。' : '目前没有发现需要暂停睡眠限制的安全筛查项。'
+    options.pausesRestriction ? '睡眠限制暂时暂停。' : '目前没有发现需要暂停睡眠限制的安全筛查项。'
   )).toBeVisible()
 }
 

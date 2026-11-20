@@ -284,7 +284,7 @@ test('a candidate window longer than ten hours pauses automation and suggests re
   expect(result.restriction).toBe('paused')
 })
 
-test('a computed window is never proposed above twelve hours', () => {
+test('an over-limit candidate reports its computed duration without generating a window', () => {
   const result = assess({
     state: confirmedWake(),
     entries: nights(['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04'], { timeInBed: 840, totalSleep: 780 }),
@@ -295,7 +295,7 @@ test('a computed window is never proposed above twelve hours', () => {
     status: 'unavailable',
     reason: 'window-over-ten-hours',
     completeNights: 4,
-    proposedMinutes: 720
+    proposedMinutes: 810
   })
 })
 

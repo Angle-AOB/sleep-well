@@ -75,10 +75,15 @@ export type WindowUnavailableReason =
 export type WindowView =
   | {
       status: 'unavailable'
-      reason: WindowUnavailableReason
+      reason: Exclude<WindowUnavailableReason, 'window-over-ten-hours'>
       completeNights: number
-      /** 超过 10 小时暂停时，给出规则计算出的候选时长供说明。 */
-      proposedMinutes?: number
+    }
+  | {
+      status: 'unavailable'
+      reason: 'window-over-ten-hours'
+      completeNights: number
+      /** 规则计算出的原始候选时长；该窗口不会生成。 */
+      proposedMinutes: number
     }
   | {
       status: 'available'
@@ -131,7 +136,6 @@ export type CourseInput = {
 export const MINIMUM_COMPLETE_NIGHTS = 4
 export const WINDOW_FLOOR_MINUTES = 5 * 60
 export const WINDOW_AUTOMATION_LIMIT_MINUTES = 10 * 60
-export const WINDOW_ABSOLUTE_LIMIT_MINUTES = 12 * 60
 export const CAFFEINE_CUTOFF_HOURS = 8
 
 const nightsPerCalibration = 7
@@ -305,11 +309,11 @@ function calibrateWindow(entries: SleepDiaryEntry[], endDay: number, fromWeek: 1
   const roundedMinutes = Math.round(targetMinutes / roundingMinutes) * roundingMinutes
   const cappedMinutes = Math.min(roundedMinutes, averageTimeInBedMinutes)
   const durationMinutes = Math.max(cappedMinutes, WINDOW_FLOOR_MINUTES)
-  const proposedMinutes = Math.min(durationMinutes, WINDOW_ABSOLUTE_LIMIT_MINUTES)
 
-  // 超过 10 小时暂停自动窗口并建议专业评估；任何计算窗口不超过 12 小时。
-  if (proposedMinutes > WINDOW_AUTOMATION_LIMIT_MINUTES) {
-    return { status: 'needs-review', completeNights: assessments.length, proposedMinutes }
+  // 超过 10 小时即暂停自动窗口并建议专业评估；因为不生成该窗口，实际交付的窗口
+  // 不可能超过 12 小时。每周调整的 12 小时绝对上限由滴定规则单独遵守。
+  if (durationMinutes > WINDOW_AUTOMATION_LIMIT_MINUTES) {
+    return { status: 'needs-review', completeNights: assessments.length, proposedMinutes: durationMinutes }
   }
 
   return {
@@ -432,13 +436,10 @@ export function startCourse(startedOn: LocalDate, workPattern: WorkPattern = 're
 }
 
 function unavailable(
-  reason: WindowUnavailableReason,
-  completeNights: number,
-  proposedMinutes?: number
+  reason: Exclude<WindowUnavailableReason, 'window-over-ten-hours'>,
+  completeNights: number
 ): WindowView {
-  return proposedMinutes === undefined
-    ? { status: 'unavailable', reason, completeNights }
-    : { status: 'unavailable', reason, completeNights, proposedMinutes }
+  return { status: 'unavailable', reason, completeNights }
 }
 
 function caffeineAdvice(
@@ -530,7 +531,12 @@ export function assessCourse({ state, entries, screening, today }: CourseInput):
     window = unavailable(gated, calibrationNights)
     restriction = 'paused'
   } else if (needsReview) {
-    window = unavailable('window-over-ten-hours', needsReview.completeNights, needsReview.proposedMinutes)
+    window = {
+      status: 'unavailable',
+      reason: 'window-over-ten-hours',
+      completeNights: needsReview.completeNights,
+      proposedMinutes: needsReview.proposedMinutes
+    }
     restriction = 'paused'
   } else if (!wakeTime.effective) {
     window = unavailable('wake-time-not-set', calibrationNights)
