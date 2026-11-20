@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
@@ -206,24 +206,32 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
   const lastReload = useRef(reloadToken)
   const loadState = storageUnavailable ? 'error' : fetchState
 
-  useEffect(() => {
-    if (storageUnavailable) return
-
-    let active = true
+  /**
+   * 初次挂载与导入后的重载共用同一条读取路径：读取日记、按指定日期预填表单。
+   * 普通保存走本地状态更新，不调用这里，因此不会重置用户正在编辑的表单。
+   */
+  const loadEntries = useCallback((date: LocalDate, isActive: () => boolean) => {
     readDiaryEntries()
       .then((loaded) => {
-        if (!active) return
+        if (!isActive()) return
         setEntries(loaded)
-        // 只按首次进入应用时的日期预填一次，后续本地日期变化由 syncLocalDate 处理。
-        setForm(formFromEntry(findEntry(loaded, initialDate) ?? null))
+        setForm(formFromEntry(findEntry(loaded, date) ?? null))
         setDirty(false)
         setFetchState('ready')
       })
       .catch(() => {
-        if (active) setFetchState('error')
+        if (isActive()) setFetchState('error')
       })
+  }, [])
+
+  useEffect(() => {
+    if (storageUnavailable) return
+
+    let active = true
+    // 只按首次进入应用时的日期预填一次，后续本地日期变化由 syncLocalDate 处理。
+    loadEntries(initialDate, () => active)
     return () => { active = false }
-  }, [storageUnavailable, initialDate])
+  }, [storageUnavailable, initialDate, loadEntries])
 
   // 导入备份后由外部递增 reloadToken，重新读取日记并把当前选中日期同步到新数据。
   useEffect(() => {
@@ -232,19 +240,9 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
     if (storageUnavailable) return
 
     let active = true
-    readDiaryEntries()
-      .then((loaded) => {
-        if (!active) return
-        setEntries(loaded)
-        setForm(formFromEntry(findEntry(loaded, selectedDate) ?? null))
-        setDirty(false)
-        setFetchState('ready')
-      })
-      .catch(() => {
-        if (active) setFetchState('error')
-      })
+    loadEntries(selectedDate, () => active)
     return () => { active = false }
-  }, [reloadToken, storageUnavailable, selectedDate])
+  }, [reloadToken, storageUnavailable, selectedDate, loadEntries])
 
   useEffect(() => {
     function syncLocalDate() {
