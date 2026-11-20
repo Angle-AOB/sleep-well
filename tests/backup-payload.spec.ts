@@ -169,6 +169,28 @@ test('append merge deduplicates by date and keeps the current record on conflict
   expect(merged.entries.find((item) => item.date === '2026-11-02')?.sleepQuality).toBe(4)
 })
 
+test('a backup cannot smuggle a cleared screening past the safety rules', () => {
+  const payload = createBackupPayload(
+    {
+      ...backupData(),
+      screening: {
+        ...screening,
+        answers: { ...screening.answers, bipolarOrMania: true },
+        result: { ...screening.result, status: 'cleared', sleepRestrictionPaused: false, rescreenRequired: false }
+      }
+    },
+    { exportedAt: '2026-11-20T08:00:00.000Z' }
+  )
+
+  const parsed = parseBackupPayload(JSON.parse(JSON.stringify(payload)))
+  expect(parsed.ok).toBe(true)
+  if (!parsed.ok) return
+  expect(parsed.payload.screening?.result.status).toBe('needs-review')
+  expect(parsed.payload.screening?.result.sleepRestrictionPaused).toBe(true)
+  expect(parsed.payload.screening?.result.rescreenRequired).toBe(true)
+  expect(parsed.payload.screening?.result.availableActivities).not.toContain('sleep-restriction')
+})
+
 test('complete-night detection after import uses the existing domain rules', () => {
   const payload = createBackupPayload(backupData(), { exportedAt: '2026-11-20T08:00:00.000Z' })
   const parsed = parseBackupPayload(JSON.parse(JSON.stringify(payload)))

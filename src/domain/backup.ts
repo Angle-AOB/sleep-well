@@ -11,7 +11,7 @@
 
 import { assessCourse, type CourseState, type CourseWeek } from './course'
 import { evaluateNight, type LocalDate, type SleepDiaryEntry } from './diary'
-import type { ScreeningRecord } from './screening'
+import { createScreeningRecord, type ScreeningRecord } from './screening'
 
 export const BACKUP_SCHEMA_VERSION = 1
 export const BACKUP_APP_VERSION = '0.1.0'
@@ -216,6 +216,15 @@ function validatePayload(value: unknown): ParseResult {
     return { ok: false, error: { kind: 'invalid-screening' } }
   }
 
+  // 筛查结果是答案的派生值：导入时按当前安全规则重算，避免旧包或篡改过的包
+  // 用一份“已通过”的结果绕过暂停睡眠限制的产品边界。
+  const screening = value.screening === null
+    ? null
+    : createScreeningRecord(
+      (value.screening as ScreeningRecord).answers,
+      (value.screening as ScreeningRecord).result.completedAt
+    )
+
   return {
     ok: true,
     payload: {
@@ -227,7 +236,7 @@ function validatePayload(value: unknown): ParseResult {
       diary: value.diary as SleepDiaryEntry[],
       course: (value.course as CourseState | null) ?? null,
       preferences: value.preferences,
-      screening: (value.screening as ScreeningRecord | null) ?? null
+      screening
     }
   }
 }
