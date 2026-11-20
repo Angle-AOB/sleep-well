@@ -194,13 +194,14 @@ function MetricValue({ metric, format }: { metric: Metric<number>; format: (valu
 
 export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable: boolean; onSaved?: () => void }) {
   const { t } = useTranslation()
-  const [today] = useState(localToday)
+  const [today, setToday] = useState(localToday)
   const [selectedDate, setSelectedDate] = useState<LocalDate>(today)
   const [form, setForm] = useState<DiaryFormState>(emptyForm)
   const [entries, setEntries] = useState<SleepDiaryEntry[]>([])
   const [fetchState, setFetchState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [saving, setSaving] = useState(false)
+  const [dirty, setDirty] = useState(false)
   const loadState = storageUnavailable ? 'error' : fetchState
 
   useEffect(() => {
@@ -212,6 +213,7 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
         if (!active) return
         setEntries(loaded)
         setForm(formFromEntry(findEntry(loaded, today) ?? null))
+        setDirty(false)
         setFetchState('ready')
       })
       .catch(() => {
@@ -219,6 +221,27 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
       })
     return () => { active = false }
   }, [storageUnavailable, today])
+
+  useEffect(() => {
+    function syncLocalDate() {
+      const current = localToday()
+      if (current === today) return
+      setToday(current)
+      // 用户停留在“今天”且没有未保存修改时，跟随本地日期进入新的一夜。
+      if (selectedDate === today && !dirty) {
+        setSelectedDate(current)
+        setForm(formFromEntry(findEntry(entries, current) ?? null))
+        setFeedback(null)
+      }
+    }
+
+    document.addEventListener('visibilitychange', syncLocalDate)
+    window.addEventListener('focus', syncLocalDate)
+    return () => {
+      document.removeEventListener('visibilitychange', syncLocalDate)
+      window.removeEventListener('focus', syncLocalDate)
+    }
+  }, [today, selectedDate, dirty, entries])
 
   const savedEntry = findEntry(entries, selectedDate)
   const draft = draftFromForm(selectedDate, form)
@@ -230,6 +253,7 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
 
   function update(changes: Partial<DiaryFormState>) {
     setForm((current) => ({ ...current, ...changes }))
+    setDirty(true)
     setFeedback(null)
   }
 
@@ -237,6 +261,7 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
     if (!date) return
     setSelectedDate(date)
     setForm(formFromEntry(findEntry(entries, date) ?? null))
+    setDirty(false)
     setFeedback(null)
   }
 
@@ -252,24 +277,31 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
     }
 
     setSaving(true)
+    const timestamp = new Date().toISOString()
+    const entry: SleepDiaryEntry = {
+      ...draft,
+      recordedAt: savedEntry?.recordedAt ?? timestamp,
+      updatedAt: timestamp
+    }
+
     try {
-      const timestamp = new Date().toISOString()
-      const entry: SleepDiaryEntry = {
-        ...draft,
-        recordedAt: savedEntry?.recordedAt ?? timestamp,
-        updatedAt: timestamp
-      }
       await writeDiaryEntry(entry)
-      const loaded = await readDiaryEntries()
-      setEntries(loaded)
-      setForm(formFromEntry(findEntry(loaded, selectedDate) ?? entry))
-      setFeedback('saved')
-      onSaved?.()
     } catch {
       setFeedback('save-error')
+      return
     } finally {
       setSaving(false)
     }
+
+    // 写入已成功：本地状态据此更新，不再依赖第二次读取是否成功。
+    setEntries((current) => [
+      ...current.filter((item) => item.date !== entry.date),
+      entry
+    ].sort((left, right) => right.date.localeCompare(left.date)))
+    setForm(formFromEntry(entry))
+    setDirty(false)
+    setFeedback('saved')
+    onSaved?.()
   }
 
   return (
@@ -476,6 +508,7 @@ export function DiaryPanel({ storageUnavailable, onSaved }: { storageUnavailable
                       <button
                         type="button"
                         className={`history-entry ${entry.date === selectedDate ? 'is-current' : ''}`}
+                        aria-current={entry.date === selectedDate ? 'date' : undefined}
                         onClick={() => chooseDate(entry.date)}
                       >
                         <span className="history-date">{formatDiaryDate(t, entry.date)}</span>

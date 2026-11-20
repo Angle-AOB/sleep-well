@@ -161,6 +161,19 @@ test('a morning lights-off later than the final wake is an ordering contradictio
   expect(assessment.complete).toBe(false)
 })
 
+test('a range WASO lower bound that already exceeds time in bed is rejected', () => {
+  const assessment = evaluateNight(entry({
+    lightsOffTime: '06:20',
+    sleepOnsetLatencyMinutes: 5,
+    finalWakeTime: '06:50',
+    outOfBedTime: '07:00',
+    waso: { kind: 'range', range: 'over-60' }
+  }))
+
+  expect(assessment.timeInBed).toEqual({ status: 'available', value: 40 })
+  expect(assessment.problems.map((problem) => problem.kind)).toContain('night-components-exceed-time-in-bed')
+})
+
 test('known components longer than time in bed are rejected even when WASO is unknown', () => {
   const assessment = evaluateNight(entry({
     lightsOffTime: '23:00',
@@ -258,6 +271,7 @@ test('a saved complete night shows TIB, TST and SE and survives reload', async (
   await expect(page.getByRole('group', { name: '主观睡眠质量' }).getByLabel('4 分')).toBeChecked()
   await expect(page.getByRole('region', { name: '本页指标' }).getByText('87.5%', { exact: true })).toBeVisible()
   await expect(page.getByRole('region', { name: '最近记录' }).getByRole('button')).toContainText('完整夜')
+  await expect(page.getByRole('region', { name: '最近记录' }).getByRole('button')).toHaveAttribute('aria-current', 'date')
 })
 
 test('a partial diary saves first and can be completed later', async ({ page }) => {
@@ -375,4 +389,14 @@ test('without local storage the diary says nothing will be saved', async ({ page
   await page.goto('/')
 
   await expect(page.getByText('此浏览器无法使用本地存储，日记不会保存。')).toBeVisible()
+})
+
+test('a resumed app moves to the new local date after midnight', async ({ page }) => {
+  await openDiary(page)
+  await expect(page.locator('#diary-date')).toHaveValue('2026-11-20')
+
+  await page.clock.setFixedTime(new Date(2026, 10, 21, 7, 0, 0))
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+
+  await expect(page.locator('#diary-date')).toHaveValue('2026-11-21')
 })

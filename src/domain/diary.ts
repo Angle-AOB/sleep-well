@@ -120,8 +120,16 @@ function parseTime(date: LocalDate, time: string | undefined): ParsedTime {
 type WasoResolution =
   | { status: 'minutes'; value: number }
   | { status: 'missing' }
-  | { status: 'approximate' }
+  | { status: 'approximate'; floorMinutes: number }
   | { status: 'invalid' }
+
+// 区间估计的下界：只用来判断“即使按最保守估计也超过卧床时间”的矛盾，不伪造精确值。
+const wasoRangeFloor: Record<WasoRange, number> = {
+  'under-15': 0,
+  '15-to-30': 15,
+  '30-to-60': 30,
+  'over-60': 60
+}
 
 function resolveWaso(waso: WasoEstimate): WasoResolution {
   switch (waso.kind) {
@@ -132,7 +140,7 @@ function resolveWaso(waso: WasoEstimate): WasoResolution {
         ? { status: 'minutes', value: waso.minutes }
         : { status: 'invalid' }
     case 'range':
-      return { status: 'approximate' }
+      return { status: 'approximate', floorMinutes: wasoRangeFloor[waso.range] }
     case 'unknown':
       return { status: 'missing' }
   }
@@ -224,7 +232,7 @@ export function evaluateNight(entry: SleepDiaryEntry): NightAssessment {
 
   // 已知部分（缺失或区间字段按 0 计）已经超过卧床时间时，无论其余字段是否齐全都要求修正。
   const knownComponentMinutes = (latency ?? 0)
-    + (waso.status === 'minutes' ? waso.value : 0)
+    + (waso.status === 'minutes' ? waso.value : waso.status === 'approximate' ? waso.floorMinutes : 0)
     + (terminalAwake.status === 'available' ? terminalAwake.value : 0)
 
   if (timeInBed.status === 'available' && knownComponentMinutes > timeInBed.value) {
