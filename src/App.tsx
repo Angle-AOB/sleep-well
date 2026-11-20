@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { DiaryPanel } from './components/DiaryPanel'
 import { ScreeningPanel } from './components/ScreeningPanel'
 import { defaultPreferences, readPreferences, readScreening, writePreferences, writeScreening, type Preferences } from './data/preferences'
 import { canUseSleepRestriction } from './domain/screening'
@@ -233,6 +234,8 @@ function App() {
         storageUnavailable={storageState === 'unsupported' || screeningState === 'error'}
         onSave={updateScreening}
       />
+
+      <DiaryPanel storageUnavailable={storageState === 'unsupported'} />
 
       <footer className="footer"><span>{t('footer')}</span><span>{t('footerMeta')}</span></footer>
     </main>

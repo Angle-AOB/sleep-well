@@ -1,38 +1,14 @@
-import type { DBSchema } from 'idb'
-import { openDB } from 'idb'
 import type { ScreeningRecord } from '../domain/screening'
+import { openDatabase } from './database'
 
 export type Preferences = {
   wakeTime: string
   backupReminders: boolean
 }
 
-interface SleepWellDatabase extends DBSchema {
-  preferences: {
-    key: 'current'
-    value: Preferences
-  }
-  screening: {
-    key: 'current'
-    value: ScreeningRecord
-  }
-}
-
-const databaseName = 'sleep-well'
-const databaseVersion = 2
-
 export const defaultPreferences: Preferences = {
   wakeTime: '07:00',
   backupReminders: true
-}
-
-async function openDatabase() {
-  return openDB<SleepWellDatabase>(databaseName, databaseVersion, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('preferences')) db.createObjectStore('preferences')
-      if (!db.objectStoreNames.contains('screening')) db.createObjectStore('screening')
-    }
-  })
 }
 
 export async function readPreferences(): Promise<Preferences> {
