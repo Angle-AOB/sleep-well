@@ -3,6 +3,8 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   createScreeningRecord,
+  MINIMUM_ADULT_AGE,
+  SCREENING_BOOLEAN_KEYS,
   type DistressLevel,
   type ScreeningAnswers,
   type ScreeningRecord
@@ -11,7 +13,7 @@ import {
 type Duration = NonNullable<ScreeningAnswers['concernDuration']>
 type AffectedNights = NonNullable<ScreeningAnswers['affectedNights']>
 type DaytimeImpact = NonNullable<ScreeningAnswers['daytimeImpact']>
-type SafetyKey = Exclude<keyof ScreeningAnswers, 'age' | 'distress' | 'concernDuration' | 'affectedNights' | 'daytimeImpact' | 'improvementGoal'>
+type SafetyKey = (typeof SCREENING_BOOLEAN_KEYS)[number]
 
 type FormState = {
   age: number | ''
@@ -52,15 +54,6 @@ const emptyForm: FormState = {
   improvementGoal: ''
 }
 
-const safetyKeys: SafetyKey[] = [
-  'bipolarOrMania',
-  'seizureHistory',
-  'osaRedFlags',
-  'dangerousParasomnia',
-  'pregnant',
-  'severeSleepinessOrSafetyRisk',
-  'acuteInstability'
-]
 
 function toFormAnswers(form: FormState): ScreeningAnswers {
   return {
@@ -122,7 +115,7 @@ function ScreeningForm({ onSubmit, onCancel }: { onSubmit: (record: ScreeningRec
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const missingQuestionAnswer = !form.concernDuration || !form.affectedNights || !form.daytimeImpact || !form.improvementGoal
-    const missingSafetyAnswer = form.age === '' || !Number.isInteger(form.age) || form.age < 1 || form.age > 120 || !form.distress || safetyKeys.some((key) => form[key] === null)
+    const missingSafetyAnswer = form.age === '' || !Number.isInteger(form.age) || form.age < 1 || form.age > 120 || !form.distress || SCREENING_BOOLEAN_KEYS.some((key) => form[key] === null)
     if (missingSafetyAnswer || missingQuestionAnswer) {
       setError(t('screeningValidationError'))
       return
@@ -158,7 +151,7 @@ function ScreeningForm({ onSubmit, onCancel }: { onSubmit: (record: ScreeningRec
           value={form.age}
           onChange={(event) => setForm((current) => ({ ...current, age: event.target.value === '' ? '' : Number(event.target.value) }))}
         />
-        <p className="question-note">{t('underageNote')}</p>
+        <p className="question-note">{t('underageNote', { years: MINIMUM_ADULT_AGE })}</p>
       </fieldset>
 
       <ScreeningQuestion

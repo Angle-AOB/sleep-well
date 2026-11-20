@@ -3,11 +3,14 @@ import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import {
   assessCourse,
+  BASELINE_LENGTH_DAYS,
   CAFFEINE_CUTOFF_HOURS,
+  DAYS_PER_WEEK,
   isClockTime,
   medianOutOfBedTime,
   MINIMUM_COMPLETE_NIGHTS,
   startCourse,
+  TITRATION_NIGHTS,
   TITRATION_STEP_MINUTES,
   WINDOW_AUTOMATION_LIMIT_MINUTES,
   WINDOW_FLOOR_MINUTES,
@@ -340,13 +343,21 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
               : t('courseWeekDay', { week: currentWeek, day: progress.dayOfWeek })}
         </p>
         <p className="course-complete-nights">
-          {t('courseCompleteNights', { complete: assessment.recentCompleteNights, required: MINIMUM_COMPLETE_NIGHTS })}
+          {t('courseCompleteNights', {
+            complete: assessment.recentCompleteNights,
+            nights: TITRATION_NIGHTS,
+            required: MINIMUM_COMPLETE_NIGHTS
+          })}
         </p>
       </div>
 
       {progress.baselineExtended && (
         <p className="course-note is-warning" role="status">
-          {t('courseBaselineExtended', { required: MINIMUM_COMPLETE_NIGHTS })}
+          {t('courseBaselineExtended', {
+            days: BASELINE_LENGTH_DAYS,
+            nights: TITRATION_NIGHTS,
+            required: MINIMUM_COMPLETE_NIGHTS
+          })}
         </p>
       )}
       {completed && <p className="course-note">{t('courseCompletedNote')}</p>}
@@ -368,7 +379,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
         <div className="course-side">
           <section className="course-card" aria-labelledby="wake-time-title">
             <h3 id="wake-time-title">{t('wakeTimeTitle')}</h3>
-            <p className="course-card-copy">{t('wakeTimeIntro')}</p>
+            <p className="course-card-copy">{t('wakeTimeIntro', { days: DAYS_PER_WEEK })}</p>
             <p className="wake-time-current">
               {assessment.wakeTime.effective
                 ? t('wakeTimeCurrent', { time: assessment.wakeTime.effective })
@@ -408,7 +419,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
             </div>
             {assessment.wakeTime.suggestion ? (
               <p className="field-hint">
-                {t('wakeTimeSuggestion', { time: assessment.wakeTime.suggestion })}{' '}
+                {t('wakeTimeSuggestion', { time: assessment.wakeTime.suggestion, nights: TITRATION_NIGHTS })}{' '}
                 <button
                   type="button"
                   className="link-button"
@@ -556,7 +567,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
               <p className="field-hint">
                 {assessment.caffeine.basis === 'window'
                   ? t('caffeineNoteWindow', { hours: CAFFEINE_CUTOFF_HOURS })
-                  : t('caffeineNoteRecent', { hours: CAFFEINE_CUTOFF_HOURS })}
+                  : t('caffeineNoteRecent', { hours: CAFFEINE_CUTOFF_HOURS, nights: TITRATION_NIGHTS })}
               </p>
             </section>
           )}

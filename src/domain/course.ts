@@ -199,6 +199,10 @@ export const WINDOW_CEILING_MINUTES = 12 * 60
 export const TITRATION_STEP_MINUTES = 15
 /** 每周滴定回看的完整夜数；首次校准也使用同一段 7 夜，避免出现第二个 7。 */
 export const TITRATION_NIGHTS = 7
+/** 一周的天数；固定起床时间要求每天一致。 */
+export const DAYS_PER_WEEK = 7
+/** 第 1 周基线的天数。 */
+export const BASELINE_LENGTH_DAYS = 7
 export const SE_INCREASE_THRESHOLD = 90
 export const SE_DECREASE_THRESHOLD = 85
 export const CAFFEINE_CUTOFF_HOURS = 8
@@ -207,8 +211,8 @@ const nightsPerCalibration = TITRATION_NIGHTS
 const targetSurplusMinutes = WINDOW_TARGET_SURPLUS_MINUTES
 /** 舍入网格与滴定步长是同一个 15 分钟的产品常量，不另写一份。 */
 const roundingMinutes = TITRATION_STEP_MINUTES
-const daysPerWeek = 7
-const baselineLengthDays = 7
+const daysPerWeek = DAYS_PER_WEEK
+const baselineLengthDays = BASELINE_LENGTH_DAYS
 const maintenanceCheckDay = 35
 const maxScanDays = 3650
 const titrationWeeks: readonly CourseWeek[] = [4, 5]
