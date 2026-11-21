@@ -6,7 +6,7 @@
  */
 export const FIRST_RUN_SEEN_KEY = 'sleep-well.first-run-seen'
 
-const SEEN_VALUE = '1'
+export const SEEN_VALUE = '1'
 
 /**
  * 给端到端用例播种「本设备已看过」的 storageState。

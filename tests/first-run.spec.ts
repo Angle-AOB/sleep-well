@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { FIRST_RUN_SEEN_KEY } from '../src/firstRun'
+import { FIRST_RUN_SEEN_KEY, SEEN_VALUE } from '../src/firstRun'
 import { defaultClock, goToSettingsSubPage } from './navigation'
 
 // 首次说明是唯一需要「没看过」状态的用例组：关掉 config 里统一的标记播种。
@@ -96,7 +96,7 @@ test('关于与隐私可以复看同一说明，关闭后回到关于页且不�
   await page.getByRole('dialog').getByRole('button', { name: recordDiary }).click()
 
   await goToSettingsSubPage(page, 'about')
-  expect(await page.evaluate((key) => localStorage.getItem(key), FIRST_RUN_SEEN_KEY)).toBe('1')
+  expect(await page.evaluate((key) => localStorage.getItem(key), FIRST_RUN_SEEN_KEY)).toBe(SEEN_VALUE)
 
   const replay = page.getByRole('button', { name: '再看一次首次说明' })
   await replay.click()
@@ -114,7 +114,7 @@ test('关于与隐私可以复看同一说明，关闭后回到关于页且不�
   await expect(replay).toBeFocused()
 
   // 复看不重置标记：刷新后依然不再自动出现。
-  expect(await page.evaluate((key) => localStorage.getItem(key), FIRST_RUN_SEEN_KEY)).toBe('1')
+  expect(await page.evaluate((key) => localStorage.getItem(key), FIRST_RUN_SEEN_KEY)).toBe(SEEN_VALUE)
   await page.reload()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByRole('heading', { level: 1, name: '关于与隐私' })).toBeVisible()
