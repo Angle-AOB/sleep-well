@@ -316,6 +316,47 @@ test('training page contrast includes dimmed rendered text', async ({ page }) =>
   }
 })
 
+test('disabled backup controls keep normal-text contrast', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(File.prototype, 'arrayBuffer', {
+      configurable: true,
+      value: () => new Promise<ArrayBuffer>(() => {})
+    })
+  })
+  await openSettingsSubPage(page, 'backup')
+
+  const fileInput = page.locator('input[type="file"]')
+  await fileInput.setInputFiles({ name: 'contrast-probe.zip', mimeType: 'application/zip', buffer: Buffer.from('probe') })
+  await expect(fileInput).toBeDisabled()
+  await expect(page.locator('.backup-file-button')).toHaveClass(/is-disabled/)
+
+  let result = await renderedText(page)
+  const fileChoice = result.texts.find((text) => text.text === '选择备份文件')
+  expect(fileChoice).toBeDefined()
+  expect(fileChoice!.ratio, 'disabled file chooser text contrast').toBeGreaterThanOrEqual(4.5)
+
+  const dangerPage = await page.context().newPage()
+  await openSettingsSubPage(dangerPage, 'backup')
+  const [download] = await Promise.all([
+    dangerPage.waitForEvent('download'),
+    dangerPage.getByRole('button', { name: '导出完整备份（ZIP）' }).click()
+  ])
+  const archivePath = await download.path()
+  expect(archivePath).not.toBeNull()
+  await dangerPage.locator('input[type="file"]').setInputFiles(archivePath!)
+  await expect(dangerPage.getByText('备份摘要')).toBeVisible()
+  await dangerPage.getByRole('button', { name: '覆盖恢复…' }).click()
+
+  const danger = dangerPage.getByRole('button', { name: '确认删除并恢复' })
+  await expect(danger).toBeVisible()
+  await danger.evaluate((element) => element.setAttribute('disabled', ''))
+  await expect(danger).toBeDisabled()
+  result = await renderedText(dangerPage)
+  const dangerText = result.texts.find((text) => text.text === '确认删除并恢复')
+  expect(dangerText).toBeDefined()
+  expect(dangerText!.ratio, 'disabled dangerous operation text contrast').toBeGreaterThanOrEqual(4.5)
+  await dangerPage.close()
+})
 test('topbar keeps viewport-safe gutters and aligns with page content', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await openPage(page, 'today')
