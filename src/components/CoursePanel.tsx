@@ -123,13 +123,6 @@ export function CoursePanel({
     ))
   }
 
-  const heading = (
-    <div className="panel-heading">
-      <div><p className="panel-kicker">{t('courseKicker')}</p><h2 id="course-title">{t('courseTitle')}</h2></div>
-      <span className="panel-symbol" aria-hidden="true">⑥</span>
-    </div>
-  )
-
   const patternField = (
     <>
       <fieldset className="pattern-fieldset">
@@ -153,8 +146,7 @@ export function CoursePanel({
 
   if (loadState === 'loading') {
     return (
-      <section className="course-panel" aria-labelledby="course-title">
-        {heading}
+      <section className="course-panel" aria-label={t('courseTitle')}>
         <p className="course-intro">{t('courseIntro')}</p>
         <p className="course-card-copy" role="status">{t('courseLoading')}</p>
       </section>
@@ -163,8 +155,7 @@ export function CoursePanel({
 
   if (loadState === 'error' && !storageUnavailable) {
     return (
-      <section className="course-panel" aria-labelledby="course-title">
-        {heading}
+      <section className="course-panel" aria-label={t('courseTitle')}>
         <p className="diary-alert" role="alert">{t('courseLoadError')}</p>
       </section>
     )
@@ -172,8 +163,7 @@ export function CoursePanel({
 
   if (!assessment.started || !assessment.progress) {
     return (
-      <section className="course-panel" aria-labelledby="course-title">
-        {heading}
+      <section className="course-panel" aria-label={t('courseTitle')}>
         <p className="course-intro">{t('courseIntro')}</p>
         {storageUnavailable
           ? <p className="diary-alert" role="alert">{t('courseStorageUnavailable')}</p>
@@ -218,8 +208,7 @@ export function CoursePanel({
   const adjustments = windowView.status === 'available' ? windowView.adjustments : []
 
   return (
-    <section className="course-panel" aria-labelledby="course-title">
-      {heading}
+    <section className="course-panel" aria-label={t('courseTitle')}>
       <p className="course-intro">{t('courseIntro')}</p>
 
       {gate === 'required' && (
