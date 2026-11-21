@@ -33,6 +33,8 @@ export type ReminderInput = {
   entries: readonly Pick<SleepDiaryEntry, 'date' | 'updatedAt'>[]
   preferences: ReminderPreferences
   today: LocalDate
+  /** 设置是否已从本地加载完成。未加载时一律不提醒，避免默认值造成误提醒。 */
+  prefsLoaded: boolean
 }
 
 const datePattern = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -52,8 +54,10 @@ function dayNumber(value: LocalDate): number | null {
 }
 
 export function evaluateBackupReminder(input: ReminderInput): BackupReminderDecision {
-  const { entries, preferences, today } = input
+  const { entries, preferences, today, prefsLoaded } = input
 
+  // 设置尚未加载时一律不提醒：默认值或另一标签页的改动不能被当作用户的选择。
+  if (!prefsLoaded) return { remind: false }
   if (!preferences.backupReminders) return { remind: false }
   if (entries.length < FIRST_REMINDER_NIGHTS) return { remind: false }
 

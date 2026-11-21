@@ -42,6 +42,8 @@ function App() {
   const [reloadToken, setReloadToken] = useState(0)
   /** 打开应用时由领域规则给出的提醒结论；只在本次访问展示，不做后台定时。 */
   const [reminder, setReminder] = useState<Extract<BackupReminderDecision, { remind: true }> | null>(null)
+  /** 设置是否已从本地加载完成；未加载前不展示提醒，避免默认值被当成用户选择。 */
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false)
   const [pendingSaves, setPendingSaves] = useState(0)
   const saveQueue = useRef(Promise.resolve())
 
@@ -53,12 +55,13 @@ function App() {
       if (!active) return
       setPreferences(saved)
       setSavedPreferences(saved)
+      setPreferencesLoaded(true)
       setScreening(savedScreening)
       setStorageState('ready')
       setScreeningState('ready')
 
       const today = localToday()
-      const decision = evaluateBackupReminder({ entries, preferences: saved, today })
+      const decision = evaluateBackupReminder({ entries, preferences: saved, today, prefsLoaded: true })
       if (decision.remind) {
         setReminder(decision)
         // 展示即记账：写入最近提醒日期，才能保证每周最多一次。
@@ -226,7 +229,7 @@ function App() {
         )}
       </section>
 
-      {reminder && preferences.backupReminders && (
+      {reminder && preferencesLoaded && preferences.backupReminders && (
         <ReminderCard
           kind={reminder.kind}
           entryCount={reminder.entryCount}
