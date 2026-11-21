@@ -1,8 +1,21 @@
 import { test, expect } from '@playwright/test'
+import { FIRST_RUN_SEEN_KEY } from '../src/firstRun'
 import { goTo, goToSettingsSubPage } from './navigation'
 
-test('disabled IndexedDB shows storage-unavailable and app still renders', async ({ browser }) => {
-  const context = await browser.newContext()
+/**
+ * 这些用例手动创建上下文，不会带上 config 里统一播种的首次说明标记；
+ * 不播种的话弹窗会挡住页面里的点击。
+ */
+function seenFirstRun(baseURL: string | undefined) {
+  if (!baseURL) throw new Error('baseURL 未配置')
+  return {
+    cookies: [],
+    origins: [{ origin: baseURL, localStorage: [{ name: FIRST_RUN_SEEN_KEY, value: '1' }] }]
+  }
+}
+
+test('disabled IndexedDB shows storage-unavailable and app still renders', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ storageState: seenFirstRun(baseURL) })
   await context.addInitScript(() => {
     Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true })
   })
@@ -13,8 +26,8 @@ test('disabled IndexedDB shows storage-unavailable and app still renders', async
   await context.close()
 })
 
-test('transaction write failure shows persistence-failed message and app continues', async ({ browser }) => {
-  const context = await browser.newContext()
+test('transaction write failure shows persistence-failed message and app continues', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ storageState: seenFirstRun(baseURL) })
   await context.addInitScript(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (IDBObjectStore.prototype as any).put = function () {
@@ -40,8 +53,8 @@ test('transaction write failure shows persistence-failed message and app continu
   await context.close()
 })
 
-test('estimate() failure does not crash the app', async ({ browser }) => {
-  const context = await browser.newContext()
+test('estimate() failure does not crash the app', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ storageState: seenFirstRun(baseURL) })
   await context.addInitScript(() => {
     if (navigator.storage) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,8 +71,8 @@ test('estimate() failure does not crash the app', async ({ browser }) => {
   await context.close()
 })
 
-test('a denied storage-persist request degrades to best-effort and the app keeps working', async ({ browser }) => {
-  const context = await browser.newContext()
+test('a denied storage-persist request degrades to best-effort and the app keeps working', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ storageState: seenFirstRun(baseURL) })
   const page = await context.newPage()
   await page.addInitScript(() => {
     const storage = navigator.storage as StorageManager & { persist?: () => Promise<boolean> }

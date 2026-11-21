@@ -37,6 +37,8 @@ type SettingsPageProps = {
   onImported: () => Promise<void> | void
   onExported: (exportedAt: string) => Promise<void> | void
   onRetryCache: () => void
+  /** 打开同一份首次说明；只复看，不重置「已看过」标记。 */
+  onShowFirstRun: () => void
 }
 
 function PreferencesPanel({
@@ -69,7 +71,7 @@ function PreferencesPanel({
   )
 }
 
-function AboutPanel() {
+function AboutPanel({ onShowFirstRun }: { onShowFirstRun: () => void }) {
   const { t } = useTranslation()
 
   return (
@@ -93,6 +95,10 @@ function AboutPanel() {
         <li><span aria-hidden="true">+</span> {t('localErrors')}</li>
       </ul>
       <p className="local-only">{t('localOnly')}</p>
+
+      <button type="button" className="secondary-button about-replay" onClick={onShowFirstRun}>
+        {t('firstRunReplay')}
+      </button>
 
       <footer className="footer"><span>{t('footer')}</span><span>{t('footerMeta')}</span></footer>
     </section>
@@ -153,7 +159,8 @@ export function SettingsPage({
   onSaveScreening,
   onImported,
   onExported,
-  onRetryCache
+  onRetryCache,
+  onShowFirstRun
 }: SettingsPageProps) {
   const { t } = useTranslation()
 
@@ -220,7 +227,7 @@ export function SettingsPage({
 
           {subPage === 'diagnostics' && <ErrorLogPanel />}
 
-          {subPage === 'about' && <AboutPanel />}
+          {subPage === 'about' && <AboutPanel onShowFirstRun={onShowFirstRun} />}
         </div>
       )}
     </section>
