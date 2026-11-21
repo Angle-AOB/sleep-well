@@ -126,7 +126,7 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #507964; }
 input[type="date"], input[type="number"], select { width: 100%; min-height: 48px; padding: 0 12px; color: #263b36; background: #f7faf6; border: 1px solid #b9cbc0; border-radius: 0; font-size: 16px; }
 input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-color: #507964; }
 .primary-button, .secondary-button { min-height: 48px; padding: 0 22px; border-radius: 0; font-size: 14px; font-weight: 700; cursor: pointer; }
-.primary-button { color: #f7faf6; background: #344d45; border: 1px solid #344d45; }.primary-button:disabled { opacity: .55; cursor: not-allowed; }
+.primary-button { color: #f7faf6; background: #344d45; border: 1px solid #344d45; }.primary-button:disabled { opacity: .85; cursor: not-allowed; }
 .secondary-button { color: #344d45; background: transparent; border: 1px solid #b9cbc0; }
 .choice-row { display: flex; flex-wrap: wrap; gap: 4px 18px; }.choice-row label, .tag-choice { display: inline-flex; align-items: center; gap: 8px; min-width: 44px; min-height: 44px; color: #52635c; font-size: 14px; }
 
@@ -192,8 +192,8 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
 }
 
 .course-panel { margin-bottom: 28px; }
-.course-intro { max-width: 760px; margin: 0 0 24px; color: #52635c; font-size: 14px; line-height: 1.9; }
-.course-card-copy { margin: 0 0 12px; color: #52635c; font-size: 14px; line-height: 1.8; }
+.course-intro { max-width: 760px; margin: 0 0 24px; color: #52635c; font-size: 16px; line-height: 1.9; }
+.course-card-copy { margin: 0 0 12px; color: #52635c; font-size: 16px; line-height: 1.8; }
 .course-card-copy:last-child { margin-bottom: 0; }.course-card-copy.is-warning { color: #8a3d2b; }
 .week-track { display: flex; gap: 8px; margin: 0 0 20px; padding-bottom: 4px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; }
 .week-step { display: flex; flex: 1 0 96px; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 88px; padding: 12px; color: #52635c; background: #f7faf6; border: 1px solid #d2dfd7; font-size: 14px; text-align: left; cursor: pointer; scroll-snap-align: start; }
@@ -206,14 +206,14 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
 .course-progress-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 18px; padding-bottom: 14px; border-bottom: 1px solid #cbd9d0; }
 .course-progress { margin: 0; color: #263b36; font-family: inherit; font-size: 20px; }
 .course-complete-nights { margin: 0; color: #52635c; font-size: 14px; }
-.course-note { margin: 16px 0 0; padding: 12px 14px; color: #52635c; background: #f7faf6; border-left: 3px solid #9bb9a9; font-size: 14px; line-height: 1.7; }
+.course-note { margin: 16px 0 0; padding: 12px 14px; color: #52635c; background: #f7faf6; border-left: 3px solid #9bb9a9; font-size: 16px; line-height: 1.7; }
 .course-note.is-warning { color: #8a3d2b; background: #f7e9e3; border-left-color: #7a3f2a; }
 .course-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 28px; margin-top: 24px; }
 .course-content h3 { margin: 0 0 14px; color: #263b36; font-family: inherit; font-size: 24px; font-weight: 400; }
-.course-content p { margin: 0 0 14px; color: #52635c; font-size: 14px; line-height: 1.9; }
+.course-content p { margin: 0 0 14px; color: #52635c; font-size: 16px; line-height: 1.9; }
 .cognition-note { padding: 14px 16px; background: #f7faf6; border-left: 3px solid #7a3f2a; }
 .course-content h4 { margin: 22px 0 10px; color: #52635c; font-size: 14px; font-weight: 800; letter-spacing: .1em; }
-.task-list { display: grid; gap: 10px; margin: 0; padding: 0; color: #52635c; font-size: 14px; line-height: 1.7; list-style: none; }
+.task-list { display: grid; gap: 10px; margin: 0; padding: 0; color: #52635c; font-size: 16px; line-height: 1.7; list-style: none; }
 .task-list span { display: inline-block; width: 18px; color: #7a3f2a; font-weight: 800; }
 .course-side { display: grid; gap: 16px; align-content: start; }
 .course-card { padding: 20px; background: #f7faf6; border: 1px solid #d2dfd7; }
