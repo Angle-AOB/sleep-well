@@ -38,3 +38,22 @@ test('two saved nights are not worth a backup reminder yet', async ({ page }) =>
   await page.reload()
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
 })
+
+test('one click on the reminder card turns backup reminders off for good', async ({ page }) => {
+  await openApp(page)
+  await recordNight(page, '2026-11-17')
+  await recordNight(page, '2026-11-18')
+  await recordNight(page, '2026-11-19')
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
+
+  await page.getByRole('button', { name: '关闭提醒' }).click()
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
+  await expect(page.locator('#backup-reminders')).not.toBeChecked()
+  await expect(page.getByText('正在保存偏好…').first()).toBeVisible()
+  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
+  await expect(page.locator('#backup-reminders')).not.toBeChecked()
+})

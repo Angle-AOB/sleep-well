@@ -41,6 +41,7 @@ function App() {
   const [reloadToken, setReloadToken] = useState(0)
   /** 打开应用时由领域规则给出的提醒结论；只在本次访问展示，不做后台定时。 */
   const [reminder, setReminder] = useState<Extract<BackupReminderDecision, { remind: true }> | null>(null)
+  const [pendingSaves, setPendingSaves] = useState(0)
   const saveQueue = useRef(Promise.resolve())
 
   useEffect(() => {
@@ -119,6 +120,8 @@ function App() {
     setPreferences(next)
     if (storageState === 'unsupported') return
     setStorageState('loading')
+    // 计数未落盘的写入：只有队列清空后才提示“已保存”，避免下一次刷新丢掉刚点的设置。
+    setPendingSaves((count) => count + 1)
     saveQueue.current = saveQueue.current.then(async () => {
       try {
         await writePreferences(next)
@@ -127,6 +130,8 @@ function App() {
       } catch {
         setPreferences(savedPreferences)
         setStorageState('error')
+      } finally {
+        setPendingSaves((count) => count - 1)
       }
     })
     await saveQueue.current
@@ -162,13 +167,15 @@ function App() {
     void updatePreference({ ...preferences, backupReminders: false })
   }
 
-  const storageMessage = storageState === 'ready'
-    ? t('saved')
-    : storageState === 'unsupported'
-      ? t('storageUnavailable')
-      : storageState === 'error'
-        ? t('storageError')
-        : t('saving')
+  const storageMessage = pendingSaves > 0
+    ? t('saving')
+    : storageState === 'ready'
+      ? t('saved')
+      : storageState === 'unsupported'
+        ? t('storageUnavailable')
+        : storageState === 'error'
+          ? t('storageError')
+          : t('saving')
 
   const offlineMessage = offlineStatus === 'ready'
     ? t('offlineReady')
