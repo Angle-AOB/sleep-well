@@ -56,7 +56,9 @@ test('one click on the reminder card turns backup reminders off for good', async
   await page.getByRole('button', { name: '关闭提醒' }).click()
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
   await expect(page.locator('#backup-reminders')).not.toBeChecked()
-  await expect(page.getByText('正在保存偏好…').first()).toBeVisible()
+  // 保存状态行始终在“正在保存偏好…”与“偏好已保存在此设备”之间切换；
+  // 不去抓瞬态的“正在保存”，避免与写入速度赛跑，只断言最终落盘。
+  await expect(page.getByText(/正在保存偏好|偏好已保存在此设备/).first()).toBeVisible()
   await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
 
   await reloadApp(page)
@@ -153,4 +155,25 @@ test('the in-app reminder works even when the Notification API is missing', asyn
   await reloadApp(page)
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
   await expect(page.getByRole('button', { name: '关闭提醒' })).toBeVisible()
+})
+
+test('cancelling the share sheet does not count as a backup', async ({ page }) => {
+  await page.addInitScript(() => {
+    const share = () => Promise.reject(new DOMException('cancelled', 'AbortError'))
+    Object.defineProperty(Navigator.prototype, 'share', { configurable: true, value: share })
+    Object.defineProperty(Navigator.prototype, 'canShare', { configurable: true, value: () => true })
+  })
+  await openApp(page)
+  await recordNight(page, '2026-11-17')
+  await recordNight(page, '2026-11-18')
+  await recordNight(page, '2026-11-19')
+
+  const backup = page.getByRole('region', { name: '本地备份与导出' })
+  await backup.getByRole('button', { name: '导出完整备份（ZIP）' }).click()
+  await expect(backup.getByText('已取消分享，没有生成新的备份文件。')).toBeVisible()
+  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+
+  // 取消分享不算备份：提醒不静音，打开应用仍会提示。
+  await reloadApp(page)
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
 })

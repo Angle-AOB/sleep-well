@@ -202,8 +202,10 @@ export function BackupPanel({ storageUnavailable, onImported, onExported }: Back
       const outcome = await deliverFile(bytesBlob(bytes), backupFileName(payload.exportedAt))
       const mapped = deliveryNotice(outcome)
       if (!mapped) return fail('delivery-failed', { operation: 'export-backup' })
-      // 记账先落盘再给成功提示：提示可见即代表 lastBackupAt 已写入，提醒不会再催促。
-      await onExported?.(payload.exportedAt)
+      // 只有真正交付（下载完成或分享成功）才记账：用户取消分享不算备份，提醒不能因此静音。
+      if (outcome === 'shared' || outcome === 'downloaded') {
+        await onExported?.(payload.exportedAt)
+      }
       setNotice(mapped)
     } catch {
       fail('export-failed', { operation: 'export-backup' })
