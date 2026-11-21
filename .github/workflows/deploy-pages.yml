@@ -1,0 +1,50 @@
+# 构建并发布睡眠行为训练器到 GitHub Pages。
+# 构建（含测试）失败时不会运行部署 job，线上可用版本保持不变。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [feat/2-offline-pwa-foundation]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 不取消进行中的部署；排队依次发布，避免半份产物覆盖线上版本。
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx eslint .
+      - run: npx tsc -b
+      # 测试自身的构建走 / 基址（webServer 不带 GITHUB_PAGES），与本地一致。
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --reporter=line
+      # 发布产物单独用 GITHUB_PAGES=1 重建，资产挂到 /sleep-well/ 基址。
+      - run: GITHUB_PAGES=1 npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
