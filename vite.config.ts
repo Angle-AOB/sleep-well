@@ -2,21 +2,25 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// 发布到 GitHub Pages 时用 GITHUB_PAGES=1 npm run build 切换基址；
+// 不用 GITHUB_ACTIONS 判断，否则 CI 里跑测试的构建也会拿到 /sleep-well/ 基址。
+const base = process.env.GITHUB_PAGES ? '/sleep-well/' : '/'
+
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? '/sleep-well/' : '/',
+  base,
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        id: '/sleep-well/',
+        id: base,
         name: '睡眠行为训练器',
         short_name: '睡眠训练',
         description: '以行为练习改善睡眠习惯。',
         lang: 'zh-CN',
-        start_url: '/sleep-well/',
-        scope: '/sleep-well/',
+        start_url: base,
+        scope: base,
         display: 'standalone',
         background_color: '#f5f7f3',
         theme_color: '#f5f7f3',
