@@ -195,7 +195,7 @@ test('migration failure leaves old data intact without partial writes', async ({
 
   await page.reload()
   await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
-  await expect(page.getByText('无法保存偏好').first()).toBeVisible()
+  await expect(page.getByText('数据持久化失败').first()).toBeVisible()
 
   const first = await readDbRecord(page, 'diary', '2026-11-14')
   expect(first.bedTime).toBe('23:00')

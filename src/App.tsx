@@ -29,7 +29,7 @@ function App() {
   const [screening, setScreening] = useState<ScreeningRecord | null>(null)
   const [screeningState, setScreeningState] = useState<'loading' | 'ready' | 'error'>(() => 'loading')
   const [storageState, setStorageState] = useState<'loading' | 'ready' | 'error' | 'unsupported'>(() =>
-    'indexedDB' in window ? 'loading' : 'unsupported'
+    window.indexedDB ? 'loading' : 'unsupported'
   )
   const [persistenceStatus, setPersistenceStatus] = useState<PersistenceStatus>(() =>
     'storage' in navigator && 'persist' in navigator.storage ? 'pending' : 'unsupported'
@@ -48,7 +48,7 @@ function App() {
   const saveQueue = useRef(Promise.resolve())
 
   useEffect(() => {
-    if (!('indexedDB' in window)) return
+    if (!window.indexedDB) return
 
     let active = true
     Promise.all([readPreferences(), readScreening(), readDiaryEntries()]).then(([saved, savedScreening, entries]) => {
