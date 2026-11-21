@@ -293,6 +293,7 @@ function App() {
       <BackupPanel
         storageUnavailable={storageState === 'unsupported'}
         onImported={reloadAfterImport}
+        onExported={(exportedAt) => updatePreference({ ...preferences, lastBackupAt: exportedAt })}
       />
 
       <footer className="footer"><span>{t('footer')}</span><span>{t('footerMeta')}</span></footer>

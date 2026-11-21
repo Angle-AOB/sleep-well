@@ -57,6 +57,8 @@ type BackupPanelProps = {
   storageUnavailable: boolean
   /** 导入成功后让应用重新读取日记、疗程、设置与筛查状态。 */
   onImported?: () => Promise<void> | void
+  /** 完整备份交付成功后记账（preferences.lastBackupAt），让备份提醒保持安静。 */
+  onExported?: (exportedAt: string) => Promise<void> | void
 }
 
 function csvLabels(t: TFunction): DiaryCsvLabels {
@@ -154,7 +156,7 @@ function deliveryNotice(outcome: DeliveryOutcome): Notice | null {
   }
 }
 
-export function BackupPanel({ storageUnavailable, onImported }: BackupPanelProps) {
+export function BackupPanel({ storageUnavailable, onImported, onExported }: BackupPanelProps) {
   const { t } = useTranslation()
   const today = localToday()
   const [activity, setActivity] = useState<'export' | 'read' | 'import' | null>(null)
@@ -204,7 +206,12 @@ export function BackupPanel({ storageUnavailable, onImported }: BackupPanelProps
       if (!data) return
       const payload = createBackupPayload(data, { exportedAt: new Date().toISOString() })
       const bytes = await createArchiveBytes(payload)
-      await deliver(bytesBlob(bytes), backupFileName(payload.exportedAt))
+      const outcome = await deliverFile(bytesBlob(bytes), backupFileName(payload.exportedAt))
+      const mapped = deliveryNotice(outcome)
+      if (!mapped) return fail('delivery-failed')
+      // 记账先落盘再给成功提示：提示可见即代表 lastBackupAt 已写入，提醒不会再催促。
+      await onExported?.(payload.exportedAt)
+      setNotice(mapped)
     } catch {
       fail('export-failed')
     } finally {
