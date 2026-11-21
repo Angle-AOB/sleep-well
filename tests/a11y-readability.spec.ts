@@ -154,6 +154,11 @@ test('training body copy stays at least 16px across viewports', async ({ page })
 
 test('training page contrast includes dimmed rendered text', async ({ page }) => {
   await openPage(page, 'training')
+  await page.locator('.course-intro').evaluate((element) => {
+    const text = element as HTMLElement
+    text.style.color = '#22302c'
+    text.style.opacity = '0.75'
+  })
   const result = await renderedText(page)
   const dimmed = result.texts.filter((text) => text.opacity < 1)
   expect(dimmed.length, 'training page should expose rendered text with opacity').toBeGreaterThan(0)

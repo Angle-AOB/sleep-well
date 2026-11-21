@@ -197,11 +197,11 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
 .course-card-copy:last-child { margin-bottom: 0; }.course-card-copy.is-warning { color: #8a3d2b; }
 .week-track { display: flex; gap: 8px; margin: 0 0 20px; padding-bottom: 4px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; }
 .week-step { display: flex; flex: 1 0 96px; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 88px; padding: 12px; color: #52635c; background: #f7faf6; border: 1px solid #d2dfd7; font-size: 14px; text-align: left; cursor: pointer; scroll-snap-align: start; }
-.week-step:disabled { opacity: .55; cursor: not-allowed; }.week-step.is-done { border-color: #9bb9a9; }
+.week-step:disabled { cursor: not-allowed; }.week-step.is-done { border-color: #9bb9a9; }
 .week-step.is-current { color: #f7faf6; background: #344d45; border-color: #344d45; }
 /* 正在预览的周：与当前周的深色不同，用暖色描边和浅底标出“只是被查看”。 */
 .week-step.is-viewed:not(.is-current) { border-color: #7a3f2a; background: #f3ece4; box-shadow: inset 0 0 0 1px #7a3f2a; }
-.week-number { font-size: 14px; letter-spacing: .12em; opacity: .75; }.week-name { font-weight: 700; }
+.week-number { font-size: 14px; letter-spacing: .12em; }.week-name { font-weight: 700; }
 .week-state { margin-top: auto; font-size: 14px; letter-spacing: .04em; }.week-step.is-current .week-state { color: #d8e5dd; }
 .course-progress-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 18px; padding-bottom: 14px; border-bottom: 1px solid #cbd9d0; }
 .course-progress { margin: 0; color: #263b36; font-family: inherit; font-size: 20px; }
