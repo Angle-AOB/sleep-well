@@ -3,7 +3,9 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   createScreeningRecord,
+  MAXIMUM_PLAUSIBLE_AGE,
   MINIMUM_ADULT_AGE,
+  MINIMUM_PLAUSIBLE_AGE,
   SCREENING_BOOLEAN_KEYS,
   type DistressLevel,
   type ScreeningAnswers,
@@ -115,7 +117,7 @@ function ScreeningForm({ onSubmit, onCancel }: { onSubmit: (record: ScreeningRec
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const missingQuestionAnswer = !form.concernDuration || !form.affectedNights || !form.daytimeImpact || !form.improvementGoal
-    const missingSafetyAnswer = form.age === '' || !Number.isInteger(form.age) || form.age < 1 || form.age > 120 || !form.distress || SCREENING_BOOLEAN_KEYS.some((key) => form[key] === null)
+    const missingSafetyAnswer = form.age === '' || !Number.isInteger(form.age) || form.age < MINIMUM_PLAUSIBLE_AGE || form.age > MAXIMUM_PLAUSIBLE_AGE || !form.distress || SCREENING_BOOLEAN_KEYS.some((key) => form[key] === null)
     if (missingSafetyAnswer || missingQuestionAnswer) {
       setError(t('screeningValidationError'))
       return
@@ -145,8 +147,8 @@ function ScreeningForm({ onSubmit, onCancel }: { onSubmit: (record: ScreeningRec
         <input
           id="screening-age"
           type="number"
-          min="1"
-          max="120"
+          min={MINIMUM_PLAUSIBLE_AGE}
+          max={MAXIMUM_PLAUSIBLE_AGE}
           step="1"
           value={form.age}
           onChange={(event) => setForm((current) => ({ ...current, age: event.target.value === '' ? '' : Number(event.target.value) }))}

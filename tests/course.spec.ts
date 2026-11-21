@@ -225,7 +225,7 @@ test('W2 shift work keeps the course available but only previews: nothing is pau
   // W2 还没有开始睡眠限制：安全闸门照旧拦截窗口，但状态仍是预览。
   expect(result.restriction).toBe('preview')
   expect(result.restrictionPausedBy).toBeNull()
-  expect(result.caffeine).toEqual({ cutoff: '15:00', basis: 'recent-bedtime' })
+  expect(result.caffeine).toEqual({ cutoff: '15:30', basis: 'recent-bedtime' })
 })
 
 test('W2 screening that needs review blocks the window but never says restriction is paused', () => {
@@ -235,7 +235,7 @@ test('W2 screening that needs review blocks the window but never says restrictio
   expect(result.window).toEqual({ status: 'unavailable', reason: 'screening-paused', completeNights: 4 })
   expect(result.restriction).toBe('preview')
   expect(result.restrictionPausedBy).toBeNull()
-  expect(result.caffeine).toEqual({ cutoff: '15:00', basis: 'recent-bedtime' })
+  expect(result.caffeine).toEqual({ cutoff: '15:30', basis: 'recent-bedtime' })
 })
 
 test('an unconfirmed wake time leaves W3 without a window until the anchor is set', () => {
@@ -926,4 +926,24 @@ test('the domain names why restriction is paused instead of letting the interfac
   expect(candidate.restrictionPausedBy).toBeNull()
   expect(blocked.restriction).toBe('paused')
   expect(blocked.restrictionPausedBy).toBe('screening')
+})
+
+test('the caffeine fallback anchors on sleep onset, not lights-off', () => {
+  const shift = withWorkPattern(state({ wakeTimes: [{ time: '07:00', decidedOn: '2026-11-02' }] }), 'shift-work')
+  const dates = ['2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07']
+  // 关灯时间相同（23:00），只有入睡潜伏期不同：截止时刻必须跟着入睡时间（关灯+潜伏期）走。
+  const zeroLatency = assess({
+    state: shift,
+    entries: nights(dates, { latency: 0 }),
+    today: '2026-11-10'
+  })
+  expect(zeroLatency.progress.week).toBe(2)
+  expect(zeroLatency.caffeine).toEqual({ cutoff: '15:00', basis: 'recent-bedtime' })
+
+  const longLatency = assess({
+    state: shift,
+    entries: nights(dates, { latency: 60 }),
+    today: '2026-11-10'
+  })
+  expect(longLatency.caffeine).toEqual({ cutoff: '16:00', basis: 'recent-bedtime' })
 })

@@ -665,6 +665,17 @@ export function medianOutOfBedTime(entries: SleepDiaryEntry[], today: LocalDate)
   return medianRecentClock(entries, today, (entry) => entry.outOfBedTime)
 }
 
+/** 入睡时刻 = 关灯时刻 + 入睡潜伏期；潜伏期缺失或非法时无法得知入睡时刻。 */
+function sleepOnsetClock(entry: SleepDiaryEntry): string | undefined {
+  const latency = entry.sleepOnsetLatencyMinutes
+  if (latency === undefined || !Number.isInteger(latency) || latency < 0) return undefined
+  const lightsOffTime = entry.lightsOffTime
+  if (lightsOffTime === undefined) return undefined
+  const lightsOff = clockMinutes(lightsOffTime)
+  if (lightsOff === null) return undefined
+  return formatClock(lightsOff + latency)
+}
+
 /** 确认或修改固定起床时间；同一天多次修改只保留最后一次。 */
 export function withWakeTime(state: CourseState, time: string, decidedOn: LocalDate): CourseState {
   if (!isClockTime(time) || dayNumber(decidedOn) === null) return state
@@ -743,8 +754,9 @@ function caffeineAdvice(
     }
   }
 
-  // 窗口被安全筛查或轮班暂停时，仍按最近入睡时间给出咖啡因锚定建议。
-  const bedtime = medianRecentClock(entries, today, (entry) => entry.lightsOffTime)
+  // 窗口被安全筛查或轮班暂停时，仍按最近入睡时间中位数给出咖啡因锚定建议。
+  // 入睡时间 = 关灯时间 + 入睡潜伏期；无潜伏期记录的夜无法得知入睡时刻，不参与中位数。
+  const bedtime = medianRecentClock(entries, today, sleepOnsetClock)
   return bedtime
     ? { cutoff: formatClock(clockMinutes(bedtime)! - CAFFEINE_CUTOFF_HOURS * 60), basis: 'recent-bedtime' }
     : null

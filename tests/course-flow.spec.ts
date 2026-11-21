@@ -222,7 +222,7 @@ test('a screening that needs review blocks the automatic window without blocking
   await expect(panel.getByText('睡眠限制：预览')).toBeVisible()
   await expect(panel.getByText(/暂停/)).toHaveCount(0)
   await expect(panel.getByText('窗口长度', { exact: false })).toHaveCount(0)
-  await expect(panel.getByText('睡前 8 小时：15:00 前停止摄入咖啡因。')).toBeVisible()
+  await expect(panel.getByText('睡前 8 小时：15:30 前停止摄入咖啡因。')).toBeVisible()
   await expect(panel.getByText('按最近 7 夜入睡时间的中位数倒推 8 小时')).toBeVisible()
   await expect(diaryPanel(page)).toBeVisible()
 
