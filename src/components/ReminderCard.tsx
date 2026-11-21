@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { hashForPage } from '../routing'
 
 /**
  * 备份提醒卡：只消费领域层给出的提醒结论，不读时钟、不请求系统通知权限，
@@ -24,7 +25,7 @@ export function ReminderCard({ kind, entryCount, onDisable, onDismiss }: Reminde
           : t('reminderCardBodyWeekly')}
       </p>
       <div className="backup-actions">
-        <a className="secondary-button reminder-link" href="#backup-title">{t('reminderCardGoBackup')}</a>
+        <a className="secondary-button reminder-link" href={hashForPage('settings')}>{t('reminderCardGoBackup')}</a>
         <button type="button" className="secondary-button" onClick={onDismiss}>{t('reminderCardLater')}</button>
         <button type="button" className="primary-button" onClick={onDisable}>{t('reminderCardDisable')}</button>
       </div>

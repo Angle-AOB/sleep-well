@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { evaluateNight, isCompleteNight, type SleepDiaryEntry } from '../src/domain/diary'
+import { openPage } from './navigation'
 
 async function openDiary(page: Page) {
   // 固定本地日期，避免测试依赖真实系统时钟、在本地午夜边界上失败。
-  await page.clock.setFixedTime(new Date(2026, 10, 20, 8, 0, 0))
-  await page.goto('/')
+  await openPage(page, 'diary', '2026-11-20T08:00:00')
 }
 
 function entry(overrides: Partial<SleepDiaryEntry> = {}): SleepDiaryEntry {
@@ -382,11 +382,10 @@ test('a future date cannot be saved as a night', async ({ page }) => {
 })
 
 test('without local storage the diary says nothing will be saved', async ({ page }) => {
-  await page.clock.setFixedTime(new Date(2026, 10, 20, 8, 0, 0))
   await page.addInitScript(() => {
     Reflect.deleteProperty(window, 'indexedDB')
   })
-  await page.goto('/')
+  await openPage(page, 'diary', '2026-11-20T08:00:00')
 
   await expect(page.getByText('此浏览器无法使用本地存储，日记不会保存。')).toBeVisible()
 })

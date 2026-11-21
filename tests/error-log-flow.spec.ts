@@ -1,8 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
+import { goTo, openPage } from './navigation'
 
 async function openApp(page: Page, time = '2026-11-20T09:00:00') {
-  await page.clock.setFixedTime(new Date(time))
-  await page.goto('/')
+  await openPage(page, 'settings', time)
   await expect(page.getByRole('heading', { name: '本地备份与导出' })).toBeVisible()
 }
 
@@ -26,6 +26,7 @@ test('the error log panel stays collapsed until asked and shows plain-text diagn
 
 test('a failed import is recorded and diagnostics carry no health data', async ({ page }) => {
   await openApp(page)
+  await goTo(page, 'diary')
   const diary = page.getByRole('region', { name: '晨间睡眠日记' })
   await diary.locator('#diary-date').fill('2026-11-19')
   await diary.locator('#lights-off').fill('21:47')
@@ -36,6 +37,7 @@ test('a failed import is recorded and diagnostics carry no health data', async (
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
   await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
 
+  await goTo(page, 'settings')
   await page.locator('input[type="file"]').setInputFiles({
     name: 'corrupt.sleep-backup.zip',
     mimeType: 'application/zip',
@@ -95,6 +97,7 @@ test('a failed local database write is recorded in the error log', async ({ page
   })
   await openApp(page)
 
+  await goTo(page, 'diary')
   const diary = page.getByRole('region', { name: '晨间睡眠日记' })
   await diary.locator('#diary-date').fill('2026-11-19')
   await diary.locator('#lights-off').fill('23:00')
@@ -105,6 +108,7 @@ test('a failed local database write is recorded in the error log', async ({ page
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
   await expect(diary.getByText('无法保存日记。请检查此设备存储空间后重试。')).toBeVisible()
 
+  await goTo(page, 'settings')
   const panel = page.getByRole('region', { name: '诊断信息' })
   await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
   await expect(panel.getByText('本地数据库写入失败')).toBeVisible()

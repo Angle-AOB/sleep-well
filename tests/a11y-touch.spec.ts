@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { goTo, pageHeading, type AppPage } from './navigation'
 
 // 触控目标测量约定（判断与理由见收工报告）：
 // - 有 label 包裹/关联的 checkbox、radio、file input，触控目标是整个 label
@@ -74,23 +75,45 @@ function expectAtLeast(boxes: Box[], size: number, what: string) {
 async function openApp(page: Page) {
   await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
-  // 日记表单与疗程按钮是异步加载的；没加载完就量尺寸会漏掉大半控件。
-  await expect(page.getByRole('button', { name: /保存日记|更新日记/ })).toBeVisible()
-  await expect(page.getByRole('button', { name: '开始六周训练' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 }
 
-test('main actions meet the 44x44 CSS px touch target', async ({ page }) => {
+test('main actions meet the 44x44 CSS px touch target on every page', async ({ page }) => {
   await openApp(page)
-  const targets = await tapTargets(page)
-  // 按钮、开关、文件选择等主要操作全在首屏各面板里。
-  expect(targets.length).toBeGreaterThan(10)
-  expectAtLeast(targets, MIN_TARGET, '主要操作触控目标')
+  const pages: AppPage[] = ['today', 'diary', 'training', 'settings']
+  let total = 0
+
+  for (const target of pages) {
+    await goTo(page, target)
+    if (target === 'diary') {
+      await expect(page.getByRole('button', { name: /保存日记|更新日记/ })).toBeVisible()
+    }
+    if (target === 'training') {
+      await expect(page.getByRole('button', { name: '开始六周训练' })).toBeVisible()
+    }
+    if (target === 'settings') {
+      await expect(page.getByRole('heading', { name: '本地备份与导出' })).toBeVisible()
+    }
+
+    const targets = await tapTargets(page)
+    expect(targets.length, `${pageHeading[target]} 页应有可测控件`).toBeGreaterThan(0)
+    total += targets.length
+    expectAtLeast(targets, MIN_TARGET, `${pageHeading[target]} 页主要操作触控目标`)
+  }
+
+  expect(total).toBeGreaterThan(10)
 })
 
 test('checkbox and radio controls themselves meet the WCAG 2.2 AA 24x24 minimum', async ({ page }) => {
   await openApp(page)
+  await goTo(page, 'diary')
+  await expect(page.getByRole('button', { name: /保存日记|更新日记/ })).toBeVisible()
   const boxes = await rawToggleSizes(page)
+
+  await goTo(page, 'settings')
+  await expect(page.locator('#backup-reminders')).toBeVisible()
+  boxes.push(...await rawToggleSizes(page))
+
   expectAtLeast(boxes, MIN_WCAG_TARGET, 'WCAG 2.2 AA 2.5.8 控件本体')
 })
 
@@ -112,6 +135,7 @@ test('the cache retry button meets the 44x44 CSS px touch target', async ({ page
 
 test('week step buttons meet the 44x44 CSS px touch target', async ({ page }) => {
   await openApp(page)
+  await goTo(page, 'training')
   await page.getByRole('button', { name: '开始六周训练' }).click()
   await expect(page.getByRole('heading', { name: '第 1 周 · 记录基线' })).toBeVisible()
 
@@ -126,6 +150,7 @@ test('week step buttons meet the 44x44 CSS px touch target', async ({ page }) =>
 
 test('diagnostics copy and issue actions meet the 44x44 CSS px touch target', async ({ page }) => {
   await openApp(page)
+  await goTo(page, 'settings')
   const panel = page.getByRole('region', { name: '诊断信息' })
   await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
 
