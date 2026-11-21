@@ -248,6 +248,7 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
 
 @media (max-width: 700px) {
   .course-panel { padding: 22px; }.window-range { font-size: 28px; }
+  .course-preview-note { margin-top: 10px; padding-block: 8px; line-height: 1.5; }
 }
 
 .backup-panel { margin-bottom: 48px; padding: 28px; background: #e7eee9; border: 1px solid #d2dfd7; }

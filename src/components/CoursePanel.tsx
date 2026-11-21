@@ -279,7 +279,7 @@ export function CoursePanel({
       )}
       {completed && <p className="course-note">{t('courseCompletedNote')}</p>}
       {shownWeek !== currentWeek && (
-        <p className="course-note" role="status">
+        <p className="course-note course-preview-note" role="status">
           {t('courseWeekPreview', { week: shownWeek, current: currentWeek })}
         </p>
       )}
