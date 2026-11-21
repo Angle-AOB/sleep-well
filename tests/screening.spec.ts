@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { assessScreening, canUseSleepRestriction, type ScreeningAnswers } from '../src/domain/screening'
+import { goTo, openPage } from './navigation'
 
 const ordinaryAnswers: ScreeningAnswers = {
   age: 30,
@@ -89,7 +90,7 @@ test('severe self-reported distress pauses restriction and recommends profession
 })
 
 test('ordinary user can complete and persist the non-diagnostic screening', async ({ page }) => {
-  await page.goto('/')
+  await openPage(page, 'settings')
   await page.getByRole('heading', { name: '睡眠困扰与安全自查' }).waitFor()
   await completeOrdinaryScreening(page)
   await page.getByRole('button', { name: '提交自查' }).click()
@@ -101,7 +102,7 @@ test('ordinary user can complete and persist the non-diagnostic screening', asyn
 })
 
 test('a safety concern pauses restriction and can be cleared only by completing the screening again', async ({ page }) => {
-  await page.goto('/')
+  await openPage(page, 'settings')
   await page.getByRole('button', { name: '开始自查' }).click()
   await page.getByLabel('你的年龄').fill('30')
   await page.getByRole('group', { name: '你是否曾被告知患有双相障碍，或有躁狂/轻躁狂发作史？' }).getByLabel('是').check()
@@ -121,8 +122,13 @@ test('a safety concern pauses restriction and can be cleared only by completing 
   await expect(page.getByText('睡眠限制暂时暂停。')).toBeVisible()
   await expect(page.getByText('建议先咨询睡眠或医疗专业人士，再决定是否进行睡眠限制。')).toBeVisible()
   await expect(page.getByText('睡眠限制与自动滴定暂停；睡眠日记仍可继续记录，教育内容与数据导出将在相应功能上线后可用。')).toBeVisible()
+
+  await goTo(page, 'training')
   await expect(page.getByRole('button', { name: '开始六周训练' })).toBeEnabled()
+  await goTo(page, 'diary')
   await expect(page.getByRole('heading', { name: '晨间睡眠日记' })).toBeVisible()
+
+  await goTo(page, 'settings')
   await page.reload()
   await expect(page.getByText('睡眠限制暂时暂停。')).toBeVisible()
 

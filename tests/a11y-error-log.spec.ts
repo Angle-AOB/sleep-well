@@ -1,12 +1,11 @@
 import { test, expect, type Page } from '@playwright/test'
+import { openPage } from './navigation'
 
 // 问题反馈链接与隐私提示：链接有可访问名称、可键盘触发；隐私提示在面板里可读。
 // 断言可访问名与可读文本，不碰 CSS 类名。
 
 async function openApp(page: Page) {
-  await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
+  await openPage(page, 'settings', '2026-11-20T09:00:00')
 }
 
 test('the issue link has an accessible name and keyboard activation reaches GitHub issues', async ({ page, context }) => {

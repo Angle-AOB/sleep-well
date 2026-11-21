@@ -13,6 +13,7 @@ import { evaluateBackupReminder, type BackupReminderDecision } from './domain/re
 import type { ScreeningRecord } from './domain/screening'
 import { localToday } from './format'
 import { readCacheStatus } from './pwa'
+import { hashForPage, pageFromHash, type Page } from './routing'
 import './style.css'
 
 type OfflineStatus = 'pending' | 'ready' | 'unsupported' | 'error'
@@ -24,8 +25,26 @@ declare global {
   }
 }
 
+const pageTitleKeys: Record<Page, string> = {
+  today: 'pageToday',
+  diary: 'pageDiary',
+  training: 'pageTraining',
+  settings: 'pageSettings'
+}
+
+const navigationItems: { page: Page; icon: string }[] = [
+  { page: 'today', icon: '◐' },
+  { page: 'diary', icon: '☾' },
+  { page: 'training', icon: '⑥' },
+  { page: 'settings', icon: '◈' }
+]
+
 function App() {
   const { t } = useTranslation()
+  const [page, setPage] = useState<Page>(() => pageFromHash(window.location.hash) ?? 'today')
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const mainRef = useRef<HTMLElement>(null)
+  const lastPage = useRef<Page>(page)
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
   const [savedPreferences, setSavedPreferences] = useState<Preferences>(defaultPreferences)
   const [screening, setScreening] = useState<ScreeningRecord | null>(null)
@@ -48,6 +67,36 @@ function App() {
   const [preferencesLoaded, setPreferencesLoaded] = useState(false)
   const [pendingSaves, setPendingSaves] = useState(0)
   const saveQueue = useRef(Promise.resolve())
+
+  // 空地址、非页面锚点与未知地址都回落到今日，并替换地址，避免历史里留下无效项。
+  useEffect(() => {
+    if (pageFromHash(window.location.hash) === null) {
+      window.history.replaceState(null, '', hashForPage('today'))
+    }
+  }, [])
+
+  useEffect(() => {
+    function onHashChange() {
+      const next = pageFromHash(window.location.hash)
+      if (next === null) {
+        window.history.replaceState(null, '', hashForPage('today'))
+        setPage('today')
+        return
+      }
+      setPage(next)
+    }
+
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
+  // 首次加载不抢焦点；之后每次切页都回到页顶，并把焦点交给新页标题。
+  useEffect(() => {
+    if (lastPage.current === page) return
+    lastPage.current = page
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    headingRef.current?.focus()
+  }, [page])
 
   useEffect(() => {
     if (!window.indexedDB) return
@@ -186,129 +235,161 @@ function App() {
   }
 
   return (
-    <main className="page-shell" id="main-content" tabIndex={-1}>
-      <a className="skip-link" href="#main-content">{t('skipToContent')}</a>
+    <>
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault()
+          mainRef.current?.focus()
+        }}
+      >
+        {t('skipToContent')}
+      </a>
+
       <header className="topbar">
-        <a className="wordmark" href="#top" aria-label={t('brand')}>
-          <span className="brand-mark" aria-hidden="true">眠</span>
-          <span>{t('brand')}</span>
-        </a>
-        <span className="local-tag"><span className="status-dot" />{t('localOnly')}</span>
+        <h1 id="page-title" ref={headingRef} tabIndex={-1}>{t(pageTitleKeys[page])}</h1>
       </header>
 
-      <section className="intro" id="top" aria-labelledby="page-title">
-        <div className="intro-copy">
-          <p className="eyebrow">{t('eyebrow')}</p>
-          <h1 id="page-title">{t('title')}</h1>
-          <p className="lead">{t('intro')}</p>
+      <nav className="tabbar" aria-label={t('primaryNavigation')}>
+        <div className="tabbar-inner">
+          {navigationItems.map((item) => (
+            <a
+              key={item.page}
+              className="tab-link"
+              href={hashForPage(item.page)}
+              aria-current={page === item.page ? 'page' : undefined}
+            >
+              <span className="tab-icon" aria-hidden="true">{item.icon}</span>
+              <span>{t(pageTitleKeys[item.page])}</span>
+            </a>
+          ))}
         </div>
-        <div className="night-art" aria-hidden="true">
-          <div className="moon" />
-          <div className="horizon horizon-back" />
-          <div className="horizon horizon-front" />
-          <span className="star star-one">✳</span><span className="star star-two">✧</span>
-          <span className="art-label">01 <i /> 06</span>
-        </div>
-      </section>
+      </nav>
 
-      <section className="status-row" aria-label={t('statusLabel')}>
-        <div className={`status-item ${offlineStatus === 'ready' ? 'is-ready' : ''}`} role="status">
-          <span className="status-icon" aria-hidden="true">⌁</span>
-          <span>
-            {offlineMessage}
-            {offlineStatus === 'ready' && ` · ${t('offlineCacheComplete')}`}
-          </span>
-          {(offlineStatus === 'error' || offlineStatus === 'pending') && (
-            <button type="button" className="status-retry" onClick={() => void retryCacheCheck()}>
-              {t('offlineRetry')}
-            </button>
-          )}
-        </div>
-        <div className={`status-item ${storageState === 'error' || storageState === 'unsupported' ? 'is-error' : ''}`} role="status">
-          <span className="status-icon" aria-hidden="true">◉</span>
-          <span>{storageMessage}</span>
-        </div>
-        {persistenceStatus !== 'unsupported' && persistenceStatus !== 'pending' && (
-          <div className="status-item" role="status">
-            <span className="status-icon" aria-hidden="true">◇</span>
-            <span>{persistenceStatus === 'granted' ? t('storagePersisted') : t('storageBestEffort')}</span>
-          </div>
-        )}
-      </section>
+      <main className="page-shell" id="main-content" ref={mainRef} tabIndex={-1}>
+        <section className="page" hidden={page !== 'today'} aria-labelledby="page-title">
+          <section className="intro" aria-labelledby="intro-title">
+            <div className="intro-copy">
+              <p className="eyebrow">{t('eyebrow')}</p>
+              <p className="intro-title" id="intro-title">{t('title')}</p>
+              <p className="lead">{t('intro')}</p>
+            </div>
+            <div className="night-art" aria-hidden="true">
+              <div className="moon" />
+              <div className="horizon horizon-back" />
+              <div className="horizon horizon-front" />
+              <span className="star star-one">✳</span><span className="star star-two">✧</span>
+              <span className="art-label">01 <i /> 06</span>
+            </div>
+          </section>
 
-      {reminder && preferencesLoaded && preferences.backupReminders && (
-        <ReminderCard
-          kind={reminder.kind}
-          entryCount={reminder.entryCount}
-          onDisable={disableReminders}
-          onDismiss={() => setReminder(null)}
-        />
-      )}
+          <section className="status-row" aria-label={t('statusLabel')}>
+            <div className={`status-item ${offlineStatus === 'ready' ? 'is-ready' : ''}`} role="status">
+              <span className="status-icon" aria-hidden="true">⌁</span>
+              <span>
+                {offlineMessage}
+                {offlineStatus === 'ready' && ` · ${t('offlineCacheComplete')}`}
+              </span>
+              {(offlineStatus === 'error' || offlineStatus === 'pending') && (
+                <button type="button" className="status-retry" onClick={() => void retryCacheCheck()}>
+                  {t('offlineRetry')}
+                </button>
+              )}
+            </div>
+            <div className={`status-item ${storageState === 'error' || storageState === 'unsupported' ? 'is-error' : ''}`} role="status">
+              <span className="status-icon" aria-hidden="true">◉</span>
+              <span>{storageMessage}</span>
+            </div>
+            {persistenceStatus !== 'unsupported' && persistenceStatus !== 'pending' && (
+              <div className="status-item" role="status">
+                <span className="status-icon" aria-hidden="true">◇</span>
+                <span>{persistenceStatus === 'granted' ? t('storagePersisted') : t('storageBestEffort')}</span>
+              </div>
+            )}
+          </section>
 
-      <section className="content-grid" aria-label={t('productLabel')}>
-        <article className="info-section">
-          <div className="section-heading"><span className="section-index">01</span><h2>{t('scopeTitle')}</h2></div>
-          <p>{t('scopeBody')}</p>
-          <div className="info-rule" />
-          <div className="section-heading"><span className="section-index">02</span><h2>{t('privacyTitle')}</h2></div>
-          <p>{t('privacyBody')}</p>
-          <ul className="boundary-list">
-            <li><span aria-hidden="true">+</span> {t('noAccount')}</li>
-            <li><span aria-hidden="true">+</span> {t('noUpload')}</li>
-            <li><span aria-hidden="true">+</span> {t('localErrors')}</li>
-          </ul>
-        </article>
-
-        <section className="preferences-panel" aria-labelledby="preferences-title">
-          <div className="panel-heading">
-            <div><p className="panel-kicker">{t('preferencesKicker')}</p><h2 id="preferences-title">{t('preferencesTitle')}</h2></div>
-            <span className="panel-symbol" aria-hidden="true">◷</span>
-          </div>
-          <label className="toggle-row" htmlFor="backup-reminders">
-            <span>{t('reminderLabel')}</span>
-            <input
-              id="backup-reminders"
-              type="checkbox"
-              checked={preferences.backupReminders}
-              onChange={(event) => void updatePreference({ ...preferences, backupReminders: event.target.checked })}
-              disabled={storageState === 'unsupported'}
+          {reminder && preferencesLoaded && preferences.backupReminders && (
+            <ReminderCard
+              kind={reminder.kind}
+              entryCount={reminder.entryCount}
+              onDisable={disableReminders}
+              onDismiss={() => setReminder(null)}
             />
-          </label>
-          <p className={`storage-note ${storageState === 'error' || storageState === 'unsupported' ? 'note-error' : ''}`} role="status">{storageMessage}</p>
+          )}
+
+          <section className="content-grid" aria-label={t('productLabel')}>
+            <article className="info-section">
+              <div className="section-heading"><span className="section-index">01</span><h2>{t('scopeTitle')}</h2></div>
+              <p>{t('scopeBody')}</p>
+              <div className="info-rule" />
+              <div className="section-heading"><span className="section-index">02</span><h2>{t('privacyTitle')}</h2></div>
+              <p>{t('privacyBody')}</p>
+              <ul className="boundary-list">
+                <li><span aria-hidden="true">+</span> {t('noAccount')}</li>
+                <li><span aria-hidden="true">+</span> {t('noUpload')}</li>
+                <li><span aria-hidden="true">+</span> {t('localErrors')}</li>
+              </ul>
+            </article>
+          </section>
         </section>
-      </section>
 
-      <ScreeningPanel
-        key={`${screeningState}-${reloadToken}`}
-        initialRecord={screeningState === 'ready' ? screening : null}
-        loading={screeningState === 'loading'}
-        storageUnavailable={storageState === 'unsupported' || screeningState === 'error'}
-        onSave={updateScreening}
-      />
+        <section className="page" hidden={page !== 'diary'} aria-labelledby="page-title">
+          <DiaryPanel
+            storageUnavailable={storageState === 'unsupported'}
+            reloadToken={reloadToken}
+            onSaved={() => setDiaryRevision((revision) => revision + 1)}
+          />
+        </section>
 
-      <CoursePanel
-        storageUnavailable={storageState === 'unsupported'}
-        screening={screeningState === 'ready' ? screening : null}
-        diaryRevision={diaryRevision}
-        initialWakeTime={preferences.wakeTime}
-      />
+        <section className="page" hidden={page !== 'training'} aria-labelledby="page-title">
+          <CoursePanel
+            storageUnavailable={storageState === 'unsupported'}
+            screening={screeningState === 'ready' ? screening : null}
+            diaryRevision={diaryRevision}
+            initialWakeTime={preferences.wakeTime}
+          />
+        </section>
 
-      <DiaryPanel
-        storageUnavailable={storageState === 'unsupported'}
-        reloadToken={reloadToken}
-        onSaved={() => setDiaryRevision((revision) => revision + 1)}
-      />
+        <section className="page" hidden={page !== 'settings'} aria-labelledby="page-title">
+          <section className="preferences-panel" aria-labelledby="preferences-title">
+            <div className="panel-heading">
+              <div><p className="panel-kicker">{t('preferencesKicker')}</p><h2 id="preferences-title">{t('preferencesTitle')}</h2></div>
+              <span className="panel-symbol" aria-hidden="true">◷</span>
+            </div>
+            <label className="toggle-row" htmlFor="backup-reminders">
+              <span>{t('reminderLabel')}</span>
+              <input
+                id="backup-reminders"
+                type="checkbox"
+                checked={preferences.backupReminders}
+                onChange={(event) => void updatePreference({ ...preferences, backupReminders: event.target.checked })}
+                disabled={storageState === 'unsupported'}
+              />
+            </label>
+            <p className={`storage-note ${storageState === 'error' || storageState === 'unsupported' ? 'note-error' : ''}`} role="status">{storageMessage}</p>
+          </section>
 
-      <BackupPanel
-        storageUnavailable={storageState === 'unsupported'}
-        onImported={reloadAfterImport}
-        onExported={(exportedAt) => updatePreference({ ...preferences, lastBackupAt: exportedAt })}
-      />
+          <ScreeningPanel
+            key={`${screeningState}-${reloadToken}`}
+            initialRecord={screeningState === 'ready' ? screening : null}
+            loading={screeningState === 'loading'}
+            storageUnavailable={storageState === 'unsupported' || screeningState === 'error'}
+            onSave={updateScreening}
+          />
 
-      <ErrorLogPanel />
+          <BackupPanel
+            storageUnavailable={storageState === 'unsupported'}
+            onImported={reloadAfterImport}
+            onExported={(exportedAt) => updatePreference({ ...preferences, lastBackupAt: exportedAt })}
+          />
 
-      <footer className="footer"><span>{t('footer')}</span><span>{t('footerMeta')}</span></footer>
-    </main>
+          <ErrorLogPanel />
+
+          <footer className="footer"><span>{t('footer')}</span><span>{t('footerMeta')}</span></footer>
+        </section>
+      </main>
+    </>
   )
 }
 

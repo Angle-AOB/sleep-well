@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test'
+import { goTo } from './navigation'
 
 test('cache complete shows current-offline-ready with training content cached', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
   await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('训练内容已缓存')).toBeVisible()
 })
@@ -19,7 +20,7 @@ test('cache failure shows retry entry and retry recovers', async ({ page, contex
   })
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
   await expect(page.getByRole('button', { name: '重试' })).toBeVisible({ timeout: 30_000 })
 
   await page.evaluate(() => {
@@ -45,6 +46,7 @@ test('a failed service-worker update keeps the current version working with loca
   await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
 
   // 先留下本地内容，才谈得上"资源更新不摧毁健康数据"。
+  await goTo(page, 'diary')
   const diary = page.getByRole('region', { name: '晨间睡眠日记' })
   await diary.locator('#diary-date').fill('2026-11-18')
   await diary.locator('#lights-off').fill('23:00')
@@ -75,13 +77,15 @@ test('a failed service-worker update keeps the current version working with loca
   expect(updateCalls).toBeGreaterThan(0)
 
   // 更新失败后旧版本继续工作，本地内容仍在。
-  await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
+  await goTo(page, 'today')
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
   await expect(page.getByText('当前可离线使用')).toBeVisible()
+  await goTo(page, 'diary')
   await expect(diary.getByText('11 月 18 日')).toBeVisible()
 
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
   await expect(diary.getByText('11 月 18 日')).toBeVisible()
 })
 
@@ -89,6 +93,7 @@ test('a half-written new cache is never claimed offline-ready and leaves local d
   await page.goto('/')
   await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
 
+  await goTo(page, 'diary')
   const diary = page.getByRole('region', { name: '晨间睡眠日记' })
   await diary.locator('#diary-date').fill('2026-11-18')
   await diary.locator('#lights-off').fill('23:00')
@@ -111,18 +116,22 @@ test('a half-written new cache is never claimed offline-ready and leaves local d
       )
     }
   })
+  await goTo(page, 'today')
   await page.reload()
 
   // 绝不谎称"当前可离线使用"，且给出重试入口；本地日记不受影响。
   await expect(page.getByText('当前可离线使用')).toBeHidden()
   await expect(page.getByRole('button', { name: '重试' })).toBeVisible({ timeout: 30_000 })
+  await goTo(page, 'diary')
   await expect(diary.getByText('11 月 18 日')).toBeVisible()
 
   // 缓存补齐后重试可恢复。
+  await goTo(page, 'today')
   await page.evaluate(() => {
     ;(window as unknown as { __cacheHalfState: { mode: string } }).__cacheHalfState.mode = 'ok'
   })
   await page.getByRole('button', { name: '重试' }).click()
   await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  await goTo(page, 'diary')
   await expect(diary.getByText('11 月 18 日')).toBeVisible()
 })

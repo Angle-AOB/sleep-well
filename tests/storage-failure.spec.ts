@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { goTo } from './navigation'
 
 test('disabled IndexedDB shows storage-unavailable and app still renders', async ({ browser }) => {
   const context = await browser.newContext()
@@ -7,7 +8,7 @@ test('disabled IndexedDB shows storage-unavailable and app still renders', async
   })
   const page = await context.newPage()
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
   await expect(page.getByText('此浏览器无法使用本地存储').first()).toBeVisible()
   await context.close()
 })
@@ -26,13 +27,15 @@ test('transaction write failure shows persistence-failed message and app continu
   })
   const page = await context.newPage()
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 
   // Trigger a write by toggling the backup-reminders preference
+  await goTo(page, 'settings')
   await page.locator('#backup-reminders').click()
-  await expect(page.getByText(/数据持久化失败/).first()).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByRole('region', { name: '训练偏好' }).getByText(/数据持久化失败/)).toBeVisible({ timeout: 10_000 })
 
   // App continues to render core content
+  await goTo(page, 'today')
   await expect(page.getByRole('heading', { name: '先了解这是什么' })).toBeVisible()
   await context.close()
 })
@@ -47,7 +50,7 @@ test('estimate() failure does not crash the app', async ({ browser }) => {
   })
   const page = await context.newPage()
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
   await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible({ timeout: 10_000 })
   await context.close()
 })
@@ -61,9 +64,10 @@ test('a denied storage-persist request degrades to best-effort and the app keeps
   })
   await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
   // 拒绝持久化不是错误：提示降级说明，应用仍可使用。
   await expect(page.getByText('浏览器未批准增强保留；清除站点数据可能导致记录丢失。')).toBeVisible()
+  await goTo(page, 'diary')
   await expect(page.getByRole('region', { name: '晨间睡眠日记' })).toBeVisible()
   await context.close()
 })

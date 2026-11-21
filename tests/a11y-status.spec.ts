@@ -1,12 +1,13 @@
 import { test, expect, type Page } from '@playwright/test'
+import { goTo } from './navigation'
 
 // 状态不能只靠颜色：每个状态提示都要有可读文本，并且落在 role=status / role=alert
-// 的语义区域里，屏幕阅读器在状态变化时才能播报。断言一律走可访问文本，不碰 CSS 类名。
+// 的语义区域里，屏幕阅读器在状态变化时能播报。断言一律走可访问文本，不碰 CSS 类名。
 
 async function openApp(page: Page) {
   await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 }
 
 test('offline and storage states announce readable status text', async ({ page }) => {
@@ -50,6 +51,7 @@ test('diary save failure announces a readable alert, not just a colour change', 
     }
   })
   await openApp(page)
+  await goTo(page, 'diary')
   const diary = page.getByRole('region', { name: '晨间睡眠日记' })
   await diary.locator('#diary-date').fill('2026-11-19')
   await diary.locator('#lights-off').fill('23:00')
@@ -65,6 +67,7 @@ test('diary save failure announces a readable alert, not just a colour change', 
 
 test('a safety pause announces readable status text, not just a colour change', async ({ page }) => {
   await openApp(page)
+  await goTo(page, 'settings')
   await page.getByRole('button', { name: '开始自查' }).click()
   await page.getByLabel('你的年龄').fill('30')
   await page.getByRole('group', { name: '你是否曾被告知患有双相障碍，或有躁狂/轻躁狂发作史？' }).getByLabel('是').check()
@@ -91,6 +94,7 @@ test('a safety pause announces readable status text, not just a colour change', 
 
 test('missing metrics read as unavailable with a reason, never as colour alone', async ({ page }) => {
   await openApp(page)
+  await goTo(page, 'diary')
   const diary = page.getByRole('region', { name: '晨间睡眠日记' })
   await diary.locator('#diary-date').fill('2026-11-19')
   await diary.locator('#lights-off').fill('23:00')

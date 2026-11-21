@@ -6,6 +6,11 @@ const resources = {
     translation: {
       brand: '睡眠行为训练器',
       skipToContent: '跳到主要内容',
+      primaryNavigation: '页面导航',
+      pageToday: '今日',
+      pageDiary: '日记',
+      pageTraining: '训练',
+      pageSettings: '设置',
       eyebrow: '6 周 · 以行为练习为核心',
       title: '把规律，慢慢带回夜晚。',
       intro: '通过主观睡眠日记、固定起床时间与循序渐进的行为练习，建立更适合自己的睡眠习惯。',

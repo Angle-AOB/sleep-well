@@ -1,18 +1,20 @@
 import { test, expect, type Page } from '@playwright/test'
+import { goTo, openPage } from './navigation'
 
 async function openApp(page: Page, time = '2026-11-20T09:00:00') {
-  await page.clock.setFixedTime(new Date(time))
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: '本地备份与导出' })).toBeVisible()
+  await openPage(page, 'today', time)
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 }
 
 /** 重新打开应用并等到偏好加载完成（提醒结论与偏好同批渲染），“没有提醒卡”断言才不是空过。 */
 async function reloadApp(page: Page) {
+  await goTo(page, 'today')
   await page.reload()
   await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
 }
 
 async function recordNight(page: Page, date: string) {
+  await goTo(page, 'diary')
   const diary = page.getByRole('region', { name: '晨间睡眠日记' })
   await diary.locator('#diary-date').fill(date)
   await diary.locator('#lights-off').fill('23:00')
@@ -22,6 +24,7 @@ async function recordNight(page: Page, date: string) {
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
   await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await goTo(page, 'today')
 }
 
 test('opening the app after three saved nights shows the backup reminder', async ({ page }) => {
@@ -90,8 +93,10 @@ test('showing the reminder marks it seen, so it returns at most once a week', as
 
 test('the settings switch silences reminders even with enough history', async ({ page }) => {
   await openApp(page)
+  await goTo(page, 'settings')
   await page.locator('#backup-reminders').uncheck()
-  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+  await expect(page.getByRole('region', { name: '训练偏好' }).getByText('偏好已保存在此设备')).toBeVisible()
+  await goTo(page, 'today')
   await recordNight(page, '2026-11-17')
   await recordNight(page, '2026-11-18')
   await recordNight(page, '2026-11-19')
@@ -106,6 +111,7 @@ test('a delivered backup keeps the reminder quiet until a newer night arrives', 
   await recordNight(page, '2026-11-18')
   await recordNight(page, '2026-11-19')
 
+  await goTo(page, 'settings')
   const backup = page.getByRole('region', { name: '本地备份与导出' })
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -113,7 +119,7 @@ test('a delivered backup keeps the reminder quiet until a newer night arrives', 
   ])
   expect(await download.path()).not.toBeNull()
   await expect(backup.getByText('已交给浏览器下载')).toBeVisible()
-  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+  await expect(page.getByRole('region', { name: '训练偏好' }).getByText('偏好已保存在此设备')).toBeVisible()
 
   // 刚备份完：打开应用不再催促。
   await reloadApp(page)
@@ -169,9 +175,10 @@ test('cancelling the share sheet does not count as a backup', async ({ page }) =
   await recordNight(page, '2026-11-19')
 
   const backup = page.getByRole('region', { name: '本地备份与导出' })
+  await goTo(page, 'settings')
   await backup.getByRole('button', { name: '导出完整备份（ZIP）' }).click()
   await expect(backup.getByText('已取消分享，没有生成新的备份文件。')).toBeVisible()
-  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+  await expect(page.getByRole('region', { name: '训练偏好' }).getByText('偏好已保存在此设备')).toBeVisible()
 
   // 取消分享不算备份：提醒不静音，打开应用仍会提示。
   await reloadApp(page)

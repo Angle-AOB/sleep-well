@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import { goTo, openPage } from './navigation'
 
 function coursePanel(page: Page) {
   return page.getByRole('region', { name: '六周训练' })
@@ -10,12 +11,11 @@ function diaryPanel(page: Page) {
 }
 
 async function openAt(page: Page, time: string) {
-  await page.clock.setFixedTime(new Date(time))
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
+  await openPage(page, 'training', time)
 }
 
 async function completeScreening(page: Page) {
+  await goTo(page, 'settings')
   await page.getByRole('button', { name: '开始自查' }).click()
   await page.getByLabel('你的年龄').fill('30')
   await page.getByRole('group', { name: '你是否曾被告知患有双相障碍，或有躁狂/轻躁狂发作史？' }).getByLabel('否').check()
@@ -32,6 +32,7 @@ async function completeScreening(page: Page) {
   await page.getByLabel('你最希望改善什么？').selectOption('fall-asleep')
   await page.getByRole('button', { name: '提交自查' }).click()
   await expect(page.getByText('目前没有发现需要暂停睡眠限制的安全筛查项。')).toBeVisible()
+  await goTo(page, 'training')
 }
 
 async function startCourse(page: Page) {
@@ -40,6 +41,7 @@ async function startCourse(page: Page) {
 }
 
 async function recordNight(page: Page, date: string) {
+  await goTo(page, 'diary')
   const diary = diaryPanel(page)
   await diary.locator('#diary-date').fill(date)
   await diary.locator('#lights-off').fill('23:00')
@@ -49,6 +51,13 @@ async function recordNight(page: Page, date: string) {
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
   await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await goTo(page, 'training')
+}
+
+/** 等离线缓存就绪后再断网；状态行只在今日页，所以先回到今日。 */
+async function waitForOfflineShell(page: Page) {
+  await goTo(page, 'today')
+  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
 }
 
 test('six-week course diary and screening are readable offline', async ({ page, context }) => {
@@ -57,14 +66,13 @@ test('six-week course diary and screening are readable offline', async ({ page, 
   await startCourse(page)
   await recordNight(page, '2026-12-12')
 
-  // Wait for SW cache to be ready before going offline
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
-
+  await waitForOfflineShell(page)
+  await goTo(page, 'training')
   await context.setOffline(true)
 
   // Reload from cache — verifies the app shell and course content are cached
   await page.reload()
-  await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '训练' })).toBeVisible()
 
   // Week track is present with all six weeks
   const weekTrack = coursePanel(page).getByRole('group', { name: '疗程进度' })
@@ -74,9 +82,11 @@ test('six-week course diary and screening are readable offline', async ({ page, 
   }
 
   // Diary entry is visible
+  await goTo(page, 'diary')
   await expect(diaryPanel(page).getByText('12 月 12 日')).toBeVisible()
 
   // Screening result is visible
+  await goTo(page, 'settings')
   await expect(page.getByText('目前没有发现需要暂停睡眠限制的安全筛查项。')).toBeVisible()
 
   // Settings panel is visible
@@ -87,18 +97,20 @@ test('diary recording and settings work offline', async ({ page, context }) => {
   await openAt(page, '2026-12-13T09:00:00')
   await completeScreening(page)
   await startCourse(page)
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  await waitForOfflineShell(page)
+  await goTo(page, 'training')
 
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '训练' })).toBeVisible()
 
   // Record a new diary entry while offline
   await recordNight(page, '2026-12-13')
 
   // Toggle a setting while offline
+  await goTo(page, 'settings')
   await page.locator('#backup-reminders').click()
-  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByRole('region', { name: '训练偏好' }).getByText('偏好已保存在此设备')).toBeVisible({ timeout: 10_000 })
 })
 
 test('the course advances through weeks and metrics stay available offline', async ({ page, context }) => {
@@ -113,17 +125,20 @@ test('the course advances through weeks and metrics stay available offline', asy
   for (const date of ['2026-12-09', '2026-12-10', '2026-12-11']) {
     await recordNight(page, date)
   }
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  await waitForOfflineShell(page)
+  await goTo(page, 'training')
 
   await context.setOffline(true)
   await page.reload()
   await expect(coursePanel(page).getByRole('heading', { name: '第 1 周 · 记录基线' })).toBeVisible()
 
   // 指标在离线时照常可算：只依赖本地日记，不依赖网络。
+  await goTo(page, 'diary')
   await expect(diaryPanel(page).getByText('本页指标')).toBeVisible()
   await expect(diaryPanel(page).getByText('卧床时间 TIB')).toBeVisible()
 
   // 周次推进也走本地规则：基线周 7 天结束，进入第 2 周。
+  await goTo(page, 'training')
   await page.clock.setFixedTime(new Date('2026-12-15T09:00:00'))
   await page.reload()
   await expect(coursePanel(page).getByRole('heading', { name: '第 2 周 · 锚定固定起床时间' })).toBeVisible()
@@ -132,11 +147,12 @@ test('the course advances through weeks and metrics stay available offline', asy
 test('backup export and import work offline', async ({ page, context }) => {
   await openAt(page, '2026-12-01T09:00:00')
   await recordNight(page, '2026-12-01')
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  await waitForOfflineShell(page)
+  await goTo(page, 'settings')
 
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeVisible()
 
   const backup = page.getByRole('region', { name: '本地备份与导出' })
   const [download] = await Promise.all([

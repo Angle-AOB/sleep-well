@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import i18n from '../src/i18n'
 import { durationText } from '../src/format'
+import { goTo, openPage } from './navigation'
 
 function coursePanel(page: Page) {
   return page.getByRole('region', { name: '六周训练' })
@@ -12,8 +13,7 @@ function diaryPanel(page: Page) {
 }
 
 async function openAt(page: Page, time: string) {
-  await page.clock.setFixedTime(new Date(time))
-  await page.goto('/')
+  await openPage(page, 'training', time)
   await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
 }
 
@@ -28,6 +28,7 @@ async function startCourse(page: Page) {
 }
 
 async function completeScreening(page: Page, options: { pausesRestriction?: boolean } = {}) {
+  await goTo(page, 'settings')
   await page.getByRole('button', { name: '开始自查' }).click()
   await page.getByLabel('你的年龄').fill('30')
   const bipolar = options.pausesRestriction ? '是' : '否'
@@ -48,9 +49,11 @@ async function completeScreening(page: Page, options: { pausesRestriction?: bool
   await expect(page.getByText(
     options.pausesRestriction ? '睡眠限制暂时暂停。' : '目前没有发现需要暂停睡眠限制的安全筛查项。'
   )).toBeVisible()
+  await goTo(page, 'training')
 }
 
 async function recordCompleteNight(page: Page, date: string, finalWake = '06:00') {
+  await goTo(page, 'diary')
   const diary = diaryPanel(page)
   await diary.locator('#diary-date').fill(date)
   await diary.locator('#lights-off').fill('23:00')
@@ -60,6 +63,7 @@ async function recordCompleteNight(page: Page, date: string, finalWake = '06:00'
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
   await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await goTo(page, 'training')
 }
 
 async function recordBaseline(page: Page) {
@@ -70,6 +74,7 @@ async function recordBaseline(page: Page) {
 
 /** 卧床 11 小时（22:00–09:00）的一夜，用于构造超过 10 小时的产品上限。 */
 async function recordLongNight(page: Page, date: string) {
+  await goTo(page, 'diary')
   const diary = diaryPanel(page)
   await diary.locator('#diary-date').fill(date)
   await diary.locator('#lights-off').fill('22:00')
@@ -79,6 +84,7 @@ async function recordLongNight(page: Page, date: string) {
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
   await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await goTo(page, 'training')
 }
 
 test('an over-limit W2 candidate is shown as a candidate, with no titration or pause claim', async ({ page }) => {
@@ -195,7 +201,9 @@ test('shift work keeps the course and diary available while pausing automatic wi
   await expect(panel.getByText(/暂停/)).toHaveCount(0)
   await expect(panel.getByText('窗口长度', { exact: false })).toHaveCount(0)
   await expect(panel.getByRole('heading', { name: '第 2 周 · 锚定固定起床时间' })).toBeVisible()
+  await goTo(page, 'diary')
   await expect(diaryPanel(page)).toBeVisible()
+  await goTo(page, 'training')
 
   // 到 W3 后滴定卡独立于窗口渲染，轮班暂停文案必须可达。
   await advanceTo(page, '2026-11-11T09:00:00')
@@ -224,7 +232,9 @@ test('a screening that needs review blocks the automatic window without blocking
   await expect(panel.getByText('窗口长度', { exact: false })).toHaveCount(0)
   await expect(panel.getByText('睡前 8 小时：15:30 前停止摄入咖啡因。')).toBeVisible()
   await expect(panel.getByText('按最近 7 夜入睡时间的中位数倒推 8 小时')).toBeVisible()
+  await goTo(page, 'diary')
   await expect(diaryPanel(page)).toBeVisible()
+  await goTo(page, 'training')
 
   // 高风险暂停同样要能在滴定卡上看到，而不是只藏在窗口卡里。
   await advanceTo(page, '2026-11-11T09:00:00')
