@@ -123,3 +123,34 @@ test('a delivered backup keeps the reminder quiet until a newer night arrives', 
   await reloadApp(page)
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
 })
+
+test('the in-app reminder works even when system notifications are denied', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'Notification', {
+      configurable: true,
+      value: { permission: 'denied', requestPermission: () => Promise.resolve('denied') }
+    })
+  })
+  await openApp(page)
+  await recordNight(page, '2026-11-17')
+  await recordNight(page, '2026-11-18')
+  await recordNight(page, '2026-11-19')
+
+  await reloadApp(page)
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '关闭提醒' })).toBeVisible()
+})
+
+test('the in-app reminder works even when the Notification API is missing', async ({ page }) => {
+  await page.addInitScript(() => {
+    Reflect.deleteProperty(window, 'Notification')
+  })
+  await openApp(page)
+  await recordNight(page, '2026-11-17')
+  await recordNight(page, '2026-11-18')
+  await recordNight(page, '2026-11-19')
+
+  await reloadApp(page)
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '关闭提醒' })).toBeVisible()
+})
