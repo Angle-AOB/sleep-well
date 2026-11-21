@@ -1,18 +1,25 @@
-/** 四个顶层页面；顺序与底栏一致。 */
-export type Page = 'today' | 'diary' | 'training' | 'settings'
+/** 四个顶层页面，顺序即底栏顺序；`Page` 由这份清单派生。 */
+export const pages = ['today', 'diary', 'training', 'settings'] as const
+
+export type Page = (typeof pages)[number]
 
 /** 一次地址解析的结果：顶层页面加可选子页（`#/settings/screening`）。 */
 export type Route = { page: Page; subPage: string | null }
 
+/**
+ * 设置页唯一的子页：备份面板。其他顶层页没有子页，所以这个常量只跟设置页组合，
+ * 不在 `hashForSettingsSubPage` 里给无效页面留口子。
+ */
+export const SETTINGS_BACKUP = 'backup'
+
+// 新增页面只改上面的 `pages`：这里的 `Record<Page, string>` 会强制补路径，
+// App 里的标题与图标表同样是 `Record<Page, …>`，缺一项都编译不过。
 const pagePaths: Record<Page, string> = {
   today: '/today',
   diary: '/diary',
   training: '/training',
   settings: '/settings'
 }
-
-/** 页面顺序的唯一定义：底栏与路由共用，新增页面只需改类型与这里。 */
-export const pages = Object.keys(pagePaths) as Page[]
 
 /**
  * 把地址栏 hash 解析为路由。空 hash、`#main-content` 这类非路由片段与未知顶层地址
@@ -34,7 +41,7 @@ export function hashForPage(page: Page): string {
   return `#${pagePaths[page]}`
 }
 
-/** 子页地址共用顶层页面的写法，避免在组件里手写 `#/settings/backup` 这类字符串。 */
-export function hashForSubPage(page: Page, subPage: string): string {
-  return `${hashForPage(page)}/${subPage}`
+/** 设置页子页地址：页面段与子页常量的唯一组合，避免在组件里手写 `#/settings/backup`。 */
+export function hashForSettingsSubPage(subPage: typeof SETTINGS_BACKUP): string {
+  return `${hashForPage('settings')}/${subPage}`
 }

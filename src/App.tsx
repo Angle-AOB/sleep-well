@@ -30,8 +30,8 @@ const pageTitleKeys: Record<Page, string> = {
   settings: 'pageSettings'
 }
 
-/** 底栏顺序来自 routing，新增页面只改那一处。 */
-const navigationItems: Page[] = pages
+/** 底栏顺序来自 routing 的 `pages`，新增页面只改那一处。 */
+const navigationItems = pages
 
 /** 底栏线性图标：24×24、描边取 currentColor，随文字颜色一起标识当前项。 */
 const tabIcons: Record<Page, ReactNode> = {
@@ -87,6 +87,11 @@ function App() {
   /** 设置是否已从本地加载完成；未加载前不展示提醒，避免默认值被当成用户选择。 */
   const [preferencesLoaded, setPreferencesLoaded] = useState(false)
   const [pendingSaves, setPendingSaves] = useState(0)
+  /**
+   * 提醒卡「去导出备份」的点击计数。同址重复点击不产生 hashchange，
+   * 靠这个 token 让设置页重新执行一次备份定位。
+   */
+  const [backupJump, setBackupJump] = useState(0)
   const saveQueue = useRef(Promise.resolve())
 
   useEffect(() => {
@@ -205,12 +210,18 @@ function App() {
     }
   }
 
+  /** 提醒卡链接不阻止默认导航；同址点击只靠 token 变化再定位一次。 */
+  function goToBackup() {
+    setBackupJump((count) => count + 1)
+  }
+
   /** 同一张提醒卡：今日页嵌在页面内，其他页面提到 `<main>` 顶部，保证深链也能看到。 */
   const reminderCard = reminder && preferencesLoaded && preferences.backupReminders
     ? (
       <ReminderCard
         kind={reminder.kind}
         entryCount={reminder.entryCount}
+        onGoBackup={goToBackup}
         onDisable={disableReminders}
         onDismiss={() => setReminder(null)}
       />
@@ -281,6 +292,7 @@ function App() {
         <SettingsPage
           hidden={page !== 'settings'}
           subPage={page === 'settings' ? subPage : null}
+          backupJump={backupJump}
           preferences={preferences}
           storageState={storageState}
           pendingSaves={pendingSaves}

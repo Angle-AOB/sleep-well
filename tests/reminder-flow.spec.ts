@@ -96,6 +96,38 @@ test('the reminder link jumps to the backup panel when already on settings', asy
   await expect(page).toHaveURL(/#\/settings\/backup$/)
 })
 
+test('clicking the reminder link again on the backup page still jumps back to the panel', async ({ page }) => {
+  await openApp(page)
+  await recordNight(page, '2026-11-17')
+  await recordNight(page, '2026-11-18')
+  await recordNight(page, '2026-11-19')
+
+  await page.goto('/#/settings')
+  await page.reload()
+  await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeVisible()
+
+  const link = page.getByRole('link', { name: '去导出备份' })
+  const backupTitle = page.getByRole('heading', { name: '本地备份与导出' })
+  await link.click()
+  await expect(backupTitle).toBeFocused()
+  await expect(page).toHaveURL(/#\/settings\/backup$/)
+  // 等平滑滚动落定，再滚回页顶，才是「人已经离开面板」。
+  await expect.poll(() => page.evaluate(() => {
+    const title = document.getElementById('backup-title')
+    return title ? Math.round(title.getBoundingClientRect().top) : Number.NaN
+  })).toBeLessThanOrEqual(80)
+
+  // 停在 `#/settings/backup` 后滚到页顶：地址不变，再点链接不会触发 hashchange，
+  // 但提醒卡必须仍然把用户送回备份面板。
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
+  await link.click()
+  await expect(backupTitle).toBeFocused()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+  await expect(page).toHaveURL(/#\/settings\/backup$/)
+})
+
 test('two saved nights are not worth a backup reminder yet', async ({ page }) => {
   await openApp(page)
   await recordNight(page, '2026-11-18')

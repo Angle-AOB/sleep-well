@@ -5,12 +5,15 @@ import { ErrorLogPanel } from '../components/ErrorLogPanel'
 import { ScreeningPanel } from '../components/ScreeningPanel'
 import type { Preferences } from '../data/preferences'
 import type { ScreeningRecord } from '../domain/screening'
+import { SETTINGS_BACKUP } from '../routing'
 import { storageMessage, type StorageState } from '../statusText'
 
 type SettingsPageProps = {
   hidden: boolean
-  /** 路由里的子页（`#/settings/backup`）；`backup` 首次出现时把焦点送到备份面板。 */
+  /** 路由里的子页（`#/settings/backup`）；`backup` 出现时把焦点送到备份面板。 */
   subPage: string | null
+  /** 提醒卡的「去导出备份」点击计数；同址重复点击也靠它再定位一次。 */
+  backupJump: number
   preferences: Preferences
   storageState: StorageState
   pendingSaves: number
@@ -27,6 +30,7 @@ type SettingsPageProps = {
 export function SettingsPage({
   hidden,
   subPage,
+  backupJump,
   preferences,
   storageState,
   pendingSaves,
@@ -43,8 +47,9 @@ export function SettingsPage({
 
   // 切页时应用会先做「回到页顶并聚焦页标题」，这里排到下一帧再滚动，
   // 保证 `#/settings/backup` 落到备份面板而不是被页顶覆盖。
+  // 从 `#/settings/backup` 回到 `#/settings` 时 subPage 不再是备份，这里不介入。
   useEffect(() => {
-    if (hidden || subPage !== 'backup') return
+    if (hidden || subPage !== SETTINGS_BACKUP) return
     const frame = requestAnimationFrame(() => {
       const title = document.getElementById('backup-title')
       if (!title) return
@@ -52,7 +57,7 @@ export function SettingsPage({
       title.focus({ preventScroll: true })
     })
     return () => cancelAnimationFrame(frame)
-  }, [hidden, subPage])
+  }, [hidden, subPage, backupJump])
 
   return (
     <section className="page" hidden={hidden} aria-labelledby="page-title">

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { hashForSubPage } from '../routing'
+import { hashForSettingsSubPage, SETTINGS_BACKUP } from '../routing'
 
 /**
  * 备份提醒卡：只消费领域层给出的提醒结论，不读时钟、不请求系统通知权限，
@@ -8,13 +8,15 @@ import { hashForSubPage } from '../routing'
 type ReminderCardProps = {
   kind: 'first' | 'weekly'
   entryCount: number
+  /** 点击「去导出备份」时通知应用；导航本身交给链接默认行为。 */
+  onGoBackup: () => void
   /** 一键关闭备份提醒（写 preferences.backupReminders）。 */
   onDisable: () => void
   /** 本次会话不再展示；节奏记账由应用在展示时写入。 */
   onDismiss: () => void
 }
 
-export function ReminderCard({ kind, entryCount, onDisable, onDismiss }: ReminderCardProps) {
+export function ReminderCard({ kind, entryCount, onGoBackup, onDisable, onDismiss }: ReminderCardProps) {
   const { t } = useTranslation()
   return (
     <section className="reminder-card" aria-labelledby="reminder-title">
@@ -25,7 +27,11 @@ export function ReminderCard({ kind, entryCount, onDisable, onDismiss }: Reminde
           : t('reminderCardBodyWeekly')}
       </p>
       <div className="backup-actions">
-        <a className="secondary-button reminder-link" href={hashForSubPage('settings', 'backup')}>
+        <a
+          className="secondary-button reminder-link"
+          href={hashForSettingsSubPage(SETTINGS_BACKUP)}
+          onClick={onGoBackup}
+        >
           {t('reminderCardGoBackup')}
         </a>
         <button type="button" className="secondary-button" onClick={onDismiss}>{t('reminderCardLater')}</button>
