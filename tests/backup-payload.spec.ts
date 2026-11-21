@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test'
 import {
+  BACKUP_APP_VERSION,
+  BACKUP_COURSE_VERSION,
+  BACKUP_RULES_VERSION,
   BACKUP_SCHEMA_VERSION,
   compareBackup,
   createBackupPayload,
@@ -241,4 +244,12 @@ test('a backup with malformed reminder bookkeeping is rejected', () => {
     if (result.ok) continue
     expect(result.error.kind).toBe('invalid-preferences')
   }
+})
+
+test('backup payload carries schema rules course and app version labels', () => {
+  const payload = createBackupPayload(backupData(), { exportedAt: '2026-11-20T08:00:00.000Z' })
+  expect(payload.schemaVersion).toBe(BACKUP_SCHEMA_VERSION)
+  expect(payload.rulesVersion).toBe(BACKUP_RULES_VERSION)
+  expect(payload.courseVersion).toBe(BACKUP_COURSE_VERSION)
+  expect(payload.appVersion).toBe(BACKUP_APP_VERSION)
 })
