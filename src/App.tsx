@@ -9,6 +9,7 @@ import { TrainingPage } from './pages/TrainingPage'
 import { defaultPreferences, readPreferences, readScreening, writePreferences, writeScreening, type Preferences } from './data/preferences'
 import { readDiaryEntries } from './data/diary'
 import { MigrationError } from './data/database'
+import type { LocalDate } from './domain/diary'
 import { evaluateBackupReminder, type BackupReminderDecision } from './domain/reminders'
 import type { ScreeningRecord } from './domain/screening'
 import { localToday } from './format'
@@ -88,6 +89,12 @@ function App() {
   })
   const [diaryRevision, setDiaryRevision] = useState(0)
   const [reloadToken, setReloadToken] = useState(0)
+  /**
+   * 日记面板保活，选中日期不会因切页复位。今日卡需要显式请求一个日期，
+   * 递增 token 让面板只应用一次，而不是每次 entries 变化都重新选中。
+   */
+  const [diaryRequest, setDiaryRequest] = useState<{ date: LocalDate; token: number } | null>(null)
+  const diaryRequestToken = useRef(0)
   /** 打开应用时由领域规则给出的提醒结论；只在本次访问展示，不做后台定时。 */
   const [reminder, setReminder] = useState<Extract<BackupReminderDecision, { remind: true }> | null>(null)
   /** 设置是否已从本地加载完成；未加载前不展示提醒，避免默认值被当成用户选择。 */
@@ -206,6 +213,12 @@ function App() {
     void updatePreference({ ...preferences, backupReminders: false })
   }
 
+  /** 今日卡的三个入口都请求「今天」：链接照常导航，面板据 token 选中请求日期。 */
+  function openDiary(date: LocalDate) {
+    diaryRequestToken.current += 1
+    setDiaryRequest({ date, token: diaryRequestToken.current })
+  }
+
   async function retryCacheCheck() {
     setOfflineStatus('pending')
     try {
@@ -294,12 +307,14 @@ function App() {
           diaryRevision={diaryRevision}
           reminder={page === 'today' ? reminderCard : null}
           onRetryCache={() => void retryCacheCheck()}
+          onOpenDiary={openDiary}
         />
 
         <DiaryPage
           hidden={page !== 'diary'}
           storageUnavailable={storageState === 'unsupported'}
           reloadToken={reloadToken}
+          request={diaryRequest}
           onSaved={() => setDiaryRevision((revision) => revision + 1)}
         />
 

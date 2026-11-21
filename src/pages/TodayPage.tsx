@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { evaluateNight } from '../domain/diary'
+import { evaluateNight, type LocalDate } from '../domain/diary'
 import type { ScreeningRecord } from '../domain/screening'
 import { durationText, localToday } from '../format'
 import { hashForPage, hashForSettingsSubPage } from '../routing'
@@ -26,6 +26,8 @@ type TodayPageProps = {
   /** 到期提醒卡由应用决定是否出现，今日页只负责把它放在最后。 */
   reminder: ReactNode
   onRetryCache: () => void
+  /** 今日卡点击时请求日记面板选中今天；链接本身仍照常导航。 */
+  onOpenDiary: (date: LocalDate) => void
 }
 
 /**
@@ -42,11 +44,12 @@ export function TodayPage({
   storageUnavailable,
   diaryRevision,
   reminder,
-  onRetryCache
+  onRetryCache,
+  onOpenDiary
 }: TodayPageProps) {
   const { t } = useTranslation()
-  const [today] = useState(localToday)
-  const { entries, assessment: courseAssessment, loadState } = useCourseAssessment({
+  // 「今天」由共用的课程评估同步：跨夜后今日卡与窗口一起换到新日期。
+  const { today, entries, assessment: courseAssessment, loadState } = useCourseAssessment({
     screening,
     diaryRevision,
     visible,
@@ -231,7 +234,11 @@ export function TodayPage({
       )}
 
       <section className="today-card today-card-diary" aria-labelledby="today-diary-title">
-        <a className="today-card-link" href={hashForPage('diary')}>
+        <a
+          className="today-card-link"
+          href={hashForPage('diary')}
+          onClick={() => onOpenDiary(localToday())}
+        >
           <p className="panel-kicker">{t('todayDiaryKicker')}</p>
           <h2 id="today-diary-title">{t('todayDiaryTitle')}</h2>
           {diarySummary()}

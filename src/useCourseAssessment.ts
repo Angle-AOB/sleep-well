@@ -28,12 +28,27 @@ export function useCourseAssessment({
   visible,
   storageUnavailable
 }: UseCourseAssessmentOptions) {
-  const [today] = useState(localToday)
+  const [today, setToday] = useState(localToday)
   const [course, setCourse] = useState<CourseState | null>(null)
   const [entries, setEntries] = useState<SleepDiaryEntry[]>([])
   const [fetchState, setFetchState] = useState<LoadState>('loading')
   const [reloadToken, setReloadToken] = useState(0)
   const loadState: LoadState = storageUnavailable ? 'error' : fetchState
+
+  // 应用跨夜后仍在前台或重新回到前台：把“今天”推进到本地新日期，评估与读取都跟着重算。
+  useEffect(() => {
+    function syncLocalDate() {
+      const current = localToday()
+      setToday((previous) => (previous === current ? previous : current))
+    }
+
+    document.addEventListener('visibilitychange', syncLocalDate)
+    window.addEventListener('focus', syncLocalDate)
+    return () => {
+      document.removeEventListener('visibilitychange', syncLocalDate)
+      window.removeEventListener('focus', syncLocalDate)
+    }
+  }, [])
 
   useEffect(() => {
     if (!visible || storageUnavailable) return
@@ -50,7 +65,7 @@ export function useCourseAssessment({
         if (active) setFetchState('error')
       })
     return () => { active = false }
-  }, [visible, storageUnavailable, diaryRevision, reloadToken])
+  }, [visible, storageUnavailable, diaryRevision, reloadToken, today])
 
   const assessment = assessCourse({
     state: course,
@@ -61,5 +76,5 @@ export function useCourseAssessment({
 
   const reload = useCallback(() => setReloadToken((token) => token + 1), [])
 
-  return { course, entries, assessment, loadState, reload, setCourse }
+  return { course, entries, assessment, loadState, reload, setCourse, today }
 }
