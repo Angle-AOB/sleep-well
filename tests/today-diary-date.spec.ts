@@ -60,6 +60,29 @@ test('the today card resets a history date to today with an empty form', async (
   await expect(diary.locator('#waso')).toHaveValue('unknown')
 })
 
+test('the today card keeps an unsaved draft for today', async ({ page }) => {
+  await openPage(page, 'diary', CLOCK)
+  const diary = diaryPanel(page)
+
+  // 今天这一夜已有一条已存的部分记录，随后继续编辑但不保存。
+  await diary.locator('#lights-off').fill('22:00')
+  await diary.locator('#out-of-bed').fill('06:00')
+  await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
+  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+
+  await diary.locator('#lights-off').fill('23:15')
+  await diary.locator('#sleep-onset').fill('45')
+
+  await goTo(page, 'today')
+  await diaryCard(page).getByRole('link', { name: /补全记录|完成记录/ }).click()
+
+  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(diary.locator('#diary-date')).toHaveValue(TODAY)
+  await expect(diary.locator('#lights-off')).toHaveValue('23:15')
+  await expect(diary.locator('#sleep-onset')).toHaveValue('45')
+  await expect(diary.getByText('日记已保存在此设备')).toHaveCount(0)
+})
+
 test('a complete night opens from the today card on today and loads that night', async ({ page }) => {
   await openPage(page, 'diary', CLOCK)
   await recordCompleteNight(page)

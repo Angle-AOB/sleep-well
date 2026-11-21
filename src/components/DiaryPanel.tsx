@@ -228,10 +228,14 @@ export function DiaryPanel({
     setAppliedRequest(request.token)
     // 请求来自今日卡，以此刻的本地日期为准，避免跨夜后把今天误判成未来日期。
     setToday(localToday())
-    setSelectedDate(request.date)
-    setForm(formFromEntry(findEntry(entries, request.date) ?? null))
-    setDirty(false)
-    setFeedback(null)
+    // 用户正在今天这一夜编辑且尚未保存：切页后点今日卡不应把草稿冲回已存条目。
+    const keepDraft = request.date === selectedDate && dirty
+    if (!keepDraft) {
+      setSelectedDate(request.date)
+      setForm(formFromEntry(findEntry(entries, request.date) ?? null))
+      setDirty(false)
+      setFeedback(null)
+    }
   }
 
   /**
