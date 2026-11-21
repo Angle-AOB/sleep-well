@@ -158,6 +158,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
   const [busy, setBusy] = useState(false)
   const [feedback, setFeedback] = useState<'saved' | 'error' | null>(null)
   const [selectedWeek, setSelectedWeek] = useState<CourseWeek | null>(null)
+  const [showTitrationDetails, setShowTitrationDetails] = useState(false)
   const loadState = storageUnavailable ? 'error' : fetchState
 
   useEffect(() => {
@@ -307,6 +308,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
   const windowView = assessment.window
   const windowWarning = windowView.status === 'unavailable'
     && (windowView.reason === 'insufficient-data' || windowView.reason === 'window-over-ten-hours')
+  const adjustments = windowView.status === 'available' ? windowView.adjustments : []
 
   return (
     <section className="course-panel" aria-labelledby="course-title">
@@ -321,7 +323,10 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
               key={week}
               type="button"
               className={`week-step is-${status}`}
-              onClick={() => setSelectedWeek(week)}
+              onClick={() => {
+                setSelectedWeek(week)
+                setShowTitrationDetails(false)
+              }}
               aria-current={status === 'current' ? 'step' : undefined}
             >
               <span className="week-number">{String(week).padStart(2, '0')}</span>
@@ -369,6 +374,9 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
 
       <div className="course-grid">
         <section className="course-content" aria-labelledby="week-content-title">
+          {shownWeek !== currentWeek && (
+            <p className="week-preview" role="status">{t('courseWeekPreviewShort', { week: shownWeek })}</p>
+          )}
           <p className="panel-kicker">{t('weekContentKicker')}</p>
           <h3 id="week-content-title">{t(content.title)}</h3>
           <p>{t(content.body)}</p>
@@ -503,30 +511,6 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
                     {t('windowLimitFloor', { floorHours: WINDOW_FLOOR_MINUTES / 60 })}
                   </p>
                 )}
-                {windowView.adjustments.length > 0 && (
-                  <div className="window-adjustments">
-                    <h4>{t('windowAdjustmentsTitle')}</h4>
-                    <ul>
-                      {windowView.adjustments.map((adjustment) => (
-                        <li key={adjustment.week}>
-                          {t(
-                            adjustment.rule === 'increase'
-                              ? 'windowAdjustmentIncrease'
-                              : 'windowAdjustmentDecrease',
-                            {
-                              week: adjustment.week,
-                              nights: adjustment.basis.completeNights,
-                              se: efficiencyText(adjustment.basis.averageSleepEfficiency),
-                              from: durationText(t, adjustment.previousMinutes),
-                              change: durationText(t, adjustment.changeMinutes),
-                              to: durationText(t, adjustment.durationMinutes)
-                            }
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
                 {windowView.heldover && (
                   <p className="course-note is-warning" role="status">
                     {t('windowHeldover', {
@@ -561,6 +545,43 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
               )}
               {assessment.titration.status === 'adjusted' && !assessment.canDeferTitration && !completed && (
                 <p className="field-hint">{t('titrationDeferLocked')}</p>
+              )}
+              {adjustments.length > 0 && (
+                <div className="titration-details">
+                  <button
+                    type="button"
+                    className="link-button"
+                    aria-expanded={showTitrationDetails}
+                    aria-controls="titration-details-body"
+                    onClick={() => setShowTitrationDetails((open) => !open)}
+                  >
+                    {showTitrationDetails ? t('titrationHideDetails') : t('titrationShowDetails')}
+                  </button>
+                  {showTitrationDetails && (
+                    <div className="titration-details-body" id="titration-details-body">
+                      <h4>{t('windowAdjustmentsTitle')}</h4>
+                      <ul>
+                        {adjustments.map((adjustment) => (
+                          <li key={adjustment.week}>
+                            {t(
+                              adjustment.rule === 'increase'
+                                ? 'windowAdjustmentIncrease'
+                                : 'windowAdjustmentDecrease',
+                              {
+                                week: adjustment.week,
+                                nights: adjustment.basis.completeNights,
+                                se: efficiencyText(adjustment.basis.averageSleepEfficiency),
+                                from: durationText(t, adjustment.previousMinutes),
+                                change: durationText(t, adjustment.changeMinutes),
+                                to: durationText(t, adjustment.durationMinutes)
+                              }
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               )}
             </section>
           )}

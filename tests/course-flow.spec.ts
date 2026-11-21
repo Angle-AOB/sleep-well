@@ -283,7 +283,8 @@ test('W4 explains the weekly adjustment, teaches stimulus control, and can defer
   await expect(panel.getByText(
     '该滴定周之前的 4 个完整夜平均 SE 93.80%（高于 90%）：窗口从 8 小时延长到 8 小时 15 分钟（+15 分钟）。'
   )).toBeVisible()
-  // 8 小时 15 分钟必须能追溯到它来自第 4 周的 +15 分钟。
+  // 8 小时 15 分钟必须能追溯到它来自第 4 周的 +15 分钟；明细默认折叠。
+  await panel.getByRole('button', { name: '展开滴定明细' }).click()
   await expect(panel.getByRole('heading', { name: '滴定明细' })).toBeVisible()
   await expect(panel.getByText(
     '第 4 周：依据该周之前的 4 个完整夜（平均 SE 93.80%），窗口从 8 小时延长 15 分钟，变为 8 小时 15 分钟。'
