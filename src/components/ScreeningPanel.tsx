@@ -336,14 +336,14 @@ export function ScreeningPanel({ initialRecord, loading, storageUnavailable, onS
       </div>
       {paused ? (
         <>
-          <p className="result-title">{t('restrictionPaused')}</p>
+          <p className="result-title" role="status">{t('restrictionPaused')}</p>
           <p>{t('professionalReview')}</p>
           <p>{t('availableActivities')}</p>
           {record.result.strongReferral && <p className="referral-note">{t('strongReferral')}</p>}
         </>
       ) : (
         <>
-          <p className="result-title">{t('screeningCleared')}</p>
+          <p className="result-title" role="status">{t('screeningCleared')}</p>
           <p>{t('screeningCompleted')}</p>
           {record.result.strongReferral && <p className="referral-note">{t('strongReferral')}</p>}
         </>
