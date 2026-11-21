@@ -67,6 +67,25 @@ async function settleScroll(page: Page) {
   }))
 }
 
+test('the diary title appears once in the top bar without a page-level frame', async ({ page }) => {
+  await openDiary(page)
+
+  const title = page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })
+  await expect(title).toBeVisible()
+  await expect(page.getByText('晨间睡眠日记', { exact: true })).toHaveCount(1)
+
+  const diaryRegion = page.getByRole('region', { name: '晨间睡眠日记' })
+  await expect(diaryRegion).toBeVisible()
+  await expect.poll(() => diaryRegion.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return {
+      background: style.backgroundColor,
+      border: style.borderStyle,
+      padding: style.padding
+    }
+  })).toEqual({ background: 'rgba(0, 0, 0, 0)', border: 'none', padding: '0px' })
+})
+
 test('opening the diary shows the save button in the first screen', async ({ page }) => {
   await openDiary(page)
   await expectAboveTheFold(page, saveButton(page), '保存按钮')

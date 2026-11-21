@@ -51,7 +51,7 @@ test('the today card resets a history date to today with an empty form', async (
   await goTo(page, 'today')
   await diaryCard(page).getByRole('link', { name: /记录昨夜/ }).click()
 
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
   await expect(diary.locator('#diary-date')).toHaveValue(TODAY)
   await expect(diary.locator('#lights-off')).toHaveValue('')
   await expect(diary.locator('#sleep-onset')).toHaveValue('')
@@ -76,7 +76,7 @@ test('the today card keeps an unsaved draft for today', async ({ page }) => {
   await goTo(page, 'today')
   await diaryCard(page).getByRole('link', { name: /补全记录|完成记录/ }).click()
 
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
   await expect(diary.locator('#diary-date')).toHaveValue(TODAY)
   await expect(diary.locator('#lights-off')).toHaveValue('23:15')
   await expect(diary.locator('#sleep-onset')).toHaveValue('45')
@@ -94,7 +94,7 @@ test('a complete night opens from the today card on today and loads that night',
   await diaryCard(page).getByRole('link', { name: /查看或修改/ }).click()
 
   const diary = diaryPanel(page)
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
   await expect(diary.locator('#diary-date')).toHaveValue(TODAY)
   await expect(diary.locator('#lights-off')).toHaveValue('23:00')
   await expect(diary.locator('#sleep-onset')).toHaveValue('30')

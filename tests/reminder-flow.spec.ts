@@ -53,7 +53,7 @@ test('a deep link to another page still shows a due reminder', async ({ page }) 
   // 同一文档内换 hash 不会重新挂载应用；整页加载才算「再次进入应用」。
   await page.goto('/#/diary')
   await page.reload()
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
 
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
   await expect(page.getByText('已经记录 3 夜睡眠日记')).toBeVisible()

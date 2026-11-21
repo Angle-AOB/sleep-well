@@ -7,6 +7,13 @@ export type SettingsSubPage = 'screening' | 'reminders' | 'backup' | 'diagnostic
 /** 页面地址与顶栏页名共用同一份契约，测试按可访问名称导航，不碰 CSS 类名或 hash 实现。 */
 export const pageHeading: Record<AppPage, string> = {
   today: '今日',
+  diary: '晨间睡眠日记',
+  training: '训练',
+  settings: '设置'
+}
+
+export const pageNavigationName: Record<AppPage, string> = {
+  today: '今日',
   diary: '日记',
   training: '训练',
   settings: '设置'
@@ -47,7 +54,7 @@ export async function openPage(page: Page, target: AppPage, at = defaultClock): 
 export async function goTo(page: Page, target: AppPage): Promise<void> {
   await page
     .getByRole('navigation', { name: '页面导航' })
-    .getByRole('link', { name: pageHeading[target], exact: true })
+    .getByRole('link', { name: pageNavigationName[target], exact: true })
     .click()
   await expect(page.getByRole('heading', { level: 1, name: pageHeading[target] })).toBeVisible()
 }

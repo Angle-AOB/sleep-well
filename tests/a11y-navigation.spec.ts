@@ -67,7 +67,7 @@ test('an unknown fragment does not leave a stale address behind when coming back
   await page.goto('/#foo')
   await expect(page).toHaveURL(/#\/today$/)
   await page.goBack()
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
   await expect(page).toHaveURL(/#\/diary$/)
 })
 
@@ -79,7 +79,7 @@ test('the skip link focuses main content without changing the page address', asy
 
   await expect(page.getByRole('main')).toBeFocused()
   await expect(page).toHaveURL(/#\/diary$/)
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
 })
 
 test('browser back and forward stay consistent with bottom-bar switching', async ({ page }) => {
@@ -88,7 +88,7 @@ test('browser back and forward stay consistent with bottom-bar switching', async
   await goTo(page, 'training')
 
   await page.goBack()
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
   const diary = page.getByRole('navigation', { name: '页面导航' }).getByRole('link', { name: '日记', exact: true })
   await expect(diary).toHaveAttribute('aria-current', 'page')
 

@@ -65,7 +65,7 @@ test('次按钮关闭弹窗并进入日记页', async ({ page }) => {
 
   await dialog.getByRole('button', { name: recordDiary }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
   await expect(page).toHaveURL(/#\/diary$/)
 })
 
