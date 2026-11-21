@@ -3,9 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { BackupPanel } from './components/BackupPanel'
 import { CoursePanel } from './components/CoursePanel'
 import { DiaryPanel } from './components/DiaryPanel'
+import { ReminderCard } from './components/ReminderCard'
 import { ScreeningPanel } from './components/ScreeningPanel'
 import { defaultPreferences, readPreferences, readScreening, writePreferences, writeScreening, type Preferences } from './data/preferences'
+import { readDiaryEntries } from './data/diary'
+import { evaluateBackupReminder, type BackupReminderDecision } from './domain/reminders'
 import type { ScreeningRecord } from './domain/screening'
+import { localToday } from './format'
 import './style.css'
 
 type OfflineStatus = 'pending' | 'ready' | 'unsupported' | 'error'
@@ -35,19 +39,30 @@ function App() {
   })
   const [diaryRevision, setDiaryRevision] = useState(0)
   const [reloadToken, setReloadToken] = useState(0)
+  /** 打开应用时由领域规则给出的提醒结论；只在本次访问展示，不做后台定时。 */
+  const [reminder, setReminder] = useState<Extract<BackupReminderDecision, { remind: true }> | null>(null)
   const saveQueue = useRef(Promise.resolve())
 
   useEffect(() => {
     if (!('indexedDB' in window)) return
 
     let active = true
-    Promise.all([readPreferences(), readScreening()]).then(([saved, savedScreening]) => {
-      if (active) {
-        setPreferences(saved)
-        setSavedPreferences(saved)
-        setScreening(savedScreening)
-        setStorageState('ready')
-        setScreeningState('ready')
+    Promise.all([readPreferences(), readScreening(), readDiaryEntries()]).then(([saved, savedScreening, entries]) => {
+      if (!active) return
+      setPreferences(saved)
+      setSavedPreferences(saved)
+      setScreening(savedScreening)
+      setStorageState('ready')
+      setScreeningState('ready')
+
+      const today = localToday()
+      const decision = evaluateBackupReminder({ entries, preferences: saved, today })
+      if (decision.remind) {
+        setReminder(decision)
+        // 展示即记账：写入最近提醒日期，才能保证每周最多一次。
+        if (saved.lastBackupReminderOn !== today) {
+          void updatePreference({ ...saved, lastBackupReminderOn: today })
+        }
       }
     }).catch(() => {
       if (active) {
@@ -57,6 +72,10 @@ function App() {
     })
     return () => { active = false }
   }, [])
+
+  useEffect(() => {
+    if (!preferences.backupReminders) setReminder(null)
+  }, [preferences.backupReminders])
 
   useEffect(() => {
     if (!('storage' in navigator) || !('persist' in navigator.storage)) return
@@ -138,6 +157,11 @@ function App() {
     setReloadToken((revision) => revision + 1)
   }
 
+  function disableReminders() {
+    setReminder(null)
+    void updatePreference({ ...preferences, backupReminders: false })
+  }
+
   const storageMessage = storageState === 'ready'
     ? t('saved')
     : storageState === 'unsupported'
@@ -195,6 +219,15 @@ function App() {
           </div>
         )}
       </section>
+
+      {reminder && (
+        <ReminderCard
+          kind={reminder.kind}
+          entryCount={reminder.entryCount}
+          onDisable={disableReminders}
+          onDismiss={() => setReminder(null)}
+        />
+      )}
 
       <section className="content-grid" aria-label={t('productLabel')}>
         <article className="info-section">
