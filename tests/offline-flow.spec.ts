@@ -100,3 +100,55 @@ test('diary recording and settings work offline', async ({ page, context }) => {
   await page.locator('#backup-reminders').click()
   await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible({ timeout: 10_000 })
 })
+
+test('the course advances through weeks and metrics stay available offline', async ({ page, context }) => {
+  await openAt(page, '2026-12-08T09:00:00')
+  await completeScreening(page)
+  await startCourse(page)
+  await recordNight(page, '2026-12-08')
+  // 日记不能记未来夜：把时钟推进到基线周末（推进时钟要配合重载，应用状态才跟得上），再补齐其余三夜。
+  await page.clock.setFixedTime(new Date('2026-12-11T09:00:00'))
+  await page.reload()
+  await expect(coursePanel(page).getByRole('heading', { name: '第 1 周 · 记录基线' })).toBeVisible()
+  for (const date of ['2026-12-09', '2026-12-10', '2026-12-11']) {
+    await recordNight(page, date)
+  }
+  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 15_000 })
+
+  await context.setOffline(true)
+  await page.reload()
+  await expect(coursePanel(page).getByRole('heading', { name: '第 1 周 · 记录基线' })).toBeVisible()
+
+  // 指标在离线时照常可算：只依赖本地日记，不依赖网络。
+  await expect(diaryPanel(page).getByText('本页指标')).toBeVisible()
+  await expect(diaryPanel(page).getByText('卧床时间 TIB')).toBeVisible()
+
+  // 周次推进也走本地规则：基线周 7 天结束，进入第 2 周。
+  await page.clock.setFixedTime(new Date('2026-12-15T09:00:00'))
+  await page.reload()
+  await expect(coursePanel(page).getByRole('heading', { name: '第 2 周 · 锚定固定起床时间' })).toBeVisible()
+})
+
+test('backup export and import work offline', async ({ page, context }) => {
+  await openAt(page, '2026-12-01T09:00:00')
+  await recordNight(page, '2026-12-01')
+  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 15_000 })
+
+  await context.setOffline(true)
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
+
+  const backup = page.getByRole('region', { name: '本地备份与导出' })
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    backup.getByRole('button', { name: '导出完整备份（ZIP）' }).click()
+  ])
+  const filePath = await download.path()
+  expect(filePath).not.toBeNull()
+  await expect(backup.getByText('已交给浏览器下载')).toBeVisible()
+
+  // 离线导入同一份备份：校验、对比与三种策略都只依赖本地数据。
+  await backup.locator('input[type="file"]').setInputFiles(filePath!)
+  await expect(backup.getByText('备份摘要')).toBeVisible()
+  await expect(backup.getByRole('button', { name: /覆盖恢复/ })).toBeVisible()
+})
