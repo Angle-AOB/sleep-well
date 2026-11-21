@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { goTo, openPage } from './navigation'
+import { goTo, goToSettingsSubPage, openPage } from './navigation'
 
 // 训练页两屏预算与六周轨道的行为契约。全部断言走可访问角色、可见性与几何尺寸，
 // 不绑定组件内部结构；视口固定为 Pixel 7（412×915）以覆盖真实移动端度量。
@@ -27,7 +27,7 @@ async function advanceTo(page: Page, time: string) {
 }
 
 async function completeScreening(page: Page) {
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'screening')
   await page.getByRole('button', { name: '开始自查' }).click()
   await page.getByLabel('你的年龄').fill('30')
   for (const question of [
