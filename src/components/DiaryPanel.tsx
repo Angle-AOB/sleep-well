@@ -193,7 +193,17 @@ function MetricValue({ metric, format, compact = false }: { metric: Metric<numbe
   )
 }
 
-export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { storageUnavailable: boolean; onSaved?: () => void; reloadToken?: number }) {
+export function DiaryPanel({
+  storageUnavailable,
+  onSaved,
+  reloadToken = 0,
+  request = null
+}: {
+  storageUnavailable: boolean
+  onSaved?: () => void
+  reloadToken?: number
+  request?: { date: LocalDate; token: number } | null
+}) {
   const { t } = useTranslation()
   const [initialDate] = useState(localToday)
   const [today, setToday] = useState(initialDate)
@@ -206,8 +216,23 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
   const feedbackRef = useRef<HTMLDivElement>(null)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [appliedRequest, setAppliedRequest] = useState(0)
   const lastReload = useRef(reloadToken)
   const loadState = storageUnavailable ? 'error' : fetchState
+  /**
+   * 今日卡请求：面板保活，选中日期可能停在上次回看的历史日期。
+   * 数据未就绪时先挂起；就绪后按 token 只应用一次，避免 entries 每次变化都覆盖用户选择。
+   * 这是「按 prop 事件调整本组件状态」的标准渲染期同步，不额外触发 effect 级联。
+   */
+  if (request !== null && request.token !== appliedRequest && loadState === 'ready') {
+    setAppliedRequest(request.token)
+    // 请求来自今日卡，以此刻的本地日期为准，避免跨夜后把今天误判成未来日期。
+    setToday(localToday())
+    setSelectedDate(request.date)
+    setForm(formFromEntry(findEntry(entries, request.date) ?? null))
+    setDirty(false)
+    setFeedback(null)
+  }
 
   /**
    * 初次挂载与导入后的重载共用同一条读取路径：读取日记、按指定日期预填表单。
