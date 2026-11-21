@@ -28,6 +28,9 @@ export interface SleepWellDatabase extends DBSchema {
 const databaseName = 'sleep-well'
 const databaseVersion = 5
 
+/** 上一次升级失败的原因；openDatabase 用它把拒绝翻译成可识别的 MigrationError。 */
+let lastUpgradeFailure: 'migration' | null = null
+
 /**
  * 在 versionchange 事务里把旧字段名/旧结构的记录改写为当前 schema。
  * 任何一条记录转换失败都抛出并 abort 事务，浏览器自动回滚到升级前状态。
@@ -48,11 +51,20 @@ function migrateLegacyRecords(
       prefStore.put(migratePreferences(prefs as unknown as Record<string, unknown>), 'current')
     }
   }).catch(() => {
+    lastUpgradeFailure = 'migration'
     try { transaction.abort() } catch { /* 已中止 */ }
   })
 }
 
+export class MigrationError extends Error {
+  constructor() {
+    super('migration-failed')
+    this.name = 'MigrationError'
+  }
+}
+
 export function openDatabase(): Promise<IDBPDatabase<SleepWellDatabase>> {
+  lastUpgradeFailure = null
   return openDB<SleepWellDatabase>(databaseName, databaseVersion, {
     upgrade(db, _oldVersion, _newVersion, transaction) {
       if (!db.objectStoreNames.contains('preferences')) db.createObjectStore('preferences')
@@ -64,5 +76,8 @@ export function openDatabase(): Promise<IDBPDatabase<SleepWellDatabase>> {
         migrateLegacyRecords(transaction)
       }
     }
+  }).catch((error: unknown) => {
+    if (lastUpgradeFailure === 'migration') throw new MigrationError()
+    throw error
   })
 }
