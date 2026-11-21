@@ -39,6 +39,7 @@ h1 { max-width: 450px; margin: 0; color: #213630; font-family: Georgia, "Times N
 .status-item { display: inline-flex; align-items: center; gap: 8px; color: #6f7d77; font-size: 12px; }
 .status-item.is-ready { color: #47765f; }.status-item.is-error { color: #ad5d4c; }
 .status-icon { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font-size: 14px; }
+.status-retry { margin-left: 4px; padding: 10px 16px; border: 1px solid currentColor; border-radius: 6px; background: transparent; color: inherit; font-size: 13px; cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; }
 
 .content-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 80px; padding: 58px 0 72px; }
 .info-section { max-width: 540px; }.section-heading { display: flex; align-items: baseline; gap: 16px; }.section-index { color: #ba6e4f; font-size: 11px; font-weight: 800; letter-spacing: .1em; }

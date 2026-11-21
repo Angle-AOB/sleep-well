@@ -94,27 +94,33 @@ function App() {
     if (!('serviceWorker' in navigator)) return
 
     let active = true
-    const ready = window.__SW_READY__
-    if (!ready) return
-
-    ready.then(async () => {
-      const registration = await navigator.serviceWorker.ready
-      const worker = registration.active
-      if (!worker) throw new Error('Service worker is not active')
-      const cacheNames = await caches.keys()
-      const cacheName = cacheNames.find((name) => name.startsWith('workbox-precache'))
-      if (!cacheName) {
-        if (active) setOfflineStatus('pending')
+    async function checkCache() {
+      const ready = window.__SW_READY__
+      if (!ready) {
+        if (active) setOfflineStatus('error')
         return
       }
-      const cache = await caches.open(cacheName)
-      const cachedRequests = await cache.keys()
-      const hasDocument = cachedRequests.some((request) => new URL(request.url).pathname.endsWith('/index.html'))
-      const hasApplicationCode = cachedRequests.some((request) => /\/assets\/index-.+\.js$/.test(new URL(request.url).pathname))
-      if (active) setOfflineStatus(hasDocument && hasApplicationCode ? 'ready' : 'pending')
-    }).catch(() => {
-      if (active) setOfflineStatus('error')
-    })
+      try {
+        await ready
+        const registration = await navigator.serviceWorker.ready
+        const worker = registration.active
+        if (!worker) throw new Error('Service worker is not active')
+        const cacheNames = await caches.keys()
+        const cacheName = cacheNames.find((name) => name.startsWith('workbox-precache'))
+        if (!cacheName) {
+          if (active) setOfflineStatus('pending')
+          return
+        }
+        const cache = await caches.open(cacheName)
+        const cachedRequests = await cache.keys()
+        const hasDocument = cachedRequests.some((request) => new URL(request.url).pathname.endsWith('/index.html'))
+        const hasApplicationCode = cachedRequests.some((request) => /\/assets\/index-.+\.js$/.test(new URL(request.url).pathname))
+        if (active) setOfflineStatus(hasDocument && hasApplicationCode ? 'ready' : 'pending')
+      } catch {
+        if (active) setOfflineStatus('error')
+      }
+    }
+    void checkCache()
     return () => { active = false }
   }, [])
 
@@ -187,6 +193,31 @@ function App() {
         ? t('offlineError')
         : t('offlinePending')
 
+  async function retryCacheCheck() {
+    setOfflineStatus('pending')
+    try {
+      const ready = window.__SW_READY__
+      if (!ready) throw new Error('no sw')
+      await ready
+      const registration = await navigator.serviceWorker.ready
+      const worker = registration.active
+      if (!worker) throw new Error('Service worker is not active')
+      const cacheNames = await caches.keys()
+      const cacheName = cacheNames.find((name) => name.startsWith('workbox-precache'))
+      if (!cacheName) {
+        setOfflineStatus('pending')
+        return
+      }
+      const cache = await caches.open(cacheName)
+      const cachedRequests = await cache.keys()
+      const hasDocument = cachedRequests.some((request) => new URL(request.url).pathname.endsWith('/index.html'))
+      const hasApplicationCode = cachedRequests.some((request) => /\/assets\/index-.+\.js$/.test(new URL(request.url).pathname))
+      setOfflineStatus(hasDocument && hasApplicationCode ? 'ready' : 'pending')
+    } catch {
+      setOfflineStatus('error')
+    }
+  }
+
   return (
     <main className="page-shell">
       <header className="topbar">
@@ -215,7 +246,15 @@ function App() {
       <section className="status-row" aria-label={t('statusLabel')}>
         <div className={`status-item ${offlineStatus === 'ready' ? 'is-ready' : ''}`} role="status">
           <span className="status-icon" aria-hidden="true">⌁</span>
-          <span>{offlineMessage}</span>
+          <span>
+            {offlineMessage}
+            {offlineStatus === 'ready' && ` · ${t('offlineCacheComplete')}`}
+          </span>
+          {(offlineStatus === 'error' || offlineStatus === 'pending') && (
+            <button type="button" className="status-retry" onClick={() => void retryCacheCheck()}>
+              {t('offlineRetry')}
+            </button>
+          )}
         </div>
         <div className={`status-item ${storageState === 'error' || storageState === 'unsupported' ? 'is-error' : ''}`} role="status">
           <span className="status-icon" aria-hidden="true">◉</span>
