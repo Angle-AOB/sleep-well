@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BackupPanel } from './components/BackupPanel'
-import { CoursePanel } from './components/CoursePanel'
-import { DiaryPanel } from './components/DiaryPanel'
-import { ErrorLogPanel } from './components/ErrorLogPanel'
 import { ReminderCard } from './components/ReminderCard'
-import { ScreeningPanel } from './components/ScreeningPanel'
+import { DiaryPage } from './pages/DiaryPage'
+import { SettingsPage } from './pages/SettingsPage'
+import { TodayPage } from './pages/TodayPage'
+import { TrainingPage } from './pages/TrainingPage'
 import { defaultPreferences, readPreferences, readScreening, writePreferences, writeScreening, type Preferences } from './data/preferences'
 import { readDiaryEntries } from './data/diary'
 import { MigrationError } from './data/database'
@@ -13,11 +12,10 @@ import { evaluateBackupReminder, type BackupReminderDecision } from './domain/re
 import type { ScreeningRecord } from './domain/screening'
 import { localToday } from './format'
 import { readCacheStatus } from './pwa'
-import { hashForPage, isUnknownRoute, pageFromHash, type Page } from './routing'
+import { hashForPage, type Page } from './routing'
+import { usePageRouting } from './usePageRouting'
+import type { OfflineStatus, PersistenceStatus, StorageState } from './statusText'
 import './style.css'
-
-type OfflineStatus = 'pending' | 'ready' | 'unsupported' | 'error'
-type PersistenceStatus = 'pending' | 'granted' | 'denied' | 'unsupported'
 
 declare global {
   interface Window {
@@ -65,15 +63,13 @@ const tabIcons: Record<Page, ReactNode> = {
 
 function App() {
   const { t } = useTranslation()
-  const [page, setPage] = useState<Page>(() => pageFromHash(window.location.hash) ?? 'today')
-  const headingRef = useRef<HTMLHeadingElement>(null)
+  const { page, headingRef } = usePageRouting()
   const mainRef = useRef<HTMLElement>(null)
-  const lastPage = useRef<Page>(page)
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
   const [savedPreferences, setSavedPreferences] = useState<Preferences>(defaultPreferences)
   const [screening, setScreening] = useState<ScreeningRecord | null>(null)
   const [screeningState, setScreeningState] = useState<'loading' | 'ready' | 'error'>(() => 'loading')
-  const [storageState, setStorageState] = useState<'loading' | 'ready' | 'error' | 'unsupported' | 'migration-failed'>(() =>
+  const [storageState, setStorageState] = useState<StorageState>(() =>
     window.indexedDB ? 'loading' : 'unsupported'
   )
   const [persistenceStatus, setPersistenceStatus] = useState<PersistenceStatus>(() =>
@@ -91,39 +87,6 @@ function App() {
   const [preferencesLoaded, setPreferencesLoaded] = useState(false)
   const [pendingSaves, setPendingSaves] = useState(0)
   const saveQueue = useRef(Promise.resolve())
-
-  // 只有空地址、未知路由才回落到今日并替换地址；`#main-content` 这类页内片段不动地址。
-  useEffect(() => {
-    if (isUnknownRoute(window.location.hash)) {
-      window.history.replaceState(null, '', hashForPage('today'))
-    }
-  }, [])
-
-  useEffect(() => {
-    function onHashChange() {
-      const next = pageFromHash(window.location.hash)
-      if (next !== null) {
-        setPage(next)
-        return
-      }
-      // 页内片段不切页；只有看起来是路由的地址才回落到今日。
-      if (isUnknownRoute(window.location.hash)) {
-        window.history.replaceState(null, '', hashForPage('today'))
-        setPage('today')
-      }
-    }
-
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
-
-  // 首次加载不抢焦点；之后每次切页都回到页顶，并把焦点交给新页标题。
-  useEffect(() => {
-    if (lastPage.current === page) return
-    lastPage.current = page
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-    headingRef.current?.focus()
-  }, [page])
 
   useEffect(() => {
     if (!window.indexedDB) return
@@ -232,38 +195,6 @@ function App() {
     void updatePreference({ ...preferences, backupReminders: false })
   }
 
-  /** 同一张提醒卡：今日页嵌在页面内，其他页面提到 `<main>` 顶部，保证深链也能看到。 */
-  const reminderCard = reminder && preferencesLoaded && preferences.backupReminders
-    ? (
-      <ReminderCard
-        kind={reminder.kind}
-        entryCount={reminder.entryCount}
-        onDisable={disableReminders}
-        onDismiss={() => setReminder(null)}
-      />
-    )
-    : null
-
-  const storageMessage = pendingSaves > 0
-    ? t('saving')
-    : storageState === 'ready'
-      ? t('saved')
-      : storageState === 'unsupported'
-        ? t('storageUnavailable')
-        : storageState === 'migration-failed'
-          ? t('storageMigrationFailed')
-          : storageState === 'error'
-            ? t('storageError')
-            : t('saving')
-
-  const offlineMessage = offlineStatus === 'ready'
-    ? t('offlineReady')
-    : offlineStatus === 'unsupported'
-      ? t('offlineUnsupported')
-      : offlineStatus === 'error'
-        ? t('offlineError')
-        : t('offlinePending')
-
   async function retryCacheCheck() {
     setOfflineStatus('pending')
     try {
@@ -272,6 +203,27 @@ function App() {
       setOfflineStatus('error')
     }
   }
+
+  /** 已在设置页时“去导出备份”不能原地跳到同一地址，改为滚到备份面板并把焦点交给标题。 */
+  function goToBackup() {
+    const title = document.getElementById('backup-title')
+    if (!title) return
+    title.scrollIntoView({ block: 'start' })
+    title.focus({ preventScroll: true })
+  }
+
+  /** 同一张提醒卡：今日页嵌在页面内，其他页面提到 `<main>` 顶部，保证深链也能看到。 */
+  const reminderCard = reminder && preferencesLoaded && preferences.backupReminders
+    ? (
+      <ReminderCard
+        kind={reminder.kind}
+        entryCount={reminder.entryCount}
+        onDisable={disableReminders}
+        onDismiss={() => setReminder(null)}
+        onGoBackup={page === 'settings' ? goToBackup : undefined}
+      />
+    )
+    : null
 
   return (
     <>
@@ -309,119 +261,44 @@ function App() {
       <main className="page-shell" id="main-content" ref={mainRef} tabIndex={-1}>
         {page !== 'today' && reminderCard}
 
-        <section className="page" hidden={page !== 'today'} aria-labelledby="page-title">
-          <section className="intro" aria-labelledby="intro-title">
-            <div className="intro-copy">
-              <p className="eyebrow">{t('eyebrow')}</p>
-              <p className="intro-title" id="intro-title">{t('title')}</p>
-              <p className="lead">{t('intro')}</p>
-            </div>
-            <div className="night-art" aria-hidden="true">
-              <div className="moon" />
-              <div className="horizon horizon-back" />
-              <div className="horizon horizon-front" />
-              <span className="star star-one">✳</span><span className="star star-two">✧</span>
-              <span className="art-label">01 <i /> 06</span>
-            </div>
-          </section>
+        <TodayPage
+          hidden={page !== 'today'}
+          offlineStatus={offlineStatus}
+          storageState={storageState}
+          persistenceStatus={persistenceStatus}
+          pendingSaves={pendingSaves}
+          reminder={page === 'today' ? reminderCard : null}
+          onRetryCache={() => void retryCacheCheck()}
+        />
 
-          <section className="status-row" aria-label={t('statusLabel')}>
-            <div className={`status-item ${offlineStatus === 'ready' ? 'is-ready' : ''}`} role="status">
-              <span className="status-icon" aria-hidden="true">⌁</span>
-              <span>
-                {offlineMessage}
-                {offlineStatus === 'ready' && ` · ${t('offlineCacheComplete')}`}
-              </span>
-              {(offlineStatus === 'error' || offlineStatus === 'pending') && (
-                <button type="button" className="status-retry" onClick={() => void retryCacheCheck()}>
-                  {t('offlineRetry')}
-                </button>
-              )}
-            </div>
-            <div className={`status-item ${storageState === 'error' || storageState === 'unsupported' ? 'is-error' : ''}`} role="status">
-              <span className="status-icon" aria-hidden="true">◉</span>
-              <span>{storageMessage}</span>
-            </div>
-            {persistenceStatus !== 'unsupported' && persistenceStatus !== 'pending' && (
-              <div className="status-item" role="status">
-                <span className="status-icon" aria-hidden="true">◇</span>
-                <span>{persistenceStatus === 'granted' ? t('storagePersisted') : t('storageBestEffort')}</span>
-              </div>
-            )}
-          </section>
+        <DiaryPage
+          hidden={page !== 'diary'}
+          storageUnavailable={storageState === 'unsupported'}
+          reloadToken={reloadToken}
+          onSaved={() => setDiaryRevision((revision) => revision + 1)}
+        />
 
-          {page === 'today' && reminderCard}
+        <TrainingPage
+          hidden={page !== 'training'}
+          storageUnavailable={storageState === 'unsupported'}
+          screening={screeningState === 'ready' ? screening : null}
+          diaryRevision={diaryRevision}
+          initialWakeTime={preferences.wakeTime}
+        />
 
-          <section className="content-grid" aria-label={t('productLabel')}>
-            <article className="info-section">
-              <div className="section-heading"><span className="section-index">01</span><h2>{t('scopeTitle')}</h2></div>
-              <p>{t('scopeBody')}</p>
-              <div className="info-rule" />
-              <div className="section-heading"><span className="section-index">02</span><h2>{t('privacyTitle')}</h2></div>
-              <p>{t('privacyBody')}</p>
-              <ul className="boundary-list">
-                <li><span aria-hidden="true">+</span> {t('noAccount')}</li>
-                <li><span aria-hidden="true">+</span> {t('noUpload')}</li>
-                <li><span aria-hidden="true">+</span> {t('localErrors')}</li>
-              </ul>
-            </article>
-          </section>
-        </section>
-
-        <section className="page" hidden={page !== 'diary'} aria-labelledby="page-title">
-          <DiaryPanel
-            storageUnavailable={storageState === 'unsupported'}
-            reloadToken={reloadToken}
-            onSaved={() => setDiaryRevision((revision) => revision + 1)}
-          />
-        </section>
-
-        <section className="page" hidden={page !== 'training'} aria-labelledby="page-title">
-          <CoursePanel
-            storageUnavailable={storageState === 'unsupported'}
-            screening={screeningState === 'ready' ? screening : null}
-            diaryRevision={diaryRevision}
-            initialWakeTime={preferences.wakeTime}
-          />
-        </section>
-
-        <section className="page" hidden={page !== 'settings'} aria-labelledby="page-title">
-          <section className="preferences-panel" aria-labelledby="preferences-title">
-            <div className="panel-heading">
-              <div><p className="panel-kicker">{t('preferencesKicker')}</p><h2 id="preferences-title">{t('preferencesTitle')}</h2></div>
-              <span className="panel-symbol" aria-hidden="true">◷</span>
-            </div>
-            <label className="toggle-row" htmlFor="backup-reminders">
-              <span>{t('reminderLabel')}</span>
-              <input
-                id="backup-reminders"
-                type="checkbox"
-                checked={preferences.backupReminders}
-                onChange={(event) => void updatePreference({ ...preferences, backupReminders: event.target.checked })}
-                disabled={storageState === 'unsupported'}
-              />
-            </label>
-            <p className={`storage-note ${storageState === 'error' || storageState === 'unsupported' ? 'note-error' : ''}`} role="status">{storageMessage}</p>
-          </section>
-
-          <ScreeningPanel
-            key={`${screeningState}-${reloadToken}`}
-            initialRecord={screeningState === 'ready' ? screening : null}
-            loading={screeningState === 'loading'}
-            storageUnavailable={storageState === 'unsupported' || screeningState === 'error'}
-            onSave={updateScreening}
-          />
-
-          <BackupPanel
-            storageUnavailable={storageState === 'unsupported'}
-            onImported={reloadAfterImport}
-            onExported={(exportedAt) => updatePreference({ ...preferences, lastBackupAt: exportedAt })}
-          />
-
-          <ErrorLogPanel />
-
-          <footer className="footer"><span>{t('footer')}</span><span>{t('footerMeta')}</span></footer>
-        </section>
+        <SettingsPage
+          hidden={page !== 'settings'}
+          preferences={preferences}
+          storageState={storageState}
+          pendingSaves={pendingSaves}
+          screening={screening}
+          screeningState={screeningState}
+          reloadToken={reloadToken}
+          onToggleReminders={(enabled) => void updatePreference({ ...preferences, backupReminders: enabled })}
+          onSaveScreening={updateScreening}
+          onImported={reloadAfterImport}
+          onExported={(exportedAt) => updatePreference({ ...preferences, lastBackupAt: exportedAt })}
+        />
       </main>
     </>
   )

@@ -12,9 +12,11 @@ type ReminderCardProps = {
   onDisable: () => void
   /** 本次会话不再展示；节奏记账由应用在展示时写入。 */
   onDismiss: () => void
+  /** 已在设置页时改为就地跳到备份面板，避免点了链接却停在原地。 */
+  onGoBackup?: () => void
 }
 
-export function ReminderCard({ kind, entryCount, onDisable, onDismiss }: ReminderCardProps) {
+export function ReminderCard({ kind, entryCount, onDisable, onDismiss, onGoBackup }: ReminderCardProps) {
   const { t } = useTranslation()
   return (
     <section className="reminder-card" aria-labelledby="reminder-title">
@@ -25,7 +27,18 @@ export function ReminderCard({ kind, entryCount, onDisable, onDismiss }: Reminde
           : t('reminderCardBodyWeekly')}
       </p>
       <div className="backup-actions">
-        <a className="secondary-button reminder-link" href={hashForPage('settings')}>{t('reminderCardGoBackup')}</a>
+        <a
+          className="secondary-button reminder-link"
+          href={hashForPage('settings')}
+          onClick={onGoBackup
+            ? (event) => {
+                event.preventDefault()
+                onGoBackup()
+              }
+            : undefined}
+        >
+          {t('reminderCardGoBackup')}
+        </a>
         <button type="button" className="secondary-button" onClick={onDismiss}>{t('reminderCardLater')}</button>
         <button type="button" className="primary-button" onClick={onDisable}>{t('reminderCardDisable')}</button>
       </div>

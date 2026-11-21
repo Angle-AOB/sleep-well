@@ -32,6 +32,15 @@ test('an unknown address falls back to today and replaces the hash', async ({ pa
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 })
 
+test('a settings sub-page deep link stays on settings without rewriting the address', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(defaultClock))
+  await page.goto('/#/settings/screening')
+  await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '训练偏好' })).toBeVisible()
+  // 子页暂时只解析不渲染：地址保持原样，用户不会被带回今日。
+  await expect(page).toHaveURL(/#\/settings\/screening$/)
+})
+
 test('an in-page fragment such as #main-content is left alone', async ({ page }) => {
   await page.clock.setFixedTime(new Date(defaultClock))
   await page.goto('/#main-content')

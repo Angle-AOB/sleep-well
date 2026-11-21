@@ -57,6 +57,27 @@ test('a deep link to another page still shows a due reminder', async ({ page }) 
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
 })
 
+test('the reminder link jumps to the backup panel when already on settings', async ({ page }) => {
+  await openApp(page)
+  await recordNight(page, '2026-11-17')
+  await recordNight(page, '2026-11-18')
+  await recordNight(page, '2026-11-19')
+
+  await page.goto('/#/settings')
+  await page.reload()
+  await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '训练偏好' }).getByText('偏好已保存在此设备')).toBeVisible()
+
+  await page.getByRole('link', { name: '去导出备份' }).click()
+
+  // 已在设置页时不能再导航到同一个地址：链接改为滚到备份面板并把焦点交给标题。
+  const backupTitle = page.getByRole('heading', { name: '本地备份与导出' })
+  await expect(backupTitle).toBeFocused()
+  await expect(backupTitle).toBeInViewport()
+  await expect(page).toHaveURL(/#\/settings$/)
+})
+
 test('two saved nights are not worth a backup reminder yet', async ({ page }) => {
   await openApp(page)
   await recordNight(page, '2026-11-18')
