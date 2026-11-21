@@ -21,6 +21,7 @@ import {
   type WorkPattern
 } from '../domain/course'
 import type { ScreeningRecord } from '../domain/screening'
+import { screeningGate } from '../screeningGate'
 import { writeCourse } from '../data/course'
 import { durationText, efficiencyText, localToday } from '../format'
 import { restrictionText, weekContent, weekTaskText, weeks, windowUnavailableBody } from '../courseText'
@@ -64,8 +65,8 @@ export function CoursePanel({
     visible,
     storageUnavailable
   })
-  // 只在确认「读到了、但确实没有记录」时拦截；加载中或读取失败都不拦。
-  const screeningMissing = screeningState === 'ready' && screening === null
+  // 「是否拦开始」只有 screeningGate 一个来源；加载中也不放行，避免读取窗口内绕过门禁。
+  const gate = screeningGate(screeningState, screening)
   const [wakeTimeDraft, setWakeTimeDraft] = useState<string | null>(null)
   const [patternDraft, setPatternDraft] = useState<WorkPattern | null>(null)
   const [busy, setBusy] = useState(false)
@@ -177,10 +178,16 @@ export function CoursePanel({
         {heading}
         <p className="course-intro">{t('courseIntro')}</p>
         <p className="course-card-copy">{t('courseNotStarted')}</p>
-        {screeningMissing && (
-          <div className="course-screening-gate" role="status">
-            <p className="course-note is-warning">{t('courseScreeningRequired')}</p>
-            <a className="link-button" href={hashForSettingsSubPage('screening')}>{t('courseScreeningAction')}</a>
+        {gate === 'loading' && (
+          <p className="course-note" role="status">{t('screeningGateLoading')}</p>
+        )}
+        {gate === 'unavailable' && (
+          <p className="course-note is-warning" role="status">{t('screeningGateUnavailable')}</p>
+        )}
+        {gate === 'required' && (
+          <div role="status">
+            <p className="course-note is-warning">{t('screeningGateRequired')}</p>
+            <a className="link-button" href={hashForSettingsSubPage('screening')}>{t('screeningGateAction')}</a>
           </div>
         )}
         {patternField}
@@ -189,7 +196,7 @@ export function CoursePanel({
             type="button"
             className="primary-button"
             onClick={() => void begin()}
-            disabled={busy || screeningMissing}
+            disabled={busy || gate === 'required' || gate === 'loading'}
           >
             {busy ? t('courseStarting') : t('courseStart')}
           </button>
@@ -215,10 +222,10 @@ export function CoursePanel({
       {heading}
       <p className="course-intro">{t('courseIntro')}</p>
 
-      {screeningMissing && (
-        <div className="course-screening-gate" role="status">
+      {gate === 'required' && (
+        <div role="status">
           <p className="course-note is-warning">{t('courseScreeningMissingHint')}</p>
-          <a className="link-button" href={hashForSettingsSubPage('screening')}>{t('courseScreeningAction')}</a>
+          <a className="link-button" href={hashForSettingsSubPage('screening')}>{t('screeningGateAction')}</a>
         </div>
       )}
 
