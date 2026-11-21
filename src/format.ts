@@ -26,6 +26,15 @@ export function localToday(): string {
   return `${now.getFullYear()}-${month}-${day}`
 }
 
+/** 本地日期前一天；用 UTC 日序号做减法，避免夏令时把“昨天”算成 23 或 25 小时。 */
+export function previousLocalDate(value: string): string {
+  const [year, month, day] = value.split('-').map(Number)
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return value
+
+  const date = new Date(Date.UTC(year, month - 1, day) - 86_400_000)
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`
+}
+
 function pad(value: number): string {
   return String(value).padStart(2, '0')
 }

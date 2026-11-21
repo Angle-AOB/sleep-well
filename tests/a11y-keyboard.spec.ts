@@ -9,8 +9,8 @@ async function openApp(page: Page) {
   await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
-  // 等缓存就绪再测 Tab 顺序：状态区的重试按钮会插入一个 tab 停靠点。
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  // 等今日卡渲染完成再测 Tab 顺序；正常缓存状态不再在今日页插入停靠点。
+  await expect(page.getByRole('region', { name: '昨夜记录' })).toBeVisible()
 }
 
 async function focusedInfo(page: Page) {

@@ -36,7 +36,7 @@ test('transaction write failure shows persistence-failed message and app continu
 
   // App continues to render core content
   await goTo(page, 'today')
-  await expect(page.getByRole('heading', { name: '先了解这是什么' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '昨夜记录' })).toBeVisible()
   await context.close()
 })
 
@@ -51,7 +51,10 @@ test('estimate() failure does not crash the app', async ({ browser }) => {
   const page = await context.newPage()
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
-  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible({ timeout: 10_000 })
+  await goTo(page, 'settings')
+  await expect(
+    page.getByRole('region', { name: '应用状态' }).getByText('偏好已保存在此设备')
+  ).toBeVisible({ timeout: 10_000 })
   await context.close()
 })
 
@@ -65,8 +68,11 @@ test('a denied storage-persist request degrades to best-effort and the app keeps
   await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
-  // 拒绝持久化不是错误：提示降级说明，应用仍可使用。
-  await expect(page.getByText('浏览器未批准增强保留；清除站点数据可能导致记录丢失。')).toBeVisible()
+  // 拒绝持久化不是错误：降级说明在设置状态段，应用仍可使用。
+  await goTo(page, 'settings')
+  await expect(
+    page.getByRole('region', { name: '应用状态' }).getByText('浏览器未批准增强保留；清除站点数据可能导致记录丢失。')
+  ).toBeVisible()
   await goTo(page, 'diary')
   await expect(page.getByRole('region', { name: '晨间睡眠日记' })).toBeVisible()
   await context.close()

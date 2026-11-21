@@ -10,7 +10,12 @@ async function openApp(page: Page, time = '2026-11-20T09:00:00') {
 async function reloadApp(page: Page) {
   await goTo(page, 'today')
   await page.reload()
-  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+  // 偏好保存状态在设置状态段；等它出现再回今日，确保提醒结论已算出。
+  await goTo(page, 'settings')
+  await expect(
+    page.getByRole('region', { name: '应用状态' }).getByText('偏好已保存在此设备')
+  ).toBeVisible()
+  await goTo(page, 'today')
 }
 
 async function recordNight(page: Page, date: string) {
@@ -157,7 +162,8 @@ test('showing the reminder marks it seen, so it returns at most once a week', as
   await recordNight(page, '2026-11-19')
   await reloadApp(page)
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
-  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+  // 正常保存状态不再常驻今日页；提醒出现时今日仍不显示状态行。
+  await expect(page.getByRole('region', { name: '今日提示' })).toHaveCount(0)
 
   await page.getByRole('button', { name: '稍后再说' }).click()
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
