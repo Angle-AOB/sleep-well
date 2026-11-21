@@ -86,3 +86,30 @@ test('a failed export is recorded in the error log as well', async ({ page }) =>
   await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
   await expect(panel.getByText('备份导出失败')).toBeVisible()
 })
+
+test('a failed local database write is recorded in the error log', async ({ page }) => {
+  await page.addInitScript(() => {
+    IDBObjectStore.prototype.put = function put() {
+      throw new DOMException('storage is full', 'QuotaExceededError')
+    }
+  })
+  await openApp(page)
+
+  const diary = page.getByRole('region', { name: '晨间睡眠日记' })
+  await diary.locator('#diary-date').fill('2026-11-19')
+  await diary.locator('#lights-off').fill('23:00')
+  await diary.locator('#sleep-onset').fill('30')
+  await diary.locator('#final-wake').fill('06:30')
+  await diary.locator('#out-of-bed').fill('07:00')
+  await diary.locator('#waso').selectOption('none-remembered')
+  await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
+  await expect(diary.getByText('无法保存日记。请检查此设备存储空间后重试。')).toBeVisible()
+
+  const panel = page.getByRole('region', { name: '诊断信息' })
+  await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
+  await expect(panel.getByText('本地数据库写入失败')).toBeVisible()
+
+  const diagnostics = (await panel.locator('.error-log-text').textContent()) ?? ''
+  expect(diagnostics).toContain('storage-write-failed')
+  expect(diagnostics).not.toContain('23:00')
+})

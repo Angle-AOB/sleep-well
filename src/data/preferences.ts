@@ -1,5 +1,6 @@
 import type { ScreeningRecord } from '../domain/screening'
 import { openDatabase } from './database'
+import { recordError } from './errorLog'
 
 export type Preferences = {
   backupReminders: boolean
@@ -31,6 +32,9 @@ export async function writePreferences(preferences: Preferences): Promise<void> 
   const database = await openDatabase()
   try {
     await database.put('preferences', preferences, 'current')
+  } catch (error) {
+    recordError('storage-write-failed', { operation: 'storage-write' })
+    throw error
   } finally {
     database.close()
   }
@@ -49,6 +53,9 @@ export async function writeScreening(screening: ScreeningRecord): Promise<void> 
   const database = await openDatabase()
   try {
     await database.put('screening', screening, 'current')
+  } catch (error) {
+    recordError('storage-write-failed', { operation: 'storage-write' })
+    throw error
   } finally {
     database.close()
   }
