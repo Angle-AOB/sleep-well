@@ -267,8 +267,11 @@ function App() {
           hidden={page !== 'today'}
           offlineStatus={offlineStatus}
           storageState={storageState}
-          persistenceStatus={persistenceStatus}
           pendingSaves={pendingSaves}
+          screening={screeningState === 'ready' ? screening : null}
+          screeningState={screeningState}
+          storageUnavailable={storageState === 'unsupported'}
+          diaryRevision={diaryRevision}
           reminder={page === 'today' ? reminderCard : null}
           onRetryCache={() => void retryCacheCheck()}
         />

@@ -52,8 +52,8 @@ async function readDbRecord(page: Page, store: string, key: string): Promise<Rec
 
 async function openAndSettle(page: Page) {
   await openPage(page, 'today')
-  await expect(page.getByText('把规律，慢慢带回夜晚。')).toBeVisible()
-  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: '昨夜记录' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '今日提示' })).toHaveCount(0)
 }
 
 test('v2 diary entries with legacy field names migrate to current schema', async ({ page }) => {
@@ -83,8 +83,8 @@ test('v2 diary entries with legacy field names migrate to current schema', async
   })
 
   await page.reload()
-  await expect(page.getByText('把规律，慢慢带回夜晚。')).toBeVisible()
-  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: '昨夜记录' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '今日提示' })).toHaveCount(0)
 
   const entry = await readDbRecord(page, 'diary', '2026-11-15')
   expect(entry.lightsOffTime).toBe('23:00')
@@ -134,8 +134,8 @@ test('v3 diary entries with intermediate field names migrate to current schema',
   })
 
   await page.reload()
-  await expect(page.getByText('把规律，慢慢带回夜晚。')).toBeVisible()
-  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: '昨夜记录' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '今日提示' })).toHaveCount(0)
 
   const entry = await readDbRecord(page, 'diary', '2026-11-10')
   expect(entry.finalWakeTime).toBe('06:15')
@@ -195,7 +195,7 @@ test('migration failure leaves old data intact without partial writes', async ({
   })
 
   await page.reload()
-  await expect(page.getByText('把规律，慢慢带回夜晚。')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '昨夜记录' })).toBeVisible()
   // 迁移失败不是"存储空间不足"：提示必须说明原有数据未被改动。
   await expect(page.getByText('数据迁移失败，此设备上的原有数据未被改动').first()).toBeVisible()
   await expect(page.getByText('数据持久化失败').first()).toBeHidden()

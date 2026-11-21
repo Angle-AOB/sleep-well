@@ -55,10 +55,12 @@ async function recordNight(page: Page, date: string) {
   await goTo(page, 'training')
 }
 
-/** 等离线缓存就绪后再断网；状态行只在今日页，所以先回到今日。 */
+/** 等离线缓存就绪后再断网；正常状态在设置的「应用状态」段。 */
 async function waitForOfflineShell(page: Page) {
-  await goTo(page, 'today')
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  await goTo(page, 'settings')
+  await expect(
+    page.getByRole('region', { name: '应用状态' }).getByText('当前可离线使用')
+  ).toBeVisible({ timeout: 30_000 })
 }
 
 test('six-week course diary and screening are readable offline', async ({ page, context }) => {

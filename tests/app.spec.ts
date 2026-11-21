@@ -15,20 +15,25 @@ test('用户保存训练偏好后刷新仍能读取', async ({ page }) => {
 test('应用壳在断网后仍可读取', async ({ page, context }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
-  await expect(page.getByText('把规律，慢慢带回夜晚。')).toBeVisible()
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('region', { name: '昨夜记录' })).toBeVisible()
+
+  // 正常状态在设置状态段；今日页只保留今天该做什么。
+  await page.getByRole('navigation', { name: '页面导航' }).getByRole('link', { name: '设置', exact: true }).click()
+  await expect(page.getByRole('region', { name: '应用状态' }).getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  await page.getByRole('navigation', { name: '页面导航' }).getByRole('link', { name: '今日', exact: true }).click()
 
   await context.setOffline(true)
   await page.reload()
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
-  await expect(page.getByText('你的数据留在此设备')).toBeVisible()
+  await expect(page.getByRole('region', { name: '昨夜记录' })).toBeVisible()
 })
 
 test('本地存储与备份加密警告的文案对用户可见', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
   await page.goto('/')
 
-  // 隐私说明：本地存储、无账号/云同步/遥测、清除数据会丢失。
+  // 隐私说明迁入「关于与隐私」：本地存储、无账号/云同步/遥测、清除数据会丢失。
+  await goToSettingsSubPage(page, 'about')
   await expect(page.getByText('偏好保存在此浏览器的本地数据库中。没有账号、云端同步、分析或遥测。', { exact: false })).toBeVisible()
 
   // 备份警告：ZIP 压缩不是加密，且"导出"不等于已保存到本设备之外。

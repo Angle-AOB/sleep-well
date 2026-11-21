@@ -6,8 +6,9 @@ import { goTo, goToSettingsSubPage, openPage } from './navigation'
 test('应用在每个页面都无横向溢出且主要面板完整可见', async ({ page }) => {
   await openPage(page, 'today', '2026-11-20T09:00:00')
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
-  await expect(page.getByText('把规律，慢慢带回夜晚。')).toBeVisible()
-  await expect(page.getByText('你的数据留在此设备')).toBeVisible()
+  await expect(page.getByRole('region', { name: '昨夜记录' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '今夜安排' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '本周任务' })).toBeVisible()
 
   await goTo(page, 'diary')
   await expect(page.getByRole('heading', { name: '晨间睡眠日记' })).toBeVisible()

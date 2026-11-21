@@ -10,12 +10,15 @@ async function openApp(page: Page) {
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 }
 
-test('offline and storage states announce readable status text', async ({ page }) => {
+test('offline and storage states announce readable status text in settings', async ({ page }) => {
   await openApp(page)
-  const offline = page.getByRole('status').filter({ hasText: /当前可离线使用|训练内容缓存中|训练内容缓存失败|此浏览器不支持离线应用壳/ })
+  // 正常状态只在设置的「应用状态」段常驻；今日页不为正常状态占位。
+  await goTo(page, 'settings')
+  const status = page.getByRole('region', { name: '应用状态' })
+  const offline = status.getByRole('status').filter({ hasText: /当前可离线使用|训练内容缓存中|训练内容缓存失败|此浏览器不支持离线应用壳/ })
   await expect(offline.first()).toBeVisible({ timeout: 30_000 })
 
-  const storage = page.getByRole('status').filter({ hasText: /偏好已保存在此设备|正在保存偏好|数据持久化失败|此浏览器无法使用本地存储|数据迁移失败/ })
+  const storage = status.getByRole('status').filter({ hasText: /偏好已保存在此设备|正在保存偏好|数据持久化失败|此浏览器无法使用本地存储|数据迁移失败/ })
   await expect(storage.first()).toBeVisible()
 })
 

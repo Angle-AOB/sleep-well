@@ -1,11 +1,21 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { goTo } from './navigation'
+
+// 正常的离线/存储状态只在设置「应用状态」段展示；今日页仅在缓存中、缓存失败或
+// 存储不可用时出现一行提示。离线可用性本身仍要通过离线路由与日记流程验证。
+
+async function expectOfflineReadyInSettings(page: Page) {
+  await goTo(page, 'settings')
+  const status = page.getByRole('region', { name: '应用状态' })
+  await expect(status.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  return status
+}
 
 test('cache complete shows current-offline-ready with training content cached', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByText('训练内容已缓存')).toBeVisible()
+  const status = await expectOfflineReadyInSettings(page)
+  await expect(status.getByText('训练内容已缓存')).toBeVisible()
 })
 
 test('cache failure shows retry entry and retry recovers', async ({ page, context }) => {
@@ -30,20 +40,22 @@ test('cache failure shows retry entry and retry recovers', async ({ page, contex
   await page.evaluate(() => {
     (document.querySelector('.status-retry') as HTMLButtonElement | null)?.click()
   })
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  // 缓存补齐后今日页不再显示异常提示。
+  await expect(page.getByRole('region', { name: '今日提示' })).toHaveCount(0)
+  await expectOfflineReadyInSettings(page)
 })
 
 test('offline diagnostic never reads health data from IndexedDB', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
-  const statusText = await page.locator('.status-row').innerText()
+  const status = await expectOfflineReadyInSettings(page)
+  const statusText = await status.innerText()
   expect(statusText).not.toMatch(/日记|筛查|睡眠质量|夜醒/)
   expect(statusText).toMatch(/离线|缓存/)
 })
 
 test('a failed service-worker update keeps the current version working with local data intact', async ({ page, context }) => {
   await page.goto('/')
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  await expectOfflineReadyInSettings(page)
 
   // 先留下本地内容，才谈得上"资源更新不摧毁健康数据"。
   await goTo(page, 'diary')
@@ -79,7 +91,8 @@ test('a failed service-worker update keeps the current version working with loca
   // 更新失败后旧版本继续工作，本地内容仍在。
   await goTo(page, 'today')
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
-  await expect(page.getByText('当前可离线使用')).toBeVisible()
+  await expect(page.getByRole('region', { name: '昨夜记录' })).toBeVisible()
+  await expectOfflineReadyInSettings(page)
   await goTo(page, 'diary')
   await expect(diary.getByText('11 月 18 日')).toBeVisible()
 
@@ -91,7 +104,7 @@ test('a failed service-worker update keeps the current version working with loca
 
 test('a half-written new cache is never claimed offline-ready and leaves local data alone', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  await expectOfflineReadyInSettings(page)
 
   await goTo(page, 'diary')
   const diary = page.getByRole('region', { name: '晨间睡眠日记' })
@@ -119,19 +132,21 @@ test('a half-written new cache is never claimed offline-ready and leaves local d
   await goTo(page, 'today')
   await page.reload()
 
-  // 绝不谎称"当前可离线使用"，且给出重试入口；本地日记不受影响。
-  await expect(page.getByText('当前可离线使用')).toBeHidden()
-  await expect(page.getByRole('button', { name: '重试' })).toBeVisible({ timeout: 30_000 })
+  // 绝不谎称"当前可离线使用"：今日只出现一行异常提示与重试入口；本地日记不受影响。
+  const notice = page.getByRole('region', { name: '今日提示' })
+  await expect(notice.getByRole('button', { name: '重试' })).toBeVisible({ timeout: 30_000 })
+  await expect(notice.getByText('当前可离线使用')).toHaveCount(0)
   await goTo(page, 'diary')
   await expect(diary.getByText('11 月 18 日')).toBeVisible()
 
-  // 缓存补齐后重试可恢复。
+  // 缓存补齐后重试可恢复：提示消失，设置状态段恢复“当前可离线使用”。
   await goTo(page, 'today')
   await page.evaluate(() => {
     ;(window as unknown as { __cacheHalfState: { mode: string } }).__cacheHalfState.mode = 'ok'
   })
   await page.getByRole('button', { name: '重试' }).click()
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('region', { name: '今日提示' })).toHaveCount(0)
+  await expectOfflineReadyInSettings(page)
   await goTo(page, 'diary')
   await expect(diary.getByText('11 月 18 日')).toBeVisible()
 })
