@@ -48,6 +48,24 @@ test('an in-page fragment such as #main-content is left alone', async ({ page })
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 })
 
+test('a fragment that matches no element falls back to today and replaces the hash', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(defaultClock))
+  await page.goto('/#foo')
+  // `#foo` 既不是路由，文档里也没有这个 id：不能停在今日却把地址留在 #foo。
+  await expect(page).toHaveURL(/#\/today$/)
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
+})
+
+test('an unknown fragment does not leave a stale address behind when coming back', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(defaultClock))
+  await page.goto('/#/diary')
+  await page.goto('/#foo')
+  await expect(page).toHaveURL(/#\/today$/)
+  await page.goBack()
+  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page).toHaveURL(/#\/diary$/)
+})
+
 test('the skip link focuses main content without changing the page address', async ({ page }) => {
   await openPage(page, 'diary')
   const skip = page.getByRole('link', { name: '跳到主要内容' })

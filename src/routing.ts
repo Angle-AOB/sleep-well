@@ -11,7 +11,8 @@ const pagePaths: Record<Page, string> = {
   settings: '/settings'
 }
 
-const pages = Object.keys(pagePaths) as Page[]
+/** 页面顺序的唯一定义：底栏与路由共用，新增页面只需改类型与这里。 */
+export const pages = Object.keys(pagePaths) as Page[]
 
 /**
  * 把地址栏 hash 解析为路由。空 hash、`#main-content` 这类非路由片段与未知顶层地址
@@ -31,4 +32,9 @@ export function routeFromHash(hash: string): Route | null {
 
 export function hashForPage(page: Page): string {
   return `#${pagePaths[page]}`
+}
+
+/** 子页地址共用顶层页面的写法，避免在组件里手写 `#/settings/backup` 这类字符串。 */
+export function hashForSubPage(page: Page, subPage: string): string {
+  return `${hashForPage(page)}/${subPage}`
 }

@@ -3,13 +3,39 @@ import { hashForPage, routeFromHash, type Page, type Route } from './routing'
 
 const todayRoute: Route = { page: 'today', subPage: null }
 
-/** 空地址或 `#/…` 才是「想打开某个页面」；`#main-content` 属于当前页内的片段。 */
-function isRouteLike(hash: string): boolean {
-  return hash === '' || hash === '#' || hash.startsWith('#/')
+/**
+ * 一次地址判定的结论：打开某个路由、保持当前页的页内锚点，或回落到今日并替换地址。
+ * `route` 为 null 表示地址指向文档里真实存在的元素，属于页内锚点，不切页也不改地址。
+ */
+type HashResolution = { route: Route | null; replace: boolean }
+
+/** 地址里的片段 id 是用户可输入的：解码失败按未知地址处理。 */
+function decodeId(raw: string): string | null {
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return null
+  }
+}
+
+function resolveHash(hash: string): HashResolution {
+  if (hash === '' || hash === '#') return { route: todayRoute, replace: true }
+
+  const route = routeFromHash(hash)
+  if (route !== null) return { route, replace: false }
+
+  // `#/foo` 看起来就是路由，解析不到顶层页面时不能停在原地。
+  if (hash.startsWith('#/')) return { route: todayRoute, replace: true }
+
+  // 其余都是 `#foo` 形式的候选片段：只有文档里真有这个元素才当作页内锚点。
+  const id = hash.startsWith('#') ? decodeId(hash.slice(1)) : null
+  if (id !== null && document.getElementById(id) !== null) return { route: null, replace: false }
+
+  return { route: todayRoute, replace: true }
 }
 
 /**
- * 四页壳的地址状态：解析 hash、未知路由回落今日、切页回到页顶并把焦点交给页标题。
+ * 四页壳的地址状态：解析 hash、未知地址回落今日、切页回到页顶并把焦点交给页标题。
  * 只为这四个顶层页面服务，子页目前只解析不渲染。
  */
 export function usePageRouting() {
@@ -17,27 +43,20 @@ export function usePageRouting() {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const lastPage = useRef<Page>(route.page)
 
-  // 只有空地址、未知路由才回落到今日并替换地址；页内片段不动地址。
-  // 初始状态已经把 null 解析成今日，这里只需要改写地址栏。
+  // 初始状态已经把无法解析的地址当成今日；这里只把地址栏改成一致的 `#/today`。
   useEffect(() => {
-    const hash = window.location.hash
-    if (!isRouteLike(hash) || routeFromHash(hash) !== null) return
-    window.history.replaceState(null, '', hashForPage('today'))
+    const { replace } = resolveHash(window.location.hash)
+    if (replace) window.history.replaceState(null, '', hashForPage('today'))
   }, [])
 
   useEffect(() => {
     function onHashChange() {
       const hash = window.location.hash
-      const next = routeFromHash(hash)
-      if (next !== null) {
-        setRoute(next)
-        return
-      }
-      // 页内片段不切页；只有看起来是路由的地址才回落到今日。
-      if (isRouteLike(hash)) {
-        window.history.replaceState(null, '', hashForPage('today'))
-        setRoute(todayRoute)
-      }
+      const resolution = resolveHash(hash)
+      // 页内锚点：停在当前页，地址保持不动。
+      if (resolution.route === null) return
+      if (resolution.replace) window.history.replaceState(null, '', hashForPage('today'))
+      setRoute(resolution.route)
     }
 
     window.addEventListener('hashchange', onHashChange)

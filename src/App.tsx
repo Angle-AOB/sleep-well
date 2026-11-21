@@ -12,7 +12,7 @@ import { evaluateBackupReminder, type BackupReminderDecision } from './domain/re
 import type { ScreeningRecord } from './domain/screening'
 import { localToday } from './format'
 import { readCacheStatus } from './pwa'
-import { hashForPage, type Page } from './routing'
+import { hashForPage, pages, type Page } from './routing'
 import { usePageRouting } from './usePageRouting'
 import type { OfflineStatus, PersistenceStatus, StorageState } from './statusText'
 import './style.css'
@@ -30,7 +30,8 @@ const pageTitleKeys: Record<Page, string> = {
   settings: 'pageSettings'
 }
 
-const navigationItems: Page[] = ['today', 'diary', 'training', 'settings']
+/** 底栏顺序来自 routing，新增页面只改那一处。 */
+const navigationItems: Page[] = pages
 
 /** 底栏线性图标：24×24、描边取 currentColor，随文字颜色一起标识当前项。 */
 const tabIcons: Record<Page, ReactNode> = {
@@ -63,7 +64,7 @@ const tabIcons: Record<Page, ReactNode> = {
 
 function App() {
   const { t } = useTranslation()
-  const { page, headingRef } = usePageRouting()
+  const { page, subPage, headingRef } = usePageRouting()
   const mainRef = useRef<HTMLElement>(null)
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
   const [savedPreferences, setSavedPreferences] = useState<Preferences>(defaultPreferences)
@@ -204,14 +205,6 @@ function App() {
     }
   }
 
-  /** 已在设置页时“去导出备份”不能原地跳到同一地址，改为滚到备份面板并把焦点交给标题。 */
-  function goToBackup() {
-    const title = document.getElementById('backup-title')
-    if (!title) return
-    title.scrollIntoView({ block: 'start' })
-    title.focus({ preventScroll: true })
-  }
-
   /** 同一张提醒卡：今日页嵌在页面内，其他页面提到 `<main>` 顶部，保证深链也能看到。 */
   const reminderCard = reminder && preferencesLoaded && preferences.backupReminders
     ? (
@@ -220,7 +213,6 @@ function App() {
         entryCount={reminder.entryCount}
         onDisable={disableReminders}
         onDismiss={() => setReminder(null)}
-        onGoBackup={page === 'settings' ? goToBackup : undefined}
       />
     )
     : null
@@ -288,6 +280,7 @@ function App() {
 
         <SettingsPage
           hidden={page !== 'settings'}
+          subPage={page === 'settings' ? subPage : null}
           preferences={preferences}
           storageState={storageState}
           pendingSaves={pendingSaves}

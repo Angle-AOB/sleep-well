@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BackupPanel } from '../components/BackupPanel'
 import { ErrorLogPanel } from '../components/ErrorLogPanel'
@@ -8,6 +9,8 @@ import { storageMessage, type StorageState } from '../statusText'
 
 type SettingsPageProps = {
   hidden: boolean
+  /** 路由里的子页（`#/settings/backup`）；`backup` 首次出现时把焦点送到备份面板。 */
+  subPage: string | null
   preferences: Preferences
   storageState: StorageState
   pendingSaves: number
@@ -23,6 +26,7 @@ type SettingsPageProps = {
 
 export function SettingsPage({
   hidden,
+  subPage,
   preferences,
   storageState,
   pendingSaves,
@@ -36,6 +40,19 @@ export function SettingsPage({
 }: SettingsPageProps) {
   const { t } = useTranslation()
   const storageText = storageMessage(t, storageState, pendingSaves)
+
+  // 切页时应用会先做「回到页顶并聚焦页标题」，这里排到下一帧再滚动，
+  // 保证 `#/settings/backup` 落到备份面板而不是被页顶覆盖。
+  useEffect(() => {
+    if (hidden || subPage !== 'backup') return
+    const frame = requestAnimationFrame(() => {
+      const title = document.getElementById('backup-title')
+      if (!title) return
+      title.scrollIntoView({ block: 'start' })
+      title.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [hidden, subPage])
 
   return (
     <section className="page" hidden={hidden} aria-labelledby="page-title">
