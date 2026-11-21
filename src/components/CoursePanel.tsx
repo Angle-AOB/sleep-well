@@ -161,13 +161,11 @@ export function CoursePanel({
     )
   }
 
-  if (loadState === 'error') {
+  if (loadState === 'error' && !storageUnavailable) {
     return (
       <section className="course-panel" aria-labelledby="course-title">
         {heading}
-        <p className="diary-alert" role="alert">
-          {storageUnavailable ? t('courseStorageUnavailable') : t('courseLoadError')}
-        </p>
+        <p className="diary-alert" role="alert">{t('courseLoadError')}</p>
       </section>
     )
   }
@@ -177,7 +175,9 @@ export function CoursePanel({
       <section className="course-panel" aria-labelledby="course-title">
         {heading}
         <p className="course-intro">{t('courseIntro')}</p>
-        <p className="course-card-copy">{t('courseNotStarted')}</p>
+        {storageUnavailable
+          ? <p className="diary-alert" role="alert">{t('courseStorageUnavailable')}</p>
+          : <p className="course-card-copy">{t('courseNotStarted')}</p>}
         {gate === 'loading' && (
           <p className="course-note" role="status">{t('screeningGateLoading')}</p>
         )}

@@ -41,7 +41,7 @@ type FirstRunMode = 'auto' | 'replay'
 const navigationItems = pages
 
 /** 底栏线性图标：24×24、描边取 currentColor，随文字颜色一起标识当前项。 */
-const tabIcons: Record<Page, ReactNode> = {
+const bottomBarIcons: Record<Page, ReactNode> = {
   today: (
     <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
       <circle cx="12" cy="12" r="4" />
@@ -76,7 +76,9 @@ function App() {
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
   const [savedPreferences, setSavedPreferences] = useState<Preferences>(defaultPreferences)
   const [screening, setScreening] = useState<ScreeningRecord | null>(null)
-  const [screeningState, setScreeningState] = useState<'loading' | 'ready' | 'error'>(() => 'loading')
+  const [screeningState, setScreeningState] = useState<'loading' | 'ready' | 'error'>(() =>
+    window.indexedDB ? 'loading' : 'error'
+  )
   const [storageState, setStorageState] = useState<StorageState>(() =>
     window.indexedDB ? 'loading' : 'unsupported'
   )
@@ -232,11 +234,11 @@ function App() {
    * 关闭首次说明。只有本设备首次自动展示那次写标记；从关于页复看不重置。
    * 两个主入口都改 hash，交给同一套页面路由处理。
    */
-  function closeFirstRun(destination?: 'screening' | 'today') {
+  function closeFirstRun(destination?: 'screening' | 'diary') {
     if (firstRun === 'auto') markFirstRunSeen()
     setFirstRun(null)
     if (destination === 'screening') window.location.hash = hashForSettingsSubPage('screening')
-    if (destination === 'today') window.location.hash = hashForPage('today')
+    if (destination === 'diary') window.location.hash = hashForPage('diary')
   }
 
   /** 同一张提醒卡：今日页嵌在页面内，其他页面提到 `<main>` 顶部，保证深链也能看到。 */
@@ -277,16 +279,16 @@ function App() {
         <h1 id="page-title" ref={headingRef} tabIndex={-1}>{pageTitle}</h1>
       </header>
 
-      <nav className="tabbar" aria-label={t('primaryNavigation')}>
-        <div className="tabbar-inner">
+      <nav className="bottom-bar" aria-label={t('primaryNavigation')}>
+        <div className="bottom-bar-inner">
           {navigationItems.map((item) => (
             <a
               key={item}
-              className="tab-link"
+              className="bottom-bar-link"
               href={hashForPage(item)}
               aria-current={page === item ? 'page' : undefined}
             >
-              <span className="tab-icon" aria-hidden="true">{tabIcons[item]}</span>
+              <span className="bottom-bar-icon" aria-hidden="true">{bottomBarIcons[item]}</span>
               <span>{t(pageTitleKeys[item])}</span>
             </a>
           ))}
@@ -350,7 +352,7 @@ function App() {
       {firstRun !== null && (
         <FirstRunDialog
           onStartScreening={() => closeFirstRun('screening')}
-          onRecordDiary={() => closeFirstRun('today')}
+          onRecordDiary={() => closeFirstRun('diary')}
           onDismiss={() => closeFirstRun()}
         />
       )}

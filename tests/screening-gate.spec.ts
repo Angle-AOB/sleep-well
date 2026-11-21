@@ -139,7 +139,7 @@ test('an existing course without a screening record is not blocked and keeps its
   await expect(page).toHaveURL(/#\/settings\/screening$/)
 })
 
-test('unavailable storage is reported as such and is not turned into a screening gate', async ({ page }) => {
+test('unavailable storage is reported as such and still lets the user try to start', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true })
   })
@@ -150,7 +150,12 @@ test('unavailable storage is reported as such and is not turned into a screening
   const panel = coursePanel(page)
   await expect(panel.getByText('此浏览器无法使用本地存储，疗程状态不会保存。')).toBeVisible()
   await expect(panel.getByText('完成安全自查后才能开始六周训练；记录日记与导出数据不受影响。')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '开始六周训练' })).toHaveCount(0)
+
+  const start = panel.getByRole('button', { name: '开始六周训练' })
+  await expect(start).toBeVisible()
+  await expect(start).toBeEnabled()
+  await start.click()
+  await expect(panel.getByText('无法保存疗程状态。请检查此设备存储空间后重试。')).toBeVisible()
 })
 
 test('a screening that is still loading keeps the start button disabled instead of opening the gate', async ({ page }) => {
