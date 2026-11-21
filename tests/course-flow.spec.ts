@@ -338,7 +338,12 @@ test('all six weeks are viewable; future weeks show a preview banner and keep ac
   await expect(panel.getByRole('heading', { name: '第 5 周 · 滴定与认知练习' })).toBeVisible()
   await expect(panel.getByText('正在查看第 5 周内容；当前进行到第 1 周。这里只是内容预览，训练动作仍按当前周执行。')).toBeVisible()
 
-  // 预览不影响当前周的动作：回到第 1 周，提示消失，仍可记录基线。
+  // 预览期间训练动作仍作用于当前周：确认固定起床时间能正常保存。
+  await panel.locator('#fixed-wake-time').fill('07:00')
+  await panel.getByRole('button', { name: '确认起床时间' }).click()
+  await expect(panel.getByText('疗程状态已保存在此设备')).toBeVisible()
+
+  // 回到第 1 周，提示消失。
   await weekTrack.getByRole('button', { name: /01/ }).click()
   await expect(panel.getByRole('heading', { name: '第 1 周 · 记录基线' })).toBeVisible()
   await expect(panel.getByText(/正在查看第/)).toBeHidden()

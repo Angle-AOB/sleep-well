@@ -18,7 +18,7 @@ const resources = {
       saved: '偏好已保存在此设备',
       saving: '正在保存偏好…',
       storageError: '数据持久化失败。请检查浏览器存储空间或设置，然后重试。',
-      storageMigrationFailed: '数据迁移失败，此设备上的原有数据未被改动。请重试或重新打开应用；若持续失败，请先导出备份再反馈。',
+      storageMigrationFailed: '数据迁移失败，此设备上的原有数据未被改动。请重试或重新打开应用；若持续失败，请保留此设备上的数据并联系反馈。',
       storageWriteError: '无法写入本地数据库。请检查此设备存储空间后重试。',
       storageUnavailable: '此浏览器无法使用本地存储，偏好更改不会保存。',
       storagePersisted: '浏览器已批准增强本地存储保留',
