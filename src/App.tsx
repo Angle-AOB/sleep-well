@@ -8,9 +8,11 @@ import { ReminderCard } from './components/ReminderCard'
 import { ScreeningPanel } from './components/ScreeningPanel'
 import { defaultPreferences, readPreferences, readScreening, writePreferences, writeScreening, type Preferences } from './data/preferences'
 import { readDiaryEntries } from './data/diary'
+import { MigrationError } from './data/database'
 import { evaluateBackupReminder, type BackupReminderDecision } from './domain/reminders'
 import type { ScreeningRecord } from './domain/screening'
 import { localToday } from './format'
+import { readCacheStatus } from './pwa'
 import './style.css'
 
 type OfflineStatus = 'pending' | 'ready' | 'unsupported' | 'error'
@@ -28,7 +30,7 @@ function App() {
   const [savedPreferences, setSavedPreferences] = useState<Preferences>(defaultPreferences)
   const [screening, setScreening] = useState<ScreeningRecord | null>(null)
   const [screeningState, setScreeningState] = useState<'loading' | 'ready' | 'error'>(() => 'loading')
-  const [storageState, setStorageState] = useState<'loading' | 'ready' | 'error' | 'unsupported'>(() =>
+  const [storageState, setStorageState] = useState<'loading' | 'ready' | 'error' | 'unsupported' | 'migration-failed'>(() =>
     window.indexedDB ? 'loading' : 'unsupported'
   )
   const [persistenceStatus, setPersistenceStatus] = useState<PersistenceStatus>(() =>
@@ -69,9 +71,10 @@ function App() {
           void updatePreference({ ...saved, lastBackupReminderOn: today })
         }
       }
-    }).catch(() => {
+    }).catch((error: unknown) => {
       if (active) {
-        setStorageState('error')
+        // 迁移失败不是存储空间问题：原有数据未被改动，提示必须区分。
+        setStorageState(error instanceof MigrationError ? 'migration-failed' : 'error')
         setScreeningState('error')
       }
     })
@@ -94,33 +97,11 @@ function App() {
     if (!('serviceWorker' in navigator)) return
 
     let active = true
-    async function checkCache() {
-      const ready = window.__SW_READY__
-      if (!ready) {
-        if (active) setOfflineStatus('error')
-        return
-      }
-      try {
-        await ready
-        const registration = await navigator.serviceWorker.ready
-        const worker = registration.active
-        if (!worker) throw new Error('Service worker is not active')
-        const cacheNames = await caches.keys()
-        const cacheName = cacheNames.find((name) => name.startsWith('workbox-precache'))
-        if (!cacheName) {
-          if (active) setOfflineStatus('pending')
-          return
-        }
-        const cache = await caches.open(cacheName)
-        const cachedRequests = await cache.keys()
-        const hasDocument = cachedRequests.some((request) => new URL(request.url).pathname.endsWith('/index.html'))
-        const hasApplicationCode = cachedRequests.some((request) => /\/assets\/index-.+\.js$/.test(new URL(request.url).pathname))
-        if (active) setOfflineStatus(hasDocument && hasApplicationCode ? 'ready' : 'pending')
-      } catch {
-        if (active) setOfflineStatus('error')
-      }
-    }
-    void checkCache()
+    readCacheStatus().then((status) => {
+      if (active) setOfflineStatus(status)
+    }).catch(() => {
+      if (active) setOfflineStatus('error')
+    })
     return () => { active = false }
   }, [])
 
@@ -181,9 +162,11 @@ function App() {
       ? t('saved')
       : storageState === 'unsupported'
         ? t('storageUnavailable')
-        : storageState === 'error'
-          ? t('storageError')
-          : t('saving')
+        : storageState === 'migration-failed'
+          ? t('storageMigrationFailed')
+          : storageState === 'error'
+            ? t('storageError')
+            : t('saving')
 
   const offlineMessage = offlineStatus === 'ready'
     ? t('offlineReady')
@@ -196,23 +179,7 @@ function App() {
   async function retryCacheCheck() {
     setOfflineStatus('pending')
     try {
-      const ready = window.__SW_READY__
-      if (!ready) throw new Error('no sw')
-      await ready
-      const registration = await navigator.serviceWorker.ready
-      const worker = registration.active
-      if (!worker) throw new Error('Service worker is not active')
-      const cacheNames = await caches.keys()
-      const cacheName = cacheNames.find((name) => name.startsWith('workbox-precache'))
-      if (!cacheName) {
-        setOfflineStatus('pending')
-        return
-      }
-      const cache = await caches.open(cacheName)
-      const cachedRequests = await cache.keys()
-      const hasDocument = cachedRequests.some((request) => new URL(request.url).pathname.endsWith('/index.html'))
-      const hasApplicationCode = cachedRequests.some((request) => /\/assets\/index-.+\.js$/.test(new URL(request.url).pathname))
-      setOfflineStatus(hasDocument && hasApplicationCode ? 'ready' : 'pending')
+      setOfflineStatus(await readCacheStatus())
     } catch {
       setOfflineStatus('error')
     }
