@@ -143,21 +143,19 @@ test('switching pages scrolls to the top and focuses the new page heading', asyn
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 })
 
-test('leaving a settings sub-page returns to the top and focuses the page heading', async ({ page }) => {
+test('leaving a deeply linked settings sub-page lands on the settings list', async ({ page }) => {
   await page.clock.setFixedTime(new Date(defaultClock))
   await page.goto('/#/settings/backup')
-  const backupTitle = page.getByRole('heading', { name: '本地备份与导出' })
-  await expect(backupTitle).toBeFocused()
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
-  // `backup` 是设置页唯一有效的子页：停在设置，地址保持原样。
-  await expect(page).toHaveURL(/#\/settings\/backup$/)
+  await expect(page.getByRole('heading', { level: 1, name: '备份与导出' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '本地备份与导出' })).toBeVisible()
 
-  // 底栏「设置」把地址从 `#/settings/backup` 换回 `#/settings`：page 没变，
-  // 也要回到页顶并把焦点交给页标题，而不是停在备份面板上。
+  // 深链进入没有“离开列表时的滚动位置”，底栏「设置」回到列表时按普通切页处理：
+  // 回到页顶并把焦点交给列表页标题。
   await goTo(page, 'settings')
   await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeFocused()
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
   await expect(page).toHaveURL(/#\/settings$/)
+  await expect(page.getByRole('navigation', { name: '设置项' })).toBeVisible()
 })
 
 test('hidden pages leave the accessibility tree and the tab order', async ({ page }) => {

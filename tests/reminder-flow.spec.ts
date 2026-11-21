@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { goTo, openPage } from './navigation'
+import { goTo, goToSettingsSubPage, openPage } from './navigation'
 
 async function openApp(page: Page, time = '2026-11-20T09:00:00') {
   await openPage(page, 'today', time)
@@ -67,11 +67,9 @@ test('the reminder link on today lands on the backup panel', async ({ page }) =>
 
   await page.getByRole('link', { name: '去导出备份' }).click()
 
-  // 今日页与设置页共用同一条路径：地址指向备份子页，落点就是备份面板标题。
-  await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeVisible()
-  const backupTitle = page.getByRole('heading', { name: '本地备份与导出' })
-  await expect(backupTitle).toBeFocused()
-  await expect(backupTitle).toBeInViewport()
+  // 提醒链接指向备份子页：顶栏显示子页名，焦点落在子页标题上。
+  await expect(page.getByRole('heading', { level: 1, name: '备份与导出' })).toBeFocused()
+  await expect(page.getByRole('heading', { name: '本地备份与导出' })).toBeVisible()
   await expect(page).toHaveURL(/#\/settings\/backup$/)
 })
 
@@ -85,18 +83,18 @@ test('the reminder link jumps to the backup panel when already on settings', asy
   await page.reload()
   await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
-  await expect(page.getByRole('region', { name: '训练偏好' }).getByText('偏好已保存在此设备')).toBeVisible()
+  // 列表底部状态段也要能读到偏好保存状态（今日页的状态段同时存在，取最后一个）。
+  await expect(page.getByText('偏好已保存在此设备').last()).toBeVisible()
 
   await page.getByRole('link', { name: '去导出备份' }).click()
 
-  // 已在设置页时链接指向备份子页，同样滚到面板并把焦点交给标题。
-  const backupTitle = page.getByRole('heading', { name: '本地备份与导出' })
-  await expect(backupTitle).toBeFocused()
-  await expect(backupTitle).toBeInViewport()
+  // 已在设置列表时链接指向备份子页：同样落到子页标题，而不是列表。
+  await expect(page.getByRole('heading', { level: 1, name: '备份与导出' })).toBeFocused()
+  await expect(page.getByRole('heading', { name: '本地备份与导出' })).toBeVisible()
   await expect(page).toHaveURL(/#\/settings\/backup$/)
 })
 
-test('clicking the reminder link again on the backup page still jumps back to the panel', async ({ page }) => {
+test('the reminder link returns to the backup sub-page after leaving it', async ({ page }) => {
   await openApp(page)
   await recordNight(page, '2026-11-17')
   await recordNight(page, '2026-11-18')
@@ -107,24 +105,15 @@ test('clicking the reminder link again on the backup page still jumps back to th
   await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeVisible()
 
   const link = page.getByRole('link', { name: '去导出备份' })
-  const backupTitle = page.getByRole('heading', { name: '本地备份与导出' })
   await link.click()
-  await expect(backupTitle).toBeFocused()
+  await expect(page.getByRole('heading', { level: 1, name: '备份与导出' })).toBeFocused()
   await expect(page).toHaveURL(/#\/settings\/backup$/)
-  // 等平滑滚动落定，再滚回页顶，才是「人已经离开面板」。
-  await expect.poll(() => page.evaluate(() => {
-    const title = document.getElementById('backup-title')
-    return title ? Math.round(title.getBoundingClientRect().top) : Number.NaN
-  })).toBeLessThanOrEqual(80)
 
-  // 停在 `#/settings/backup` 后滚到页顶：地址不变，再点链接不会触发 hashchange，
-  // 但提醒卡必须仍然把用户送回备份面板。
-  await page.evaluate(() => window.scrollTo(0, 0))
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
-
+  // 返回列表后再次点击同一条提醒，仍能重新进入备份子页；不依赖同址重复点击。
+  await page.getByRole('link', { name: '返回设置' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeVisible()
   await link.click()
-  await expect(backupTitle).toBeFocused()
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+  await expect(page.getByRole('heading', { level: 1, name: '备份与导出' })).toBeFocused()
   await expect(page).toHaveURL(/#\/settings\/backup$/)
 })
 
@@ -147,14 +136,17 @@ test('one click on the reminder card turns backup reminders off for good', async
 
   await page.getByRole('button', { name: '关闭提醒' }).click()
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
+  await goToSettingsSubPage(page, 'reminders')
   await expect(page.locator('#backup-reminders')).not.toBeChecked()
   // 保存状态行始终在“正在保存偏好…”与“偏好已保存在此设备”之间切换；
   // 不去抓瞬态的“正在保存”，避免与写入速度赛跑，只断言最终落盘。
-  await expect(page.getByText(/正在保存偏好|偏好已保存在此设备/).first()).toBeVisible()
-  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+  const preferencesPanel = page.getByRole('region', { name: '训练偏好' })
+  await expect(preferencesPanel.getByText(/正在保存偏好|偏好已保存在此设备/)).toBeVisible()
+  await expect(preferencesPanel.getByText('偏好已保存在此设备')).toBeVisible()
 
   await reloadApp(page)
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
+  await goToSettingsSubPage(page, 'reminders')
   await expect(page.locator('#backup-reminders')).not.toBeChecked()
 })
 
@@ -182,7 +174,7 @@ test('showing the reminder marks it seen, so it returns at most once a week', as
 
 test('the settings switch silences reminders even with enough history', async ({ page }) => {
   await openApp(page)
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'reminders')
   await page.locator('#backup-reminders').uncheck()
   await expect(page.getByRole('region', { name: '训练偏好' }).getByText('偏好已保存在此设备')).toBeVisible()
   await goTo(page, 'today')
@@ -200,7 +192,7 @@ test('a delivered backup keeps the reminder quiet until a newer night arrives', 
   await recordNight(page, '2026-11-18')
   await recordNight(page, '2026-11-19')
 
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'backup')
   const backup = page.getByRole('region', { name: '本地备份与导出' })
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -208,6 +200,7 @@ test('a delivered backup keeps the reminder quiet until a newer night arrives', 
   ])
   expect(await download.path()).not.toBeNull()
   await expect(backup.getByText('已交给浏览器下载')).toBeVisible()
+  await goToSettingsSubPage(page, 'reminders')
   await expect(page.getByRole('region', { name: '训练偏好' }).getByText('偏好已保存在此设备')).toBeVisible()
 
   // 刚备份完：打开应用不再催促。
@@ -264,9 +257,10 @@ test('cancelling the share sheet does not count as a backup', async ({ page }) =
   await recordNight(page, '2026-11-19')
 
   const backup = page.getByRole('region', { name: '本地备份与导出' })
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'backup')
   await backup.getByRole('button', { name: '导出完整备份（ZIP）' }).click()
   await expect(backup.getByText('已取消分享，没有生成新的备份文件。')).toBeVisible()
+  await goToSettingsSubPage(page, 'reminders')
   await expect(page.getByRole('region', { name: '训练偏好' }).getByText('偏好已保存在此设备')).toBeVisible()
 
   // 取消分享不算备份：提醒不静音，打开应用仍会提示。

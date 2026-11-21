@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { goTo, openPage } from './navigation'
+import { goTo, goToSettingsSubPage, openPage } from './navigation'
 
 function coursePanel(page: Page) {
   return page.getByRole('region', { name: '六周训练' })
@@ -15,7 +15,7 @@ async function openAt(page: Page, time: string) {
 }
 
 async function completeScreening(page: Page) {
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'screening')
   await page.getByRole('button', { name: '开始自查' }).click()
   await page.getByLabel('你的年龄').fill('30')
   await page.getByRole('group', { name: '你是否曾被告知患有双相障碍，或有躁狂/轻躁狂发作史？' }).getByLabel('否').check()
@@ -86,10 +86,11 @@ test('six-week course diary and screening are readable offline', async ({ page, 
   await expect(diaryPanel(page).getByText('12 月 12 日')).toBeVisible()
 
   // Screening result is visible
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'screening')
   await expect(page.getByText('目前没有发现需要暂停睡眠限制的安全筛查项。')).toBeVisible()
 
   // Settings panel is visible
+  await goToSettingsSubPage(page, 'reminders')
   await expect(page.getByRole('heading', { name: '训练偏好' })).toBeVisible()
 })
 
@@ -108,7 +109,7 @@ test('diary recording and settings work offline', async ({ page, context }) => {
   await recordNight(page, '2026-12-13')
 
   // Toggle a setting while offline
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'reminders')
   await page.locator('#backup-reminders').click()
   await expect(page.getByRole('region', { name: '训练偏好' }).getByText('偏好已保存在此设备')).toBeVisible({ timeout: 10_000 })
 })
@@ -148,11 +149,11 @@ test('backup export and import work offline', async ({ page, context }) => {
   await openAt(page, '2026-12-01T09:00:00')
   await recordNight(page, '2026-12-01')
   await waitForOfflineShell(page)
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'backup')
 
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '备份与导出' })).toBeVisible()
 
   const backup = page.getByRole('region', { name: '本地备份与导出' })
   const [download] = await Promise.all([

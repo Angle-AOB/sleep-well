@@ -3,14 +3,19 @@ export const pages = ['today', 'diary', 'training', 'settings'] as const
 
 export type Page = (typeof pages)[number]
 
-/**
- * 设置页唯一的子页：备份面板。其他顶层页没有子页，所以这个常量只跟设置页组合，
- * 不在 `hashForSettingsSubPage` 里给无效页面留口子。
- */
+/** 设置子页里的备份页；提醒卡与备份入口引用这个常量，避免手写地址。 */
 export const SETTINGS_BACKUP = 'backup'
 
-/** 设置页允许的子页取值；#13 的其它子页到时候加在这里。 */
-export type SettingsSubPage = typeof SETTINGS_BACKUP
+/** 设置列表的五项，顺序即列表顺序；`SettingsSubPage` 由这份清单派生。 */
+export const settingsSubPages = [
+  'screening',
+  'reminders',
+  SETTINGS_BACKUP,
+  'diagnostics',
+  'about'
+] as const
+
+export type SettingsSubPage = (typeof settingsSubPages)[number]
 
 /** 一次地址解析的结果：顶层页面加可选子页（`#/settings/backup`）。 */
 export type Route = { page: Page; subPage: SettingsSubPage | null }
@@ -24,12 +29,16 @@ const pagePaths: Record<Page, string> = {
   settings: '/settings'
 }
 
+function isSettingsSubPage(segment: string): segment is SettingsSubPage {
+  return (settingsSubPages as readonly string[]).includes(segment)
+}
+
 /**
  * 把地址栏 hash 解析为路由。空 hash、`#main-content` 这类非路由片段、未知顶层地址，
  * 以及带无效子段的地址（`#/diary/foo`、`#/settings/unknown`）都返回 null；
  * 解析本身不读写浏览器历史。
  *
- * 只有设置页允许子页，且额外段必须恰好一段并等于 `SETTINGS_BACKUP`；
+ * 只有设置页允许子页，且额外段必须恰好一段并落在 `settingsSubPages` 里；
  * `#/settings` 与 `#/settings/` 都是 `{ page: 'settings', subPage: null }`。
  */
 export function routeFromHash(hash: string): Route | null {
@@ -46,7 +55,7 @@ export function routeFromHash(hash: string): Route | null {
 
   if (rest.length === 0) return { page: 'settings', subPage: null }
   const [subPage] = rest
-  if (rest.length === 1 && subPage === SETTINGS_BACKUP) return { page: 'settings', subPage }
+  if (rest.length === 1 && isSettingsSubPage(subPage)) return { page: 'settings', subPage }
   return null
 }
 

@@ -2,12 +2,23 @@ import { expect, type Page } from '@playwright/test'
 
 export type AppPage = 'today' | 'diary' | 'training' | 'settings'
 
+export type SettingsSubPage = 'screening' | 'reminders' | 'backup' | 'diagnostics' | 'about'
+
 /** 页面地址与顶栏页名共用同一份契约，测试按可访问名称导航，不碰 CSS 类名或 hash 实现。 */
 export const pageHeading: Record<AppPage, string> = {
   today: '今日',
   diary: '日记',
   training: '训练',
   settings: '设置'
+}
+
+/** 子页地址、列表项名称与子页顶栏标题共用同一份名称契约。 */
+export const settingsSubPageHeading: Record<SettingsSubPage, string> = {
+  screening: '安全自查',
+  reminders: '提醒与偏好',
+  backup: '备份与导出',
+  diagnostics: '诊断信息',
+  about: '关于与隐私'
 }
 
 /** 约定所有端到端用例固定本地日期；个别用例需要别的日期时显式传入。 */
@@ -33,4 +44,34 @@ export async function goTo(page: Page, target: AppPage): Promise<void> {
     .getByRole('link', { name: pageHeading[target], exact: true })
     .click()
   await expect(page.getByRole('heading', { level: 1, name: pageHeading[target] })).toBeVisible()
+}
+
+/** 直接打开设置子页；与 top-level 页面一样支持刷新与深链。 */
+export async function openSettingsSubPage(
+  page: Page,
+  target: SettingsSubPage,
+  at = defaultClock
+): Promise<void> {
+  await page.clock.setFixedTime(new Date(at))
+  const hash = `#/settings/${target}`
+  if (new URL(page.url()).hash === hash) {
+    await page.reload()
+  } else {
+    await page.goto(`/${hash}`)
+  }
+  await expect(
+    page.getByRole('heading', { level: 1, name: settingsSubPageHeading[target] })
+  ).toBeVisible()
+}
+
+/** 从设置列表进入子页：先经底栏到设置，再点对应列表项。 */
+export async function goToSettingsSubPage(page: Page, target: SettingsSubPage): Promise<void> {
+  await goTo(page, 'settings')
+  await page
+    .getByRole('navigation', { name: '设置项' })
+    .getByRole('link', { name: settingsSubPageHeading[target], exact: true })
+    .click()
+  await expect(
+    page.getByRole('heading', { level: 1, name: settingsSubPageHeading[target] })
+  ).toBeVisible()
 }

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { goTo, pageHeading, type AppPage } from './navigation'
+import { goTo, goToSettingsSubPage, pageHeading, type AppPage } from './navigation'
 
 // 触控目标测量约定（判断与理由见收工报告）：
 // - 有 label 包裹/关联的 checkbox、radio、file input，触控目标是整个 label
@@ -92,7 +92,7 @@ test('main actions meet the 44x44 CSS px touch target on every page', async ({ p
       await expect(page.getByRole('button', { name: '开始六周训练' })).toBeVisible()
     }
     if (target === 'settings') {
-      await expect(page.getByRole('heading', { name: '本地备份与导出' })).toBeVisible()
+      await expect(page.getByRole('navigation', { name: '设置项' })).toBeVisible()
     }
 
     const targets = await tapTargets(page)
@@ -110,7 +110,7 @@ test('checkbox and radio controls themselves meet the WCAG 2.2 AA 24x24 minimum'
   await expect(page.getByRole('button', { name: /保存日记|更新日记/ })).toBeVisible()
   const boxes = await rawToggleSizes(page)
 
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'reminders')
   await expect(page.locator('#backup-reminders')).toBeVisible()
   boxes.push(...await rawToggleSizes(page))
 
@@ -150,7 +150,7 @@ test('week step buttons meet the 44x44 CSS px touch target', async ({ page }) =>
 
 test('diagnostics copy and issue actions meet the 44x44 CSS px touch target', async ({ page }) => {
   await openApp(page)
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'diagnostics')
   const panel = page.getByRole('region', { name: '诊断信息' })
   await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
 

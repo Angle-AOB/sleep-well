@@ -9,10 +9,15 @@ const todayRoute: Route = { page: 'today', subPage: null }
  * 所以复位期间临时关掉平滑滚动。
  */
 function scrollToTop() {
+  scrollToPosition(0)
+}
+
+/** 回到指定纵向位置；同样临时关掉平滑滚动，避免恢复动作被动画拖住。 */
+function scrollToPosition(top: number) {
   const root = document.documentElement
   const previous = root.style.scrollBehavior
   root.style.scrollBehavior = 'auto'
-  window.scrollTo(0, 0)
+  window.scrollTo(0, top)
   root.style.scrollBehavior = previous
 }
 
@@ -56,6 +61,9 @@ export function usePageRouting() {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const lastPage = useRef<Page>(route.page)
   const lastSubPage = useRef<SettingsSubPage | null>(route.subPage)
+  /** 离开设置列表时记下的滚动位置与触发项，返回列表时用来还原。 */
+  const listScroll = useRef<number | null>(null)
+  const listTrigger = useRef<SettingsSubPage | null>(null)
 
   // 初始状态已经把无法解析的地址当成今日；这里只把地址栏改成一致的 `#/today`。
   useEffect(() => {
@@ -70,6 +78,17 @@ export function usePageRouting() {
       // 页内锚点：停在当前页，地址保持不动。
       if (resolution.route === null) return
       if (resolution.replace) window.history.replaceState(null, '', hashForPage('today'))
+
+      // 必须在切页渲染之前记录：列表换成子页时，浏览器的滚动锚定会先移动位置。
+      const leavingSettingsList = lastPage.current === 'settings'
+        && lastSubPage.current === null
+        && resolution.route.page === 'settings'
+        && resolution.route.subPage !== null
+      if (leavingSettingsList) {
+        listScroll.current = window.scrollY
+        listTrigger.current = resolution.route.subPage
+      }
+
       setRoute(resolution.route)
     }
 
@@ -77,12 +96,38 @@ export function usePageRouting() {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
-  // 首次加载不抢焦点；之后每次切页或换子页（含从 `#/settings/backup` 回到 `#/settings`）
-  // 都回到页顶，并把焦点交给新页标题。设置页的备份定位排在下一帧，最终由它接管焦点。
+  // 首次加载不抢焦点。之后每次切页或换子页都回到页顶并聚焦新页标题；
+  // 唯一例外是从设置子页返回列表：恢复离开列表时的滚动位置，并把焦点交回触发项。
   useEffect(() => {
-    if (lastPage.current === route.page && lastSubPage.current === route.subPage) return
+    const previousPage = lastPage.current
+    const previousSubPage = lastSubPage.current
+    if (previousPage === route.page && previousSubPage === route.subPage) return
+
+    const enteringSettingsList = previousPage === 'settings'
+      && previousSubPage !== null
+      && route.page === 'settings'
+      && route.subPage === null
+
     lastPage.current = route.page
     lastSubPage.current = route.subPage
+
+    if (enteringSettingsList && listScroll.current !== null) {
+      const trigger = listTrigger.current
+      scrollToPosition(listScroll.current)
+      listScroll.current = null
+      listTrigger.current = null
+      if (trigger !== null) {
+        document.getElementById(`settings-item-${trigger}`)?.focus({ preventScroll: true })
+      }
+      return
+    }
+
+    // 离开设置页后不再保留列表位置，避免下次从别处进入设置时误用旧值。
+    if (route.page !== 'settings') {
+      listScroll.current = null
+      listTrigger.current = null
+    }
+
     scrollToTop()
     headingRef.current?.focus()
   }, [route.page, route.subPage])
