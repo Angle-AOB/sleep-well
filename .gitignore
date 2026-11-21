@@ -4,3 +4,6 @@ dist-gh-pages/
 playwright-report/
 test-results/
 .DS_Store
+
+# WorkBuddy 工作区数据，不入库
+.workbuddy/
