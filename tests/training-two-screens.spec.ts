@@ -17,6 +17,7 @@ function weekTrack(page: Page) {
 
 async function startCourse(page: Page) {
   await openPage(page, 'training', '2026-11-01T09:00:00')
+  await completeScreening(page)
   await coursePanel(page).getByRole('button', { name: '开始六周训练' }).click()
   await expect(coursePanel(page).getByText('第 1 周 · 第 1 天')).toBeVisible()
 }
@@ -67,7 +68,6 @@ async function recordCompleteNight(page: Page, date: string, finalWake = '06:00'
 
 async function reachWeekThree(page: Page) {
   await startCourse(page)
-  await completeScreening(page)
   await coursePanel(page).getByRole('button', { name: '确认起床时间' }).click()
   await expect(coursePanel(page).getByText('07:00 已确认，将从第 2 周开始执行。')).toBeVisible()
 

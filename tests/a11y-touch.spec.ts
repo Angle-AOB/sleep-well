@@ -78,6 +78,31 @@ async function openApp(page: Page) {
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 }
 
+async function completeScreening(page: Page) {
+  await goToSettingsSubPage(page, 'screening')
+  await page.getByRole('button', { name: '开始自查' }).click()
+  await page.getByLabel('你的年龄').fill('30')
+  for (const question of [
+    '你是否曾被告知患有双相障碍，或有躁狂/轻躁狂发作史？',
+    '你是否有癫痫或惊厥病史？',
+    '你是否有响亮鼾声、目击呼吸暂停、白天嗜睡或高血压等情况？',
+    '你是否有危险性异态睡眠，例如梦游时可能受伤？',
+    '你目前是否怀孕？',
+    '你是否会在驾驶或高风险工作时难以保持清醒？',
+    '你目前是否有急性不稳定的身心状况，需要尽快获得专业评估？'
+  ]) {
+    await page.getByRole('group', { name: question }).getByLabel('否').check()
+  }
+  await page.getByLabel('睡眠困扰持续多久？').selectOption('one-to-four-weeks')
+  await page.getByLabel('最近一周，大约有几晚受到睡眠困扰影响？').selectOption('one-to-two')
+  await page.getByLabel('睡眠困扰对日间生活影响多大？').selectOption('some')
+  await page.getByRole('group', { name: '目前这件事给你带来多大困扰？' }).getByLabel('有一些困扰').check()
+  await page.getByLabel('你最希望改善什么？').selectOption('fall-asleep')
+  await page.getByRole('button', { name: '提交自查' }).click()
+  await expect(page.getByText('目前没有发现需要暂停睡眠限制的安全筛查项。')).toBeVisible()
+  await goTo(page, 'training')
+}
+
 test('main actions meet the 44x44 CSS px touch target on every page', async ({ page }) => {
   await openApp(page)
   const pages: AppPage[] = ['today', 'diary', 'training', 'settings']
@@ -136,6 +161,7 @@ test('the cache retry button meets the 44x44 CSS px touch target', async ({ page
 test('week step buttons meet the 44x44 CSS px touch target', async ({ page }) => {
   await openApp(page)
   await goTo(page, 'training')
+  await completeScreening(page)
   await page.getByRole('button', { name: '开始六周训练' }).click()
   await expect(page.getByRole('heading', { name: '第 1 周 · 记录基线' })).toBeVisible()
 

@@ -189,6 +189,7 @@ test('a downloaded ZIP restores diary, course and settings after the device data
   await page.getByLabel('启用备份提醒').uncheck()
 
   await goTo(page, 'training')
+  await completeScreening(page)
   await page.getByRole('button', { name: '开始六周训练' }).click()
   await expect(coursePanel(page).getByText('第 1 周 · 第 1 天')).toBeVisible()
   await goToSettingsSubPage(page, 'backup')
@@ -264,6 +265,7 @@ test('append keeps current settings and course, adds only unseen nights and pres
   await openApp(page)
   await recordNight(page, '2026-11-19', { quality: '4 分' })
   await goTo(page, 'training')
+  await completeScreening(page)
   await page.getByRole('button', { name: '开始六周训练' }).click()
   await expect(coursePanel(page).getByText('第 1 周 · 第 1 天')).toBeVisible()
   await goToSettingsSubPage(page, 'backup')
@@ -380,6 +382,7 @@ test('a write failure during overwrite rolls back to the original data', async (
   await openApp(page)
   await recordNight(page, '2026-11-19')
   await goTo(page, 'training')
+  await completeScreening(page)
   await page.getByRole('button', { name: '开始六周训练' }).click()
   await expect(coursePanel(page).getByText('第 1 周 · 第 1 天')).toBeVisible()
   await goToSettingsSubPage(page, 'backup')
@@ -550,8 +553,8 @@ test('a full course with a deferred titration comes back through the interface',
   await openApp(page, '2026-11-01T09:00:00')
   await goTo(page, 'training')
   const course = coursePanel(page)
-  await course.getByRole('button', { name: '开始六周训练' }).click()
   await completeScreening(page)
+  await course.getByRole('button', { name: '开始六周训练' }).click()
   await course.getByRole('button', { name: '确认起床时间' }).click()
   await expect(course.getByText('07:00 已确认，将从第 2 周开始执行。')).toBeVisible()
 
