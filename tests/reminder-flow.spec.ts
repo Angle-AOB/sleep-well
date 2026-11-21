@@ -79,3 +79,15 @@ test('showing the reminder marks it seen, so it returns at most once a week', as
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
   await expect(page.getByText('又到了每周一次的备份提醒')).toBeVisible()
 })
+
+test('the settings switch silences reminders even with enough history', async ({ page }) => {
+  await openApp(page)
+  await page.locator('#backup-reminders').uncheck()
+  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+  await recordNight(page, '2026-11-17')
+  await recordNight(page, '2026-11-18')
+  await recordNight(page, '2026-11-19')
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
+})
