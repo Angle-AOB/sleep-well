@@ -71,3 +71,18 @@ test('the copy button puts the plain-text diagnostics on the clipboard', async (
   expect(clipboard).toContain('sleep-well diagnostics')
   expect(clipboard).toContain('appVersion: 0.1.0')
 })
+
+test('a failed export is recorded in the error log as well', async ({ page }) => {
+  await page.addInitScript(() => {
+    URL.createObjectURL = () => { throw new Error('blob urls unavailable') }
+  })
+  await openApp(page)
+
+  const backup = page.getByRole('region', { name: '本地备份与导出' })
+  await backup.getByRole('button', { name: '导出完整备份（ZIP）' }).click()
+  await expect(backup.getByText('无法生成备份文件。请检查此设备的存储空间后重试。')).toBeVisible()
+
+  const panel = page.getByRole('region', { name: '诊断信息' })
+  await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
+  await expect(panel.getByText('备份导出失败')).toBeVisible()
+})
