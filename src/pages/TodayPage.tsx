@@ -1,13 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { assessCourse } from '../domain/course'
-import { evaluateNight, type SleepDiaryEntry } from '../domain/diary'
+import { evaluateNight } from '../domain/diary'
 import type { ScreeningRecord } from '../domain/screening'
-import { readCourse } from '../data/course'
-import { readDiaryEntries } from '../data/diary'
-import { durationText, localToday, previousLocalDate } from '../format'
+import { durationText, localToday } from '../format'
 import { hashForPage, hashForSettingsSubPage } from '../routing'
 import { weekContent, weekTaskText, windowUnavailableBody } from '../courseText'
+import { useCourseAssessment } from '../useCourseAssessment'
 import {
   offlineMessage,
   storageMessage,
@@ -16,7 +14,7 @@ import {
 } from '../statusText'
 
 type TodayPageProps = {
-  hidden: boolean
+  visible: boolean
   offlineStatus: OfflineStatus
   storageState: StorageState
   pendingSaves: number
@@ -35,7 +33,7 @@ type TodayPageProps = {
  * 数据全部来自既有的领域评估：课程用 assessCourse，日记摘要用 evaluateNight。
  */
 export function TodayPage({
-  hidden,
+  visible,
   offlineStatus,
   storageState,
   pendingSaves,
@@ -48,40 +46,17 @@ export function TodayPage({
 }: TodayPageProps) {
   const { t } = useTranslation()
   const [today] = useState(localToday)
-  const [lastNight] = useState(() => previousLocalDate(today))
-  const [course, setCourse] = useState<Awaited<ReturnType<typeof readCourse>>>(null)
-  const [entries, setEntries] = useState<SleepDiaryEntry[]>([])
-  const [fetchState, setFetchState] = useState<'loading' | 'ready' | 'error'>('loading')
-  const loadState = storageUnavailable ? 'error' : fetchState
-
-  useEffect(() => {
-    // 页面保活时，课程可能在训练页被修改；每次回到今日都按最新状态重新读取。
-    if (hidden || storageUnavailable) return
-
-    let active = true
-    Promise.all([readCourse(), readDiaryEntries()])
-      .then(([saved, diary]) => {
-        if (!active) return
-        setCourse(saved)
-        setEntries(diary)
-        setFetchState('ready')
-      })
-      .catch(() => {
-        if (active) setFetchState('error')
-      })
-    return () => { active = false }
-  }, [hidden, storageUnavailable, diaryRevision])
+  const { entries, assessment: courseAssessment, loadState } = useCourseAssessment({
+    screening,
+    diaryRevision,
+    visible,
+    storageUnavailable
+  })
 
   const ready = loadState === 'ready' && screeningState === 'ready'
-  const assessment = ready
-    ? assessCourse({
-      state: course,
-      entries,
-      screening: screening ? screening.result : null,
-      today
-    })
-    : null
-  const entry = entries.find((item) => item.date === lastNight)
+  const assessment = ready ? courseAssessment : null
+  // 今日卡与日记表单使用同一个默认日期：表单保存后，今日卡立即能读到同一天。
+  const entry = entries.find((item) => item.date === today)
   const night = entry ? evaluateNight(entry) : null
   const screenMissing = screeningState === 'ready' && screening === null
 
@@ -141,66 +116,61 @@ export function TodayPage({
       )
     }
 
-    if (assessment.window.status === 'available') {
-      const windowView = assessment.window
-      const caffeine = assessment.caffeine
-      const week = assessment.progress?.week ?? 1
+    if (assessment.window.status !== 'available') {
       return (
-        <>
-          <p
-            className="today-plan-range"
-            aria-label={t('todayPlanRangeLabel', { start: windowView.startTime, end: windowView.endTime })}
-          >
-            <span>{windowView.startTime}</span>
-            <span aria-hidden="true">–</span>
-            <span>{windowView.endTime}</span>
-          </p>
-          <p className="today-card-copy">
-            {t('windowDuration', { duration: durationText(t, windowView.durationMinutes) })}
-          </p>
-          <dl className="today-plan-facts">
-            <div>
-              <dt>{t('wakeTimeTitle')}</dt>
-              <dd>{assessment.wakeTime.effective ?? t('todayPlanWakeNone')}</dd>
-            </div>
-            <div>
-              <dt>{t('caffeineTitle')}</dt>
-              <dd>{caffeine ? caffeine.cutoff : week < 2 ? t('todayCaffeineLater') : t('todayCaffeineNone')}</dd>
-            </div>
-          </dl>
-        </>
+        <p className="today-card-copy">
+          {windowUnavailableBody(t, assessment.window, screening !== null, assessment.restriction)}
+        </p>
       )
     }
 
+    const windowView = assessment.window
     return (
-      <p className="today-card-copy">
-        {windowUnavailableBody(t, assessment.window, screening !== null, assessment.restriction)}
-      </p>
+      <>
+        <p
+          className="today-plan-range"
+          aria-label={t('todayPlanRangeLabel', { start: windowView.startTime, end: windowView.endTime })}
+        >
+          <span>{windowView.startTime}</span>
+          <span aria-hidden="true">–</span>
+          <span>{windowView.endTime}</span>
+        </p>
+        <p className="today-card-copy">
+          {t('windowDuration', { duration: durationText(t, windowView.durationMinutes) })}
+        </p>
+      </>
     )
   }
 
-  function planFactsFallback() {
-    if (!assessment || assessment.window.status === 'available') return null
-    // 窗口不可用时仍然给出唯一确定的两项锚点；没有值就写“尚未确认/暂无”。
+  /** 窗口可用与否都展示同一组锚点；没有值就写“尚未确认/暂无”，条件只在这里判断一次。 */
+  function planFacts() {
+    if (!assessment) return null
+    const week = assessment.progress?.week ?? 1
+    const facts = [
+      { label: t('wakeTimeTitle'), value: assessment.wakeTime.effective ?? t('todayPlanWakeNone') },
+      {
+        label: t('caffeineTitle'),
+        value: assessment.caffeine
+          ? assessment.caffeine.cutoff
+          : week >= 2 ? t('todayCaffeineNone') : t('todayCaffeineLater')
+      }
+    ]
     return (
       <dl className="today-plan-facts">
-        <div>
-          <dt>{t('wakeTimeTitle')}</dt>
-          <dd>{assessment?.wakeTime.effective ?? t('todayPlanWakeNone')}</dd>
-        </div>
-        <div>
-          <dt>{t('caffeineTitle')}</dt>
-          <dd>
-            {assessment?.caffeine
-              ? assessment.caffeine.cutoff
-              : assessment && assessment.progress && assessment.progress.week >= 2
-                ? t('todayCaffeineNone')
-                : t('todayCaffeineLater')}
-          </dd>
-        </div>
+        {facts.map((fact) => (
+          <div key={fact.label}>
+            <dt>{fact.label}</dt>
+            <dd>{fact.value}</dd>
+          </div>
+        ))}
       </dl>
     )
   }
+
+  const progress = assessment?.started ? assessment.progress : null
+  const content = progress ? weekContent[progress.week] : null
+  const showStartCard = ready && assessment !== null && !assessment.started && !screenMissing
+  const showWeekCard = !showStartCard
 
   function weekBody() {
     if (screenMissing) {
@@ -216,15 +186,13 @@ export function TodayPage({
         </p>
       )
     }
-    if (!assessment.started || !assessment.progress) {
-      return <p className="today-card-copy">{t('todayStartBody')}</p>
-    }
+    if (!progress || !content) return null
 
-    const tasks = weekTaskText(t, assessment.progress.week)
+    const tasks = weekTaskText(t, progress.week)
     return (
       <ul className="task-list">
         {tasks.map((task, index) => (
-          <li key={`${assessment.progress?.week}-${index}`}><span aria-hidden="true">+</span>{task}</li>
+          <li key={`${progress.week}-${index}`}><span aria-hidden="true">+</span>{task}</li>
         ))}
       </ul>
     )
@@ -233,21 +201,16 @@ export function TodayPage({
   const weekTarget = screenMissing
     ? hashForSettingsSubPage('screening')
     : hashForPage('training')
+  // 标题与动作都从同一个 progress/weekContent 结果派生，不再重复判断 started。
   const weekTitle = screenMissing
     ? t('todayScreeningTitle')
-    : ready && assessment && assessment.started && assessment.progress
-      ? t(weekContent[assessment.progress.week].title)
-      : assessment && !assessment.started
-        ? t('courseStart')
-        : t('todayWeekRegion')
+    : content ? t(content.title) : t('todayWeekRegion')
   const weekAction = screenMissing
     ? t('todayScreeningAction')
-    : ready && assessment && assessment.started
-      ? t('todayWeekAction')
-      : t('todayStartAction')
+    : content ? t('todayWeekAction') : t('todayStartAction')
 
   return (
-    <section className="page today-page" hidden={hidden} aria-labelledby="page-title">
+    <section className="page today-page" hidden={!visible} aria-labelledby="page-title">
       {showStatus && (
         <section className="today-status" aria-labelledby="today-status-title">
           <h2 className="visually-hidden" id="today-status-title">{t('todayStatusLabel')}</h2>
@@ -276,12 +239,23 @@ export function TodayPage({
         </a>
       </section>
 
+      {showStartCard && (
+        <section className="today-card today-card-week" aria-label={t('courseStart')}>
+          <a className="today-card-link" href={hashForPage('training')}>
+            <p className="panel-kicker">{t('courseKicker')}</p>
+            <h2>{t('courseStart')}</h2>
+            <p className="today-card-copy">{t('todayStartBody')}</p>
+            <span className="today-card-action">{t('todayStartAction')}</span>
+          </a>
+        </section>
+      )}
+
       <section className="today-card today-card-plan" aria-labelledby="today-plan-title">
         <a className="today-card-link" href={hashForPage('training')}>
           <p className="panel-kicker">{t('todayPlanKicker')}</p>
           <h2 id="today-plan-title">{t('todayPlanTitle')}</h2>
           {planBody()}
-          {planFactsFallback()}
+          {planFacts()}
           {assessment?.progress?.completed && (
             <p className="today-plan-maintenance">{t('todayMaintenance')}</p>
           )}
@@ -290,14 +264,16 @@ export function TodayPage({
         </a>
       </section>
 
-      <section className="today-card today-card-week" aria-label={t('todayWeekRegion')}>
-        <a className="today-card-link" href={weekTarget}>
-          <p className="panel-kicker">{t('weekContentKicker')}</p>
-          <h2>{weekTitle}</h2>
-          {weekBody()}
-          <span className="today-card-action">{weekAction}</span>
-        </a>
-      </section>
+      {showWeekCard && (
+        <section className="today-card today-card-week" aria-label={t('todayWeekRegion')}>
+          <a className="today-card-link" href={weekTarget}>
+            <p className="panel-kicker">{t('weekContentKicker')}</p>
+            <h2>{weekTitle}</h2>
+            {weekBody()}
+            <span className="today-card-action">{weekAction}</span>
+          </a>
+        </section>
+      )}
 
       {reminder}
     </section>
