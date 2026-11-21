@@ -10,7 +10,7 @@ import {
 import { createBackupArchive, readBackupArchive } from '../src/domain/backupArchive'
 import { crc32 } from '../src/domain/zip'
 import type { SleepDiaryEntry } from '../src/domain/diary'
-import { goTo, openPage } from './navigation'
+import { goTo, goToSettingsSubPage, openSettingsSubPage } from './navigation'
 
 const deflate = async (bytes: Uint8Array): Promise<Uint8Array> => new Uint8Array(deflateRawSync(bytes))
 const inflate = async (bytes: Uint8Array, maxBytes: number): Promise<Uint8Array> => {
@@ -34,7 +34,7 @@ function coursePanel(page: Page) {
 }
 
 async function openApp(page: Page, time = '2026-11-20T09:00:00') {
-  await openPage(page, 'settings', time)
+  await openSettingsSubPage(page, 'backup', time)
   await expect(page.getByRole('heading', { name: '本地备份与导出' })).toBeVisible()
 }
 
@@ -56,7 +56,7 @@ async function recordNight(page: Page, date: string, options: { waso?: string; q
   }
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
   await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'backup')
 }
 
 async function exportZip(page: Page): Promise<{ download: Download; bytes: Uint8Array; filename: string }> {
@@ -185,12 +185,13 @@ test('a downloaded ZIP restores diary, course and settings after the device data
 
   // 关掉备份提醒，作为“设置随迁移包恢复”的观察点。导出与写入共用 IndexedDB 的
   // 事务顺序，因此这里不必等待界面回显就能读到最新设置。
+  await goToSettingsSubPage(page, 'reminders')
   await page.getByLabel('启用备份提醒').uncheck()
 
   await goTo(page, 'training')
   await page.getByRole('button', { name: '开始六周训练' }).click()
   await expect(coursePanel(page).getByText('第 1 周 · 第 1 天')).toBeVisible()
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'backup')
 
   const exported = await exportZip(page)
   expect(exported.filename).toBe('sleep-well-2026-11-20.sleep-backup.zip')
@@ -210,7 +211,7 @@ test('a downloaded ZIP restores diary, course and settings after the device data
   await page.reload()
   await goTo(page, 'diary')
   await expect(diaryPanel(page).getByText('还没有日记记录。')).toBeVisible()
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'backup')
 
   await importFile(page, testInfo, 'restore.sleep-backup.zip', exported.bytes)
   const panel = backupPanel(page)
@@ -230,7 +231,7 @@ test('a downloaded ZIP restores diary, course and settings after the device data
   const diary = diaryPanel(page)
   await expect(diary.getByText('11 月 18 日')).toBeVisible()
   await expect(diary.getByText('11 月 19 日')).toBeVisible()
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'reminders')
   await expect(page.getByLabel('启用备份提醒')).not.toBeChecked()
   await goTo(page, 'training')
   await expect(coursePanel(page).getByText(/第 \d 周 · 第 \d 天/)).toBeVisible()
@@ -265,7 +266,7 @@ test('append keeps current settings and course, adds only unseen nights and pres
   await goTo(page, 'training')
   await page.getByRole('button', { name: '开始六周训练' }).click()
   await expect(coursePanel(page).getByText('第 1 周 · 第 1 天')).toBeVisible()
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'backup')
 
   await importFile(page, testInfo, 'append.sleep-backup.zip', await archiveBytes(payloadWith(['2026-11-18', '2026-11-19'])))
   const panel = backupPanel(page)
@@ -284,7 +285,7 @@ test('append keeps current settings and course, adds only unseen nights and pres
   await expect(diary.getByRole('radio', { name: '4 分' })).toBeChecked()
 
   // 当前设置与疗程没有被追加策略改写。
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'reminders')
   await expect(page.getByLabel('启用备份提醒')).toBeChecked()
   await goTo(page, 'training')
   await expect(coursePanel(page).getByText('第 1 周 · 第 1 天')).toBeVisible()
@@ -381,7 +382,7 @@ test('a write failure during overwrite rolls back to the original data', async (
   await goTo(page, 'training')
   await page.getByRole('button', { name: '开始六周训练' }).click()
   await expect(coursePanel(page).getByText('第 1 周 · 第 1 天')).toBeVisible()
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'backup')
 
   const panel = backupPanel(page)
   const incoming = await archiveBytes(payloadWith(['2026-11-01', '2026-11-02']))
@@ -397,7 +398,7 @@ test('a write failure during overwrite rolls back to the original data', async (
   await goTo(page, 'diary')
   await expect(diaryPanel(page).getByText('11 月 19 日')).toBeVisible()
   await expect(diaryPanel(page).getByText('11 月 1 日')).toBeHidden()
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'reminders')
   await expect(page.getByLabel('启用备份提醒')).toBeChecked()
   await goTo(page, 'training')
   await expect(coursePanel(page).getByText('第 1 周 · 第 1 天')).toBeVisible()
@@ -405,7 +406,7 @@ test('a write failure during overwrite rolls back to the original data', async (
   await page.reload()
   await goTo(page, 'diary')
   await expect(diaryPanel(page).getByText('11 月 19 日')).toBeVisible()
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'reminders')
   await expect(page.getByLabel('启用备份提醒')).toBeChecked()
 })
 
@@ -417,7 +418,7 @@ async function advanceTo(page: Page, time: string) {
 }
 
 async function completeScreening(page: Page) {
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'screening')
   await page.getByRole('button', { name: '开始自查' }).click()
   await page.getByLabel('你的年龄').fill('30')
   for (const name of [
@@ -573,7 +574,7 @@ test('a full course with a deferred titration comes back through the interface',
   await coursePanel(page).getByRole('button', { name: '推迟本周滴定' }).click()
   await expect(coursePanel(page).getByText('窗口长度 8 小时')).toBeVisible()
 
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'backup')
   const exported = await exportZip(page)
   await page.evaluate(() => new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase('sleep-well')

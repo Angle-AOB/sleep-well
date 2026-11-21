@@ -1,11 +1,11 @@
 import { test, expect, type Page } from '@playwright/test'
-import { openPage } from './navigation'
+import { openSettingsSubPage } from './navigation'
 
 // 问题反馈链接与隐私提示：链接有可访问名称、可键盘触发；隐私提示在面板里可读。
 // 断言可访问名与可读文本，不碰 CSS 类名。
 
 async function openApp(page: Page) {
-  await openPage(page, 'settings', '2026-11-20T09:00:00')
+  await openSettingsSubPage(page, 'diagnostics', '2026-11-20T09:00:00')
 }
 
 test('the issue link has an accessible name and keyboard activation reaches GitHub issues', async ({ page, context }) => {

@@ -13,8 +13,9 @@ body { margin: 0; min-width: 320px; min-height: 100vh; }
 button, input { font: inherit; }
 
 .page-shell { width: min(100%, 1180px); margin: 0 auto; padding: 24px 24px calc(104px + env(safe-area-inset-bottom)); }
-.topbar { display: flex; align-items: center; min-height: 44px; border-bottom: 1px solid #d6ddd7; }
+.topbar { display: flex; align-items: center; gap: 8px; min-height: 44px; border-bottom: 1px solid #d6ddd7; }
 .topbar h1 { max-width: none; font-size: 22px; line-height: 1.25; }
+.topbar-back { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin-left: -8px; color: #344d45; font-size: 22px; line-height: 1; text-decoration: none; }
 .page[hidden] { display: none; }
 .tabbar { position: fixed; inset-inline: 0; bottom: 0; z-index: 10; background: #f7faf6; border-top: 1px solid #d6ddd7; padding-bottom: env(safe-area-inset-bottom); }
 .tabbar-inner { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(100%, 1180px); margin: 0 auto; }
@@ -45,6 +46,21 @@ h1, .intro-title { max-width: 450px; margin: 0; color: #213630; font-family: Geo
 .status-item.is-ready { color: #47765f; }.status-item.is-error { color: #ad5d4c; }
 .status-icon { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font-size: 14px; }
 .status-retry { margin-left: 4px; padding: 10px 16px; border: 1px solid currentColor; border-radius: 6px; background: transparent; color: inherit; font-size: 13px; cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; }
+
+.settings-list { margin: 24px 0 28px; }
+.settings-list ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.settings-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; padding: 12px 16px; color: #263b36; background: #f7faf6; border: 1px solid #d2dfd7; font-size: 16px; font-weight: 700; text-decoration: none; }
+.settings-item:hover { border-color: #729786; }
+.settings-item-symbol { color: #729786; font-size: 20px; }
+.settings-status { margin-top: 8px; }
+.settings-subpage { display: grid; gap: 28px; }
+.about-panel { padding: 28px; background: #e7eee9; border: 1px solid #d2dfd7; }
+.about-brand { margin: 0 0 8px; color: #213630; font-family: Georgia, "Times New Roman", serif; font-size: 26px; line-height: 1.2; }
+.about-statement { margin: 0 0 24px; color: #7a5a33; font-size: 13px; line-height: 1.7; }
+.about-panel h3 { margin: 24px 0 8px; color: #263b36; font-family: Georgia, "Times New Roman", serif; font-size: 20px; font-weight: 400; }
+.about-panel p { margin: 0 0 14px; color: #61706a; font-size: 14px; line-height: 1.9; }
+.about-panel .local-only { color: #47765f; font-size: 13px; font-weight: 700; }
+.about-panel .footer { margin-top: 28px; }
 
 .content-grid { display: grid; grid-template-columns: minmax(0, 1fr); padding: 58px 0 72px; }
 .info-section { max-width: 540px; }.section-heading { display: flex; align-items: baseline; gap: 16px; }.section-index { color: #ba6e4f; font-size: 11px; font-weight: 800; letter-spacing: .1em; }

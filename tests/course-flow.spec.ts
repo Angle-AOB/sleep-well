@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import i18n from '../src/i18n'
 import { durationText } from '../src/format'
-import { goTo, openPage } from './navigation'
+import { goTo, goToSettingsSubPage, openPage } from './navigation'
 
 function coursePanel(page: Page) {
   return page.getByRole('region', { name: '六周训练' })
@@ -28,7 +28,7 @@ async function startCourse(page: Page) {
 }
 
 async function completeScreening(page: Page, options: { pausesRestriction?: boolean } = {}) {
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'screening')
   await page.getByRole('button', { name: '开始自查' }).click()
   await page.getByLabel('你的年龄').fill('30')
   const bipolar = options.pausesRestriction ? '是' : '否'

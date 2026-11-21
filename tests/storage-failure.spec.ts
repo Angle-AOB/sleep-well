@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { goTo } from './navigation'
+import { goTo, goToSettingsSubPage } from './navigation'
 
 test('disabled IndexedDB shows storage-unavailable and app still renders', async ({ browser }) => {
   const context = await browser.newContext()
@@ -30,7 +30,7 @@ test('transaction write failure shows persistence-failed message and app continu
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 
   // Trigger a write by toggling the backup-reminders preference
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'reminders')
   await page.locator('#backup-reminders').click()
   await expect(page.getByRole('region', { name: '训练偏好' }).getByText(/数据持久化失败/)).toBeVisible({ timeout: 10_000 })
 

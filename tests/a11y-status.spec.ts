@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { goTo } from './navigation'
+import { goTo, goToSettingsSubPage } from './navigation'
 
 // 状态不能只靠颜色：每个状态提示都要有可读文本，并且落在 role=status / role=alert
 // 的语义区域里，屏幕阅读器在状态变化时能播报。断言一律走可访问文本，不碰 CSS 类名。
@@ -67,7 +67,7 @@ test('diary save failure announces a readable alert, not just a colour change', 
 
 test('a safety pause announces readable status text, not just a colour change', async ({ page }) => {
   await openApp(page)
-  await goTo(page, 'settings')
+  await goToSettingsSubPage(page, 'screening')
   await page.getByRole('button', { name: '开始自查' }).click()
   await page.getByLabel('你的年龄').fill('30')
   await page.getByRole('group', { name: '你是否曾被告知患有双相障碍，或有躁狂/轻躁狂发作史？' }).getByLabel('是').check()
