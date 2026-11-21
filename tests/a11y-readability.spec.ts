@@ -33,14 +33,27 @@ async function renderedText(page: Page) {
     }
 
     const backgroundFor = (element: Element) => {
+      const ancestors: Element[] = []
       let current: Element | null = element
       while (current) {
-        const color = parseColor(getComputedStyle(current).backgroundColor)
-        if (color && color.alpha > 0) return color
+        ancestors.unshift(current)
         current = current.parentElement
       }
-      return parseColor(getComputedStyle(document.documentElement).backgroundColor)
+      const root = parseColor(getComputedStyle(document.documentElement).backgroundColor)
         ?? { r: 255, g: 255, b: 255, alpha: 1 }
+      let rendered = { r: root.r, g: root.g, b: root.b }
+      let ancestorOpacity = 1
+      for (const layer of ancestors) {
+        const style = getComputedStyle(layer)
+        const background = parseColor(style.backgroundColor)
+        const opacity = Number.parseFloat(style.opacity)
+        const layerOpacity = Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 1
+        if (background && background.alpha > 0) {
+          rendered = composite(background, { ...rendered, alpha: 1 }, ancestorOpacity * layerOpacity)
+        }
+        ancestorOpacity *= layerOpacity
+      }
+      return { ...rendered, alpha: 1 }
     }
 
     const luminance = ({ r, g, b }: { r: number; g: number; b: number }) => {
@@ -133,6 +146,93 @@ test('four pages and settings sub-pages render readable sans-serif text', async 
       expect(text.family.toLowerCase(), `settings/${target} text "${text.text}" font`).not.toMatch(/(^|,\s*)(georgia|times new roman|serif)(\s*,|$)/)
       expect(text.ratio, `settings/${target} text "${text.text}" contrast`).not.toBeNull()
       expect(text.ratio!, `settings/${target} text "${text.text}" contrast`).toBeGreaterThanOrEqual(text.large ? 3 : 4.5)
+    }
+  }
+})
+
+test('diary, today, settings, and training body copy stays at least 16px', async ({ page }) => {
+  const cases: { page: AppPage | SettingsSubPage; selectors: string[]; settings?: boolean }[] = [
+    { page: 'diary', selectors: ['.diary-intro', '.diary-summary-item dd'] },
+    { page: 'today', selectors: ['.today-card-copy'] },
+    { page: 'about', selectors: ['.about-panel p'], settings: true },
+    { page: 'backup', selectors: ['.backup-intro', '.backup-caution'], settings: true },
+    { page: 'training', selectors: ['.course-intro', '.course-card-copy', '.course-content p', '.task-list'] }
+  ]
+
+  for (const item of cases) {
+    if (item.settings) await goToSettingsSubPage(page, item.page as SettingsSubPage)
+    else await openPage(page, item.page as AppPage)
+    for (const selector of item.selectors) {
+      const sizes = await page.locator(selector).evaluateAll((elements) => elements
+        .filter((element) => {
+          const rect = element.getBoundingClientRect()
+          return rect.width > 0 && rect.height > 0
+        })
+        .map((element) => Number.parseFloat(getComputedStyle(element).fontSize)))
+      expect(sizes.length, `${item.page} ${selector} should be rendered`).toBeGreaterThan(0)
+      for (const size of sizes) expect(size, `${item.page} ${selector}`).toBeGreaterThanOrEqual(16)
+    }
+  }
+})
+
+test('rendered contrast composites translucent background layers and ancestor opacity', async ({ page }) => {
+  await openPage(page, 'today')
+  await page.evaluate(() => {
+    const parent = document.createElement('div')
+    parent.style.cssText = 'position:fixed;top:2px;left:2px;z-index:1000;background:rgba(0,0,0,.5);opacity:.5'
+    const text = document.createElement('span')
+    text.dataset.testid = 'composited-contrast-probe'
+    text.textContent = 'contrast probe'
+    text.style.cssText = 'color:#000;font-size:16px'
+    parent.append(text)
+    document.body.append(parent)
+  })
+  const result = await renderedText(page)
+  const probe = result.texts.find((text) => text.text === 'contrast probe')
+  expect(probe).toBeDefined()
+  expect(probe!.ratio).toBeCloseTo(2.2, 0)
+})
+
+test('error status text meets normal-text contrast on its rendered light background', async ({ page }) => {
+  await openSettingsSubPage(page, 'about')
+  const error = page.locator('.storage-note')
+  await error.evaluate((element) => {
+    element.classList.add('note-error')
+    element.textContent = '本地存储不可用。'
+  })
+  const result = await renderedText(page)
+  const renderedError = result.texts.find((text) => text.text === '本地存储不可用。')
+  expect(renderedError).toBeDefined()
+  expect(renderedError!.ratio).toBeGreaterThanOrEqual(4.5)
+})
+
+test('diary and training remain usable at a 200 percent equivalent viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 450 })
+  for (const target of ['diary', 'training'] as const) {
+    await openPage(page, target)
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth
+    }))
+    expect(dimensions.content, `${target} horizontal overflow`).toBeLessThanOrEqual(dimensions.viewport)
+
+    if (target === 'diary') {
+      const lastField = page.locator('.diary-field').last()
+      await lastField.scrollIntoViewIfNeeded()
+      const rect = await lastField.boundingBox()
+      const savebar = await page.locator('.diary-savebar').boundingBox()
+      expect(rect).not.toBeNull()
+      expect(savebar).not.toBeNull()
+      expect(rect!.y + rect!.height).toBeLessThanOrEqual(savebar!.y)
+    } else {
+      const content = page.locator('.course-panel').last()
+      await expect(content).toBeVisible()
+      await content.scrollIntoViewIfNeeded()
+      const rect = await content.boundingBox()
+      const bottomBar = await page.locator('.bottom-bar').boundingBox()
+      expect(rect).not.toBeNull()
+      expect(bottomBar).not.toBeNull()
+      expect(rect!.y + rect!.height).toBeLessThanOrEqual(bottomBar!.y)
     }
   }
 })
