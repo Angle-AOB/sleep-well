@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { BackupPanel } from './components/BackupPanel'
 import { CoursePanel } from './components/CoursePanel'
 import { DiaryPanel } from './components/DiaryPanel'
+import { ErrorLogPanel } from './components/ErrorLogPanel'
 import { ReminderCard } from './components/ReminderCard'
 import { ScreeningPanel } from './components/ScreeningPanel'
 import { defaultPreferences, readPreferences, readScreening, writePreferences, writeScreening, type Preferences } from './data/preferences'
@@ -295,6 +296,8 @@ function App() {
         onImported={reloadAfterImport}
         onExported={(exportedAt) => updatePreference({ ...preferences, lastBackupAt: exportedAt })}
       />
+
+      <ErrorLogPanel />
 
       <footer className="footer"><span>{t('footer')}</span><span>{t('footerMeta')}</span></footer>
     </main>

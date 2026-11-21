@@ -58,6 +58,9 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: #507964; }
 .reminder-card h2 { font-size: 22px; }
 .reminder-card p { max-width: 720px; margin: 14px 0 0; color: #61706a; font-size: 14px; line-height: 1.9; }
 .reminder-link { display: inline-flex; align-items: center; padding: 0 22px; line-height: 48px; text-decoration: none; }
+.error-log-panel { margin: 28px 0 0; padding: 28px; background: #e7eee9; border: 1px solid #d2dfd7; }
+.error-log-body { margin-top: 18px; }
+.error-log-text { max-width: 100%; margin: 14px 0; padding: 14px 16px; overflow-x: auto; color: #344d45; background: #f7faf6; border: 1px solid #b9cbc0; font-family: Consolas, "Courier New", monospace; font-size: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
 .footer { padding-top: 16px; color: #7a8781; border-top: 1px solid #d6ddd7; font-size: 11px; }.footer i { width: 4px; height: 4px; margin: 0 5px 1px; border-radius: 50%; }
 
 .screening-panel, .diary-panel { padding: 28px; background: #e7eee9; border: 1px solid #d2dfd7; }
