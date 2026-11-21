@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
-import { FIRST_RUN_SEEN_KEY } from './src/firstRun'
+import { firstRunStorageState } from './src/firstRun'
 
 // 每个 worktree 用不同端口，避免并行实现时互相复用别人的预览服务。
 const port = Number(process.env.PLAYWRIGHT_PORT ?? 4173)
@@ -17,10 +17,7 @@ export default defineConfig({
     trace: 'on-first-retry',
     // 首次说明会挡住所有既有用例：统一给每个上下文播种「本设备已看过」。
     // 专门的首次说明 spec 用 test.use({ storageState: { cookies: [], origins: [] } }) 关掉播种。
-    storageState: {
-      cookies: [],
-      origins: [{ origin: baseURL, localStorage: [{ name: FIRST_RUN_SEEN_KEY, value: '1' }] }]
-    }
+    storageState: firstRunStorageState(baseURL)
   },
   webServer: {
     command: `npm run build && npm run preview -- --host 127.0.0.1 --port ${port}`,

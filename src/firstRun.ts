@@ -8,6 +8,19 @@ export const FIRST_RUN_SEEN_KEY = 'sleep-well.first-run-seen'
 
 const SEEN_VALUE = '1'
 
+/**
+ * 给端到端用例播种「本设备已看过」的 storageState。
+ *
+ * 键与值只从本模块取，配置和用例不再各写一份；否则标记一改，
+ * 弹窗就会挡住所有依赖默认上下文的用例。
+ */
+export function firstRunStorageState(origin: string) {
+  return {
+    cookies: [],
+    origins: [{ origin, localStorage: [{ name: FIRST_RUN_SEEN_KEY, value: SEEN_VALUE }] }]
+  }
+}
+
 type StorageLike = {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
