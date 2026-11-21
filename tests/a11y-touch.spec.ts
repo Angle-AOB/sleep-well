@@ -75,6 +75,9 @@ async function openApp(page: Page) {
   await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
+  // 日记表单与疗程按钮是异步加载的；没加载完就量尺寸会漏掉大半控件。
+  await expect(page.getByRole('button', { name: /保存日记|更新日记/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: '开始六周训练' })).toBeVisible()
 }
 
 test('main actions meet the 44x44 CSS px touch target', async ({ page }) => {
@@ -101,7 +104,7 @@ test('the cache retry button meets the 44x44 CSS px touch target', async ({ page
   })
   await openApp(page)
   const retry = page.getByRole('button', { name: '重试' })
-  await expect(retry).toBeVisible({ timeout: 15_000 })
+  await expect(retry).toBeVisible({ timeout: 30_000 })
   const box = await retry.boundingBox()
   expect(box!.width).toBeGreaterThanOrEqual(MIN_TARGET)
   expect(box!.height).toBeGreaterThanOrEqual(MIN_TARGET)

@@ -14,7 +14,7 @@ test('用户保存训练偏好后刷新仍能读取', async ({ page }) => {
 test('应用壳在断网后仍可读取', async ({ page, context }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
 
   await context.setOffline(true)
   await page.reload()

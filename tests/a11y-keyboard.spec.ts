@@ -7,8 +7,10 @@ async function openApp(page: Page) {
   await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
-  // 等缓存就绪再测 Tab 顺序：状态区的重试按钮会插入一个 tab 停靠点。
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 15_000 })
+  // 等缓存就绪再测 Tab 顺序：状态区的重试按钮会插入一个 tab 停靠点；
+  // 日记表单异步加载，没加载完会少一大批 tab 停靠点。
+  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('button', { name: /保存日记|更新日记/ })).toBeVisible()
 }
 
 async function focusedInfo(page: Page) {

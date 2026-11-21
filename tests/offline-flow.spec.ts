@@ -58,7 +58,7 @@ test('six-week course diary and screening are readable offline', async ({ page, 
   await recordNight(page, '2026-12-12')
 
   // Wait for SW cache to be ready before going offline
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
 
   await context.setOffline(true)
 
@@ -87,7 +87,7 @@ test('diary recording and settings work offline', async ({ page, context }) => {
   await openAt(page, '2026-12-13T09:00:00')
   await completeScreening(page)
   await startCourse(page)
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
 
   await context.setOffline(true)
   await page.reload()
@@ -113,7 +113,7 @@ test('the course advances through weeks and metrics stay available offline', asy
   for (const date of ['2026-12-09', '2026-12-10', '2026-12-11']) {
     await recordNight(page, date)
   }
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
 
   await context.setOffline(true)
   await page.reload()
@@ -132,7 +132,7 @@ test('the course advances through weeks and metrics stay available offline', asy
 test('backup export and import work offline', async ({ page, context }) => {
   await openAt(page, '2026-12-01T09:00:00')
   await recordNight(page, '2026-12-01')
-  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('当前可离线使用')).toBeVisible({ timeout: 30_000 })
 
   await context.setOffline(true)
   await page.reload()

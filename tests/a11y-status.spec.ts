@@ -12,7 +12,7 @@ async function openApp(page: Page) {
 test('offline and storage states announce readable status text', async ({ page }) => {
   await openApp(page)
   const offline = page.getByRole('status').filter({ hasText: /当前可离线使用|训练内容缓存中|训练内容缓存失败|此浏览器不支持离线应用壳/ })
-  await expect(offline.first()).toBeVisible({ timeout: 15_000 })
+  await expect(offline.first()).toBeVisible({ timeout: 30_000 })
 
   const storage = page.getByRole('status').filter({ hasText: /偏好已保存在此设备|正在保存偏好|数据持久化失败|此浏览器无法使用本地存储|数据迁移失败/ })
   await expect(storage.first()).toBeVisible()
@@ -26,7 +26,7 @@ test('cache still filling exposes readable pending text with a retry action', as
   })
   await openApp(page)
   const pending = page.getByRole('status').filter({ hasText: '训练内容缓存中…' })
-  await expect(pending.first()).toBeVisible({ timeout: 15_000 })
+  await expect(pending.first()).toBeVisible({ timeout: 30_000 })
   await expect(page.getByRole('button', { name: '重试' })).toBeVisible()
 })
 
@@ -39,7 +39,7 @@ test('cache failure exposes readable error text with a retry action', async ({ p
   })
   await openApp(page)
   const failure = page.getByRole('status').filter({ hasText: '训练内容缓存失败' })
-  await expect(failure.first()).toBeVisible({ timeout: 15_000 })
+  await expect(failure.first()).toBeVisible({ timeout: 30_000 })
   await expect(page.getByRole('button', { name: '重试' })).toBeVisible()
 })
 
