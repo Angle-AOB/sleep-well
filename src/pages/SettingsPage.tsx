@@ -6,6 +6,7 @@ import type { Preferences } from '../data/preferences'
 import type { ScreeningRecord } from '../domain/screening'
 import {
   hashForSettingsSubPage,
+  settingsItemId,
   settingsSubPages,
   type SettingsSubPage
 } from '../routing'
@@ -165,7 +166,7 @@ export function SettingsPage({
               {settingsSubPages.map((item) => (
                 <li key={item}>
                   <a
-                    id={`settings-item-${item}`}
+                    id={settingsItemId(item)}
                     className="settings-item"
                     href={hashForSettingsSubPage(item)}
                   >

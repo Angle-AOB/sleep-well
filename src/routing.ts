@@ -67,3 +67,11 @@ export function hashForPage(page: Page): string {
 export function hashForSettingsSubPage(subPage: SettingsSubPage): string {
   return `${hashForPage('settings')}/${subPage}`
 }
+
+/**
+ * 设置列表项的可聚焦锚点 id：列表渲染与从子页返回时还原焦点共用，
+ * 避免两边各写一遍 `settings-item-${subPage}` 模板字符串。
+ */
+export function settingsItemId(subPage: SettingsSubPage): string {
+  return `settings-item-${subPage}`
+}

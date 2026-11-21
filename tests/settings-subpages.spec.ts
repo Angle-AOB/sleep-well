@@ -4,6 +4,7 @@ import {
   openPage,
   openSettingsSubPage,
   settingsSubPageHeading,
+  settingsSubPageItemName,
   type SettingsSubPage
 } from './navigation'
 
@@ -29,13 +30,26 @@ test('each settings sub-page opens directly and survives a reload', async ({ pag
   }
 })
 
+test('the diagnostics sub-page keeps the list label but uses a distinct heading', async ({ page }) => {
+  await openPage(page, 'settings', '2026-11-20T09:00:00')
+  await expect(
+    settingsList(page).getByRole('link', { name: '诊断信息', exact: true })
+  ).toBeVisible()
+
+  await goToSettingsSubPage(page, 'diagnostics')
+  await expect(page.getByRole('heading', { level: 1, name: '诊断与反馈' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '诊断信息' })).toHaveCount(0)
+  // 面板本身仍以「诊断信息」命名，顶栏标题不再与它同名。
+  await expect(page.getByRole('region', { name: '诊断信息' })).toBeVisible()
+})
+
 test('the settings list has five entries and the status section, with no search', async ({ page }) => {
   await openPage(page, 'settings', '2026-11-20T09:00:00')
 
   const links = settingsList(page).getByRole('link')
   await expect(links).toHaveCount(5)
   for (const target of subPages) {
-    await expect(settingsList(page).getByRole('link', { name: settingsSubPageHeading[target], exact: true })).toBeVisible()
+    await expect(settingsList(page).getByRole('link', { name: settingsSubPageItemName[target], exact: true })).toBeVisible()
   }
 
   await expect(page.getByRole('searchbox')).toHaveCount(0)
@@ -56,7 +70,7 @@ test('each sub-page renders only its own content and the bottom bar keeps settin
     for (const other of subPages) {
       if (other === target) continue
       await expect(
-        settingsList(page).getByRole('link', { name: settingsSubPageHeading[other], exact: true })
+        settingsList(page).getByRole('link', { name: settingsSubPageItemName[other], exact: true })
       ).toHaveCount(0)
     }
 

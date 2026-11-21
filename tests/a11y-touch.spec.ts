@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Locator, type Page } from '@playwright/test'
 import { goTo, goToSettingsSubPage, pageHeading, type AppPage } from './navigation'
 
 // 触控目标测量约定（判断与理由见收工报告）：
@@ -115,6 +115,31 @@ test('checkbox and radio controls themselves meet the WCAG 2.2 AA 24x24 minimum'
   boxes.push(...await rawToggleSizes(page))
 
   expectAtLeast(boxes, MIN_WCAG_TARGET, 'WCAG 2.2 AA 2.5.8 控件本体')
+})
+
+test('diary second-screen night wakes, WASO, quality and tags meet the 44x44 target', async ({ page }) => {
+  await openApp(page)
+  await goTo(page, 'diary')
+  await expect(page.getByRole('button', { name: /保存日记|更新日记/ })).toBeVisible()
+
+  // 夜醒与 WASO 是 select，质量与标签的触控面由 label 承担（与上面的量法一致）。
+  const targets: { name: string; target: Locator }[] = [
+    { name: '夜醒次数', target: page.locator('#night-wakes') },
+    { name: 'WASO', target: page.locator('#waso') },
+    { name: '主观睡眠质量', target: page.getByRole('group', { name: '主观睡眠质量' }).locator('label') },
+    { name: '行为标签', target: page.getByRole('group', { name: '昨夜的行为标签' }).locator('label') }
+  ]
+
+  for (const { name, target } of targets) {
+    const count = await target.count()
+    expect(count, `${name} 应至少有一个可测控件`).toBeGreaterThan(0)
+    for (let index = 0; index < count; index += 1) {
+      const box = await target.nth(index).boundingBox()
+      expect(box, `${name}[${index}] 应有布局盒`).not.toBeNull()
+      expect(box!.width, `${name}[${index}] 宽度`).toBeGreaterThanOrEqual(MIN_TARGET)
+      expect(box!.height, `${name}[${index}] 高度`).toBeGreaterThanOrEqual(MIN_TARGET)
+    }
+  }
 })
 
 test('the cache retry button meets the 44x44 CSS px touch target', async ({ page }) => {

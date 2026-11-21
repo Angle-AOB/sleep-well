@@ -37,7 +37,8 @@ async function completeScreening(page: Page) {
 
 async function startCourse(page: Page) {
   await coursePanel(page).getByRole('button', { name: '开始六周训练' }).click()
-  await expect(coursePanel(page).getByText('第 1 周')).toBeVisible()
+  // 用唯一的进度行锁定「课程已开始」，避免宽泛的“第 1 周”同时匹配简介、标题与窗口说明。
+  await expect(coursePanel(page).getByText('第 1 周 · 第 1 天')).toBeVisible()
 }
 
 async function recordNight(page: Page, date: string) {

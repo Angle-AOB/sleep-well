@@ -347,7 +347,9 @@ test('all six weeks are viewable; future weeks show a preview banner and keep ac
   // 未开始的周也能查看内容——六周内容应当完整可见。
   await weekTrack.getByRole('button', { name: /05/ }).click()
   await expect(panel.getByRole('heading', { name: '第 5 周 · 滴定与认知练习' })).toBeVisible()
-  await expect(panel.getByText('正在查看第 5 周内容；当前进行到第 1 周。这里只是内容预览，训练动作仍按当前周执行。')).toBeVisible()
+  await expect(panel.getByText('正在预览第 5 周；当前进行到第 1 周。这里只是内容预览，训练动作仍按当前周执行。')).toBeVisible()
+  // 预览说明只播报一次，不能同时出现旧长文案与新短文案两条 role=status。
+  await expect(panel.getByRole('status').filter({ hasText: /正在预览第/ })).toHaveCount(1)
 
   // 预览期间训练动作仍作用于当前周：确认固定起床时间能正常保存。
   await panel.locator('#fixed-wake-time').fill('07:00')
@@ -357,5 +359,5 @@ test('all six weeks are viewable; future weeks show a preview banner and keep ac
   // 回到第 1 周，提示消失。
   await weekTrack.getByRole('button', { name: /01/ }).click()
   await expect(panel.getByRole('heading', { name: '第 1 周 · 记录基线' })).toBeVisible()
-  await expect(panel.getByText(/正在查看第/)).toBeHidden()
+  await expect(panel.getByText(/正在预览第/)).toBeHidden()
 })

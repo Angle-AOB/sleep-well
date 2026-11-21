@@ -38,6 +38,28 @@ async function expectAboveTheFold(page: Page, target: Locator, what: string) {
   expect(await page.evaluate(() => window.scrollY), '首屏断言前不应有滚动').toBe(0)
 }
 
+/** 固定保存栏的顶边：核心输入必须完全落在它上方，不能被栏体盖住。 */
+async function saveBarTop(page: Page): Promise<number> {
+  return saveButton(page).evaluate((button) => {
+    const bar = button.closest('.diary-savebar')
+    if (!bar) throw new Error('保存按钮应位于固定保存栏内')
+    return bar.getBoundingClientRect().top
+  })
+}
+
+async function inViewport(page: Page, target: Locator): Promise<boolean> {
+  const viewport = page.viewportSize()!
+  const box = await target.boundingBox()
+  return box !== null && box.y >= 0 && box.y + box.height <= viewport.height
+}
+
+async function expectInViewport(page: Page, target: Locator, what: string) {
+  await expect(target, `${what}应可见`).toBeVisible()
+  await expect.poll(() => inViewport(page, target), {
+    message: `${what}应滚入视口（顶部 ≥ 0 且底部 ≤ 视口高度）`
+  }).toBe(true)
+}
+
 test('opening the diary shows the save button in the first screen', async ({ page }) => {
   await openDiary(page)
   await expectAboveTheFold(page, saveButton(page), '保存按钮')
@@ -46,16 +68,23 @@ test('opening the diary shows the save button in the first screen', async ({ pag
 test('the four core inputs and the metric summary fit in the first screen', async ({ page }) => {
   await openDiary(page)
 
+  // 日期是首屏记录的起点，和四项核心输入一起作为首屏预算的一部分。
+  await expectAboveTheFold(page, page.locator('#diary-date'), '记录日期')
+
+  const barTop = await saveBarTop(page)
   for (const id of coreInputIds) {
-    await expectAboveTheFold(page, page.locator(`#${id}`), `核心输入 #${id}`)
+    const input = page.locator(`#${id}`)
+    await expectAboveTheFold(page, input, `核心输入 #${id}`)
+    const box = (await input.boundingBox())!
+    expect(box.y + box.height, `核心输入 #${id} 不能被固定保存栏盖住`).toBeLessThanOrEqual(barTop)
   }
 
-  const summaryBox = await summary(page).boundingBox()
-  expect(summaryBox, '指标摘要应有布局盒').not.toBeNull()
-  await expect(summary(page)).toContainText('TIB')
-  await expect(summary(page)).toContainText('TST')
-  await expect(summary(page)).toContainText('SE')
-  await expect(summary(page)).not.toContainText('终末清醒')
+  const summaryRegion = summary(page)
+  await expectAboveTheFold(page, summaryRegion, '指标摘要')
+  await expect(summaryRegion).toContainText('TIB')
+  await expect(summaryRegion).toContainText('TST')
+  await expect(summaryRegion).toContainText('SE')
+  await expect(summaryRegion).not.toContainText('终末清醒')
 })
 
 test('the save button stays in the viewport after scrolling to the second screen', async ({ page }) => {
@@ -83,6 +112,71 @@ test('the save button stays in the viewport after scrolling to the second screen
   // 底部固定栏可以盖住内容，但不能盖住按钮本身：点它必须能真正提交。
   await button.click()
   await expect(page.getByText('日记已保存在此设备')).toBeVisible()
+})
+
+test('saving from the second screen scrolls the success status into view', async ({ page }) => {
+  await openDiary(page)
+  await page.locator('#lights-off').fill('23:00')
+  await page.locator('#out-of-bed').fill('07:00')
+  await page.locator('#waso').selectOption('none-remembered')
+
+  await expect(page.getByRole('region', { name: '最近记录' })).toBeVisible()
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+
+  await saveButton(page).click()
+  await expectInViewport(
+    page,
+    page.getByRole('status').filter({ hasText: '日记已保存在此设备' }),
+    '保存成功提示'
+  )
+})
+
+test('saving with a validation problem scrolls the problem prompt into view', async ({ page }) => {
+  await openDiary(page)
+  await page.locator('#lights-off').fill('23:00')
+  await page.locator('#final-wake').fill('08:00')
+  await page.locator('#out-of-bed').fill('07:00')
+
+  await expect(page.getByRole('region', { name: '最近记录' })).toBeVisible()
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+
+  await saveButton(page).click()
+  // 具体问题与“请先修正”都必须在提交后进入视口，播报语义保持 alert/status。
+  await expectInViewport(
+    page,
+    page.getByRole('alert').filter({ hasText: '最终醒来时间晚于起床时间，请修正。' }),
+    '校验问题'
+  )
+  await expectInViewport(
+    page,
+    page.getByRole('status').filter({ hasText: '请先修正上面的问题，再保存日记。' }),
+    '请先修正提示'
+  )
+})
+
+test('a save failure from the second screen scrolls the error alert into view', async ({ page }) => {
+  await page.addInitScript(() => {
+    IDBObjectStore.prototype.put = function put() {
+      throw new DOMException('storage is full', 'QuotaExceededError')
+    }
+  })
+  await openDiary(page)
+  await page.locator('#lights-off').fill('23:00')
+  await page.locator('#out-of-bed').fill('07:00')
+  await page.locator('#waso').selectOption('none-remembered')
+
+  await expect(page.getByRole('region', { name: '最近记录' })).toBeVisible()
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+
+  await saveButton(page).click()
+  await expectInViewport(
+    page,
+    page.getByRole('alert').filter({ hasText: '无法保存日记。请检查此设备存储空间后重试。' }),
+    '保存失败提示'
+  )
 })
 
 test('the second screen keeps night wakes, WASO, quality, tags, full metrics and history below the summary', async ({ page }) => {

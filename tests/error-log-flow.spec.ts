@@ -3,7 +3,7 @@ import { goTo, goToSettingsSubPage, openSettingsSubPage } from './navigation'
 
 async function openApp(page: Page, time = '2026-11-20T09:00:00') {
   await openSettingsSubPage(page, 'diagnostics', time)
-  await expect(page.getByRole('heading', { name: '诊断信息' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '诊断与反馈' })).toBeVisible()
 }
 
 test('the error log panel stays collapsed until asked and shows plain-text diagnostics', async ({ page }) => {

@@ -13,7 +13,7 @@ import type { ScreeningRecord } from './domain/screening'
 import { localToday } from './format'
 import { readCacheStatus } from './pwa'
 import { hashForPage, pages, type Page } from './routing'
-import { settingsSubPageTitleKeys } from './settingsSubPages'
+import { settingsSubPageHeadingKeys } from './settingsSubPages'
 import { usePageRouting } from './usePageRouting'
 import type { OfflineStatus, PersistenceStatus, StorageState } from './statusText'
 import './style.css'
@@ -219,7 +219,7 @@ function App() {
     : null
 
   const pageTitle = page === 'settings' && subPage !== null
-    ? t(settingsSubPageTitleKeys[subPage])
+    ? t(settingsSubPageHeadingKeys[subPage])
     : t(pageTitleKeys[page])
 
   return (

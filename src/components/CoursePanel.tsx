@@ -322,12 +322,10 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
             <button
               key={week}
               type="button"
-              className={`week-step is-${status}`}
-              onClick={() => {
-                setSelectedWeek(week)
-                setShowTitrationDetails(false)
-              }}
+              className={`week-step is-${status}${shownWeek === week ? ' is-viewed' : ''}`}
+              onClick={() => setSelectedWeek(week)}
               aria-current={status === 'current' ? 'step' : undefined}
+              aria-pressed={shownWeek === week}
             >
               <span className="week-number">{String(week).padStart(2, '0')}</span>
               <span className="week-name">{t(`weekShort${week}`)}</span>
@@ -374,9 +372,6 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
 
       <div className="course-grid">
         <section className="course-content" aria-labelledby="week-content-title">
-          {shownWeek !== currentWeek && (
-            <p className="week-preview" role="status">{t('courseWeekPreviewShort', { week: shownWeek })}</p>
-          )}
           <p className="panel-kicker">{t('weekContentKicker')}</p>
           <h3 id="week-content-title">{t(content.title)}</h3>
           <p>{t(content.body)}</p>
@@ -557,30 +552,29 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
                   >
                     {showTitrationDetails ? t('titrationHideDetails') : t('titrationShowDetails')}
                   </button>
-                  {showTitrationDetails && (
-                    <div className="titration-details-body" id="titration-details-body">
-                      <h4>{t('windowAdjustmentsTitle')}</h4>
-                      <ul>
-                        {adjustments.map((adjustment) => (
-                          <li key={adjustment.week}>
-                            {t(
-                              adjustment.rule === 'increase'
-                                ? 'windowAdjustmentIncrease'
-                                : 'windowAdjustmentDecrease',
-                              {
-                                week: adjustment.week,
-                                nights: adjustment.basis.completeNights,
-                                se: efficiencyText(adjustment.basis.averageSleepEfficiency),
-                                from: durationText(t, adjustment.previousMinutes),
-                                change: durationText(t, adjustment.changeMinutes),
-                                to: durationText(t, adjustment.durationMinutes)
-                              }
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  {/* 容器始终挂载：aria-controls 的引用在折叠时也必须有效，用 hidden 控制显隐。 */}
+                  <div className="titration-details-body" id="titration-details-body" hidden={!showTitrationDetails}>
+                    <h4>{t('windowAdjustmentsTitle')}</h4>
+                    <ul>
+                      {adjustments.map((adjustment) => (
+                        <li key={adjustment.week}>
+                          {t(
+                            adjustment.rule === 'increase'
+                              ? 'windowAdjustmentIncrease'
+                              : 'windowAdjustmentDecrease',
+                            {
+                              week: adjustment.week,
+                              nights: adjustment.basis.completeNights,
+                              se: efficiencyText(adjustment.basis.averageSleepEfficiency),
+                              from: durationText(t, adjustment.previousMinutes),
+                              change: durationText(t, adjustment.changeMinutes),
+                              to: durationText(t, adjustment.durationMinutes)
+                            }
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               )}
             </section>

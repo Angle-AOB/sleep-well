@@ -12,13 +12,19 @@ export const pageHeading: Record<AppPage, string> = {
   settings: '设置'
 }
 
-/** 子页地址、列表项名称与子页顶栏标题共用同一份名称契约。 */
-export const settingsSubPageHeading: Record<SettingsSubPage, string> = {
+/** 设置列表项名称；诊断页顶栏改用另一措辞，因此与 `settingsSubPageHeading` 分开维护。 */
+export const settingsSubPageItemName: Record<SettingsSubPage, string> = {
   screening: '安全自查',
   reminders: '提醒与偏好',
   backup: '备份与导出',
   diagnostics: '诊断信息',
   about: '关于与隐私'
+}
+
+/** 子页顶栏标题：与列表项同名，只有诊断页用「诊断与反馈」避免与面板名称重复。 */
+export const settingsSubPageHeading: Record<SettingsSubPage, string> = {
+  ...settingsSubPageItemName,
+  diagnostics: '诊断与反馈'
 }
 
 /** 约定所有端到端用例固定本地日期；个别用例需要别的日期时显式传入。 */
@@ -69,7 +75,7 @@ export async function goToSettingsSubPage(page: Page, target: SettingsSubPage): 
   await goTo(page, 'settings')
   await page
     .getByRole('navigation', { name: '设置项' })
-    .getByRole('link', { name: settingsSubPageHeading[target], exact: true })
+    .getByRole('link', { name: settingsSubPageItemName[target], exact: true })
     .click()
   await expect(
     page.getByRole('heading', { level: 1, name: settingsSubPageHeading[target] })

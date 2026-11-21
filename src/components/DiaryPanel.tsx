@@ -202,6 +202,8 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
   const [entries, setEntries] = useState<SleepDiaryEntry[]>([])
   const [fetchState, setFetchState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [feedbackSeq, setFeedbackSeq] = useState(0)
+  const feedbackRef = useRef<HTMLDivElement>(null)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
   const lastReload = useRef(reloadToken)
@@ -266,6 +268,15 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
     }
   }, [today, selectedDate, dirty, entries])
 
+  /**
+   * 提交结果渲染在第一屏底部，而固定保存栏在第二屏也能点到：提交后把提示滚进视口，
+   * 保证「已保存」「请先修正」「保存失败」都不会落在视口外。序号让重复提交同一结果也能再次滚动。
+   */
+  useEffect(() => {
+    if (feedbackSeq === 0) return
+    feedbackRef.current?.scrollIntoView({ block: 'center', behavior: 'instant' })
+  }, [feedbackSeq])
+
   const savedEntry = findEntry(entries, selectedDate)
   const draft = draftFromForm(selectedDate, form)
   const assessment = evaluateNight(draft)
@@ -292,10 +303,16 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
     update({ tags: form.tags.includes(tag) ? form.tags.filter((item) => item !== tag) : [...form.tags, tag] })
   }
 
+  /** 提交结果统一走这里：更新播报文案并触发一次滚动序号。 */
+  function announce(next: Feedback) {
+    setFeedback(next)
+    setFeedbackSeq((seq) => seq + 1)
+  }
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (blocked) {
-      setFeedback('invalid')
+      announce('invalid')
       return
     }
 
@@ -310,7 +327,7 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
     try {
       await writeDiaryEntry(entry)
     } catch {
-      setFeedback('save-error')
+      announce('save-error')
       return
     } finally {
       setSaving(false)
@@ -323,7 +340,7 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
     ].sort((left, right) => right.date.localeCompare(left.date)))
     setForm(formFromEntry(entry))
     setDirty(false)
-    setFeedback('saved')
+    announce('saved')
     onSaved?.()
   }
 
@@ -419,22 +436,26 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
                 </dl>
               </div>
 
-              {blocked && (
-                <div className="diary-alert" role="alert">
-                  <p>{t('diaryProblemsTitle')}</p>
-                  <ul>
-                    {problems.map((problem, index) => (
-                      <li key={`${problem.kind}-${index}`}>{problemText(t, problem)}</li>
-                    ))}
-                    {wasoMinutesMissing && <li>{t('diaryProblemWasoMinutesMissing')}</li>}
-                    {futureDate && <li>{t('diaryProblemFutureDate')}</li>}
-                  </ul>
+              {(blocked || feedback !== null) && (
+                <div className="diary-feedback" ref={feedbackRef}>
+                  {blocked && (
+                    <div className="diary-alert" role="alert">
+                      <p>{t('diaryProblemsTitle')}</p>
+                      <ul>
+                        {problems.map((problem, index) => (
+                          <li key={`${problem.kind}-${index}`}>{problemText(t, problem)}</li>
+                        ))}
+                        {wasoMinutesMissing && <li>{t('diaryProblemWasoMinutesMissing')}</li>}
+                        {futureDate && <li>{t('diaryProblemFutureDate')}</li>}
+                      </ul>
+                    </div>
+                  )}
+
+                  {feedback === 'invalid' && <p className="diary-status is-warning" role="status">{t('diaryFixBeforeSave')}</p>}
+                  {feedback === 'saved' && <p className="diary-status" role="status">{t('diarySaved')}</p>}
+                  {feedback === 'save-error' && <p className="diary-alert" role="alert">{t('diarySaveError')}</p>}
                 </div>
               )}
-
-              {feedback === 'invalid' && <p className="diary-status is-warning" role="status">{t('diaryFixBeforeSave')}</p>}
-              {feedback === 'saved' && <p className="diary-status" role="status">{t('diarySaved')}</p>}
-              {feedback === 'save-error' && <p className="diary-alert" role="alert">{t('diarySaveError')}</p>}
             </div>
 
             {/* 第二屏：可选字段、完整指标与最近记录。 */}

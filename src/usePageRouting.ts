@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { hashForPage, routeFromHash, type Page, type Route, type SettingsSubPage } from './routing'
+import { hashForPage, routeFromHash, settingsItemId, type Page, type Route, type SettingsSubPage } from './routing'
 
 const todayRoute: Route = { page: 'today', subPage: null }
 
@@ -117,7 +117,7 @@ export function usePageRouting() {
       listScroll.current = null
       listTrigger.current = null
       if (trigger !== null) {
-        document.getElementById(`settings-item-${trigger}`)?.focus({ preventScroll: true })
+        document.getElementById(settingsItemId(trigger))?.focus({ preventScroll: true })
       }
       return
     }
