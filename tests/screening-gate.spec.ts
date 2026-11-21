@@ -201,4 +201,3 @@ test('a screening write failure never blocks starting and reports the storage fa
   await expect(panel.getByText('无法读取或保存安全自查状态，本次不拦截开始训练。请检查浏览器存储设置。')).toBeVisible()
   await expect(panel.getByText('完成安全自查后才能开始六周训练；记录日记与导出数据不受影响。')).toHaveCount(0)
 })
-
