@@ -73,11 +73,9 @@ function App() {
       }
     })
     return () => { active = false }
+    // 提醒评估只在打开应用时做一次；updatePreference 仅用于展示记账，不是本效果的依赖。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    if (!preferences.backupReminders) setReminder(null)
-  }, [preferences.backupReminders])
 
   useEffect(() => {
     if (!('storage' in navigator) || !('persist' in navigator.storage)) return
@@ -228,7 +226,7 @@ function App() {
         )}
       </section>
 
-      {reminder && (
+      {reminder && preferences.backupReminders && (
         <ReminderCard
           kind={reminder.kind}
           entryCount={reminder.entryCount}
