@@ -186,7 +186,8 @@ function App() {
   }
 
   return (
-    <main className="page-shell">
+    <main className="page-shell" id="main-content" tabIndex={-1}>
+      <a className="skip-link" href="#main-content">{t('skipToContent')}</a>
       <header className="topbar">
         <a className="wordmark" href="#top" aria-label={t('brand')}>
           <span className="brand-mark" aria-hidden="true">眠</span>
