@@ -133,6 +133,8 @@ test('every bottom-bar target is at least 44 by 44 CSS pixels', async ({ page })
 
 test('switching pages scrolls to the top and focuses the new page heading', async ({ page }) => {
   await openPage(page, 'diary', '2026-11-20T09:00:00')
+  // 日记表单异步装载；等它出现再滚，否则页面还没变高，scrollY 永远到不了 0 以上。
+  await expect(page.locator('#lights-off')).toBeVisible()
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
 
