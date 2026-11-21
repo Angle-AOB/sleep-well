@@ -325,3 +325,21 @@ test('a titration adjustment cannot be deferred after the week has started', asy
   await expect(coursePanel(page).getByText('窗口长度 8 小时 15 分钟')).toBeVisible()
   await expect(coursePanel(page).getByRole('button', { name: '推迟本周滴定' })).toHaveCount(0)
 })
+
+test('all six weeks are viewable; future weeks show a preview banner and keep actions on the current week', async ({ page }) => {
+  await openAt(page, '2026-11-01T09:00:00')
+  await startCourse(page)
+  await completeScreening(page)
+  const panel = coursePanel(page)
+  const weekTrack = panel.getByRole('group', { name: '疗程进度' })
+
+  // 未开始的周也能查看内容——六周内容应当完整可见。
+  await weekTrack.getByRole('button', { name: /05/ }).click()
+  await expect(panel.getByRole('heading', { name: '第 5 周 · 滴定与认知练习' })).toBeVisible()
+  await expect(panel.getByText('正在查看第 5 周内容；当前进行到第 1 周。这里只是内容预览，训练动作仍按当前周执行。')).toBeVisible()
+
+  // 预览不影响当前周的动作：回到第 1 周，提示消失，仍可记录基线。
+  await weekTrack.getByRole('button', { name: /01/ }).click()
+  await expect(panel.getByRole('heading', { name: '第 1 周 · 记录基线' })).toBeVisible()
+  await expect(panel.getByText(/正在查看第/)).toBeHidden()
+})

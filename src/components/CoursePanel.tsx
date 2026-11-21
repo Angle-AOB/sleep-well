@@ -301,7 +301,8 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
   const progress: CourseProgress = assessment.progress
   const currentWeek = progress.week
   const completed = progress.completed
-  const shownWeek = (selectedWeek === null ? currentWeek : Math.min(selectedWeek, currentWeek)) as CourseWeek
+  // 六周内容都可查看（含未开始的周）；训练动作始终按当前周执行。
+  const shownWeek = (selectedWeek ?? currentWeek) as CourseWeek
   const content = weekContent[shownWeek]
   const windowView = assessment.window
   const windowWarning = windowView.status === 'unavailable'
@@ -321,7 +322,6 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
               type="button"
               className={`week-step is-${status}`}
               onClick={() => setSelectedWeek(week)}
-              disabled={status === 'locked'}
               aria-current={status === 'current' ? 'step' : undefined}
             >
               <span className="week-number">{String(week).padStart(2, '0')}</span>
@@ -361,6 +361,11 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
         </p>
       )}
       {completed && <p className="course-note">{t('courseCompletedNote')}</p>}
+      {shownWeek !== currentWeek && (
+        <p className="course-note" role="status">
+          {t('courseWeekPreview', { week: shownWeek, current: currentWeek })}
+        </p>
+      )}
 
       <div className="course-grid">
         <section className="course-content" aria-labelledby="week-content-title">
