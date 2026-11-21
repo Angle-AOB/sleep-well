@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { FirstRunDialog } from './components/FirstRunDialog'
 import { ReminderCard } from './components/ReminderCard'
 import { DiaryPage } from './pages/DiaryPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -11,8 +12,9 @@ import { MigrationError } from './data/database'
 import { evaluateBackupReminder, type BackupReminderDecision } from './domain/reminders'
 import type { ScreeningRecord } from './domain/screening'
 import { localToday } from './format'
+import { hasSeenFirstRun, markFirstRunSeen } from './firstRun'
 import { readCacheStatus } from './pwa'
-import { hashForPage, pages, type Page } from './routing'
+import { hashForPage, hashForSettingsSubPage, pages, type Page } from './routing'
 import { settingsSubPageHeadingKeys } from './settingsSubPages'
 import { usePageRouting } from './usePageRouting'
 import type { OfflineStatus, PersistenceStatus, StorageState } from './statusText'
@@ -30,6 +32,9 @@ const pageTitleKeys: Record<Page, string> = {
   training: 'pageTraining',
   settings: 'pageSettings'
 }
+
+/** 首次说明的两种打开方式：本设备首次打开，或从「关于与隐私」主动复看。 */
+type FirstRunMode = 'auto' | 'replay'
 
 /** 底栏顺序来自 routing 的 `pages`，新增页面只改那一处。 */
 const navigationItems = pages
@@ -89,6 +94,10 @@ function App() {
   const [preferencesLoaded, setPreferencesLoaded] = useState(false)
   const [pendingSaves, setPendingSaves] = useState(0)
   const saveQueue = useRef(Promise.resolve())
+  /** 本设备首次打开时自动打开；从关于页复看时也复用同一个弹窗。 */
+  const [firstRun, setFirstRun] = useState<FirstRunMode | null>(() =>
+    hasSeenFirstRun() ? null : 'auto'
+  )
 
   useEffect(() => {
     if (!window.indexedDB) return
@@ -206,6 +215,17 @@ function App() {
     }
   }
 
+  /**
+   * 关闭首次说明。只有本设备首次自动展示那次写标记；从关于页复看不重置。
+   * 两个主入口都改 hash，交给同一套页面路由处理。
+   */
+  function closeFirstRun(destination?: 'screening' | 'today') {
+    if (firstRun === 'auto') markFirstRunSeen()
+    setFirstRun(null)
+    if (destination === 'screening') window.location.hash = hashForSettingsSubPage('screening')
+    if (destination === 'today') window.location.hash = hashForPage('today')
+  }
+
   /** 同一张提醒卡：今日页嵌在页面内，其他页面提到 `<main>` 顶部，保证深链也能看到。 */
   const reminderCard = reminder && preferencesLoaded && preferences.backupReminders
     ? (
@@ -304,8 +324,17 @@ function App() {
           onImported={reloadAfterImport}
           onExported={(exportedAt) => updatePreference({ ...preferences, lastBackupAt: exportedAt })}
           onRetryCache={() => void retryCacheCheck()}
+          onShowFirstRun={() => setFirstRun('replay')}
         />
       </main>
+
+      {firstRun !== null && (
+        <FirstRunDialog
+          onStartScreening={() => closeFirstRun('screening')}
+          onRecordDiary={() => closeFirstRun('today')}
+          onDismiss={() => closeFirstRun()}
+        />
+      )}
     </>
   )
 }

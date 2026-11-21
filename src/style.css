@@ -61,6 +61,30 @@ h1, .intro-title { max-width: 450px; margin: 0; color: #213630; font-family: Geo
 .about-panel p { margin: 0 0 14px; color: #61706a; font-size: 14px; line-height: 1.9; }
 .about-panel .local-only { color: #47765f; font-size: 13px; font-weight: 700; }
 .about-panel .footer { margin-top: 28px; }
+.about-replay { display: inline-flex; align-items: center; margin: 18px 0 0; }
+
+/* 首次说明：原生模态弹窗。宽度按视口收窄，内容超长时在弹窗内滚动，页面不横向溢出。 */
+.first-run-dialog {
+  width: min(560px, calc(100% - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  overflow-y: auto;
+  color: #22302c;
+  background: #e7eee9;
+  border: 1px solid #d2dfd7;
+}
+.first-run-dialog::backdrop { background: rgba(21, 35, 31, .55); }
+.first-run-body { position: relative; padding: 30px; }
+.first-run-heading { margin: 0 0 16px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(28px, 6vw, 40px); font-weight: 400; line-height: 1.1; }
+.first-run-lead { margin: 0 0 20px; color: #5b6863; font-size: 15px; line-height: 1.8; }
+.first-run-dialog h3 { margin: 22px 0 8px; color: #263b36; font-family: Georgia, "Times New Roman", serif; font-size: 19px; font-weight: 400; }
+.first-run-dialog p { margin: 0 0 12px; color: #61706a; font-size: 14px; line-height: 1.8; }
+.first-run-dialog p.panel-kicker { margin: 0 0 12px; color: #ba6e4f; font-size: 11px; }
+.first-run-dialog .local-only { color: #47765f; font-size: 13px; font-weight: 700; }
+.first-run-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+.first-run-actions .primary-button, .first-run-actions .secondary-button { width: 100%; min-height: 48px; }
+.first-run-close { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: #344d45; background: transparent; border: 0; font-size: 26px; line-height: 1; cursor: pointer; }
 
 .content-grid { display: grid; grid-template-columns: minmax(0, 1fr); padding: 58px 0 72px; }
 .info-section { max-width: 540px; }.section-heading { display: flex; align-items: baseline; gap: 16px; }.section-index { color: #ba6e4f; font-size: 11px; font-weight: 800; letter-spacing: .1em; }
@@ -157,6 +181,7 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
   /* 窄屏下四项核心输入保持两列，指标摘要同样一行三段。 */
   .diary-grid { gap: 14px 12px; }.diary-date-row input { max-width: none; }
   .diary-savebar-inner { padding: 10px 18px; }
+  .first-run-body { padding: 26px 20px; }
 }
 
 .course-panel { margin-bottom: 28px; padding: 28px; background: #e7eee9; border: 1px solid #d2dfd7; }
