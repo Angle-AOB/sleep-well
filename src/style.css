@@ -73,7 +73,9 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #507964; }
 .footer { padding-top: 16px; color: #7a8781; border-top: 1px solid #d6ddd7; font-size: 11px; }.footer i { width: 4px; height: 4px; margin: 0 5px 1px; border-radius: 50%; }
 
 .screening-panel, .diary-panel { padding: 28px; background: #e7eee9; border: 1px solid #d2dfd7; }
-.screening-panel { margin-bottom: 28px; }.diary-panel { margin-bottom: 48px; }
+.screening-panel { margin-bottom: 28px; }
+/* 固定保存栏压在内容之上，面板底部留出与栏高相当的空白，最后一行输入仍能滚到栏上方。 */
+.diary-panel { margin-bottom: 48px; padding-bottom: 48px; }
 .screening-panel.is-paused { background: #f3ece4; border-color: #e2d3c4; }
 input[type="date"], input[type="number"], select { width: 100%; min-height: 48px; padding: 0 12px; color: #263b36; background: #f7faf6; border: 1px solid #b9cbc0; border-radius: 0; font-size: 16px; }
 input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-color: #507964; }
@@ -82,30 +84,61 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
 .secondary-button { color: #344d45; background: transparent; border: 1px solid #b9cbc0; }
 .choice-row { display: flex; flex-wrap: wrap; gap: 4px 18px; }.choice-row label, .tag-choice { display: inline-flex; align-items: center; gap: 8px; min-width: 44px; min-height: 44px; color: #52635c; font-size: 13px; }
 
-.diary-intro { max-width: 720px; margin: 0 0 24px; color: #61706a; font-size: 14px; line-height: 1.9; }
-.diary-form { display: grid; gap: 22px; }.diary-date-field { max-width: 260px; }
-.diary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; }
-.diary-field { display: flex; flex-direction: column; gap: 8px; }.diary-inline-input { width: 140px; margin-top: 4px; }
+.diary-head { margin-bottom: 16px; }.diary-head .panel-kicker { margin-bottom: 6px; }
+.diary-intro { max-width: 720px; margin: 8px 0 0; color: #61706a; font-size: 13px; line-height: 1.7; }
+.diary-form { display: grid; gap: 26px; }
+.diary-first { display: grid; gap: 14px; }
+.diary-second { display: grid; gap: 18px; padding-top: 22px; border-top: 1px solid #cbd9d0; }
+.diary-second-title { margin: 0; color: #263b36; font-family: Georgia, "Times New Roman", serif; font-size: 18px; font-weight: 400; }
+/* 日期压成一行：标签在左、输入在右。 */
+.diary-date-row { display: flex; align-items: center; gap: 12px; }
+.diary-date-row .field-label { margin: 0; white-space: nowrap; }
+.diary-date-row input { flex: 1 1 auto; width: auto; min-width: 0; max-width: 240px; }
+.diary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; }
+.diary-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.diary-grid-core input[type="time"] { min-height: 48px; font-size: 18px; padding: 0 12px; }
 .field-hint { margin: 0; color: #6f7d77; font-size: 12px; line-height: 1.6; }
+.diary-inline-input { width: 140px; margin-top: 4px; }
+.diary-summary { padding: 10px 16px; background: #f7faf6; border: 1px solid #d2dfd7; }
+.diary-summary-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; margin: 0; }
+.diary-summary-item { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.diary-summary-item dt { color: #66736e; font-size: 11px; letter-spacing: .04em; }
+.diary-summary-item dd { margin: 0; color: #263b36; font-size: 15px; line-height: 1.35; }
+.diary-summary .metric-unavailable { display: inline; color: #8a6b52; font-size: 14px; }
+/* 保存栏固定在底栏正上方：滚动到第二屏后仍可见、可点。
+   bottom 贴底、再用 padding 撑出底栏高度，避免和底栏之间露出缝隙或被压住。 */
+.diary-savebar {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 9;
+  padding-bottom: calc(60px + env(safe-area-inset-bottom));
+  background: #f7faf6; border-top: 1px solid #d2dfd7; box-shadow: 0 -6px 18px rgba(38, 59, 54, .08);
+}
+.diary-savebar-inner { display: flex; justify-content: flex-end; width: min(100%, 1180px); margin: 0 auto; padding: 10px 24px; }
+.diary-savebar .primary-button { flex: 1 1 auto; }
 .diary-fieldset { margin: 0; padding: 0; border: 0; }.diary-fieldset legend { margin-bottom: 8px; padding: 0; }
 .tag-row { display: flex; flex-wrap: wrap; gap: 4px 20px; }
 .diary-metrics { padding: 20px; background: #f7faf6; border: 1px solid #d2dfd7; }
 .diary-metrics h3, .diary-history h3 { margin: 0 0 14px; color: #263b36; font-family: Georgia, "Times New Roman", serif; font-size: 18px; font-weight: 400; }
-.metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 0 0 14px; }
+.metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0 0 14px; }
 .metric-cell dt { color: #66736e; font-size: 11px; letter-spacing: .04em; }.metric-cell dd { margin: 6px 0 0; color: #263b36; font-size: 18px; line-height: 1.35; }
 .metric-unavailable { display: block; color: #8a6b52; font-size: 14px; }.metric-reason { display: block; margin-top: 2px; color: #7a8781; font-size: 11px; line-height: 1.5; }
 .diary-alert { margin: 0; padding: 14px 16px; color: #8a3d2b; background: #f7e9e3; border-left: 3px solid #ba6e4f; font-size: 13px; line-height: 1.7; }.diary-alert p { margin: 0; }.diary-alert ul { margin: 8px 0 0; padding-left: 18px; }
 .diary-status { margin: 0; color: #47765f; font-size: 13px; }.diary-status.is-warning { color: #8a3d2b; }
-.diary-actions { display: flex; justify-content: flex-end; }
 .diary-history { margin-top: 28px; padding-top: 24px; border-top: 1px solid #cbd9d0; }
 .diary-history ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .history-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; width: 100%; min-height: 48px; padding: 10px 14px; color: #52635c; background: #f7faf6; border: 1px solid #d2dfd7; font-size: 13px; text-align: left; cursor: pointer; }
 .history-entry.is-current { border-color: #729786; box-shadow: inset 0 0 0 1px #729786; }
 .history-status { color: #8a6b52; }.history-status.is-complete { color: #47765f; }.history-metric { margin-left: auto; color: #66736e; text-align: right; }
 
+@media (min-width: 701px) {
+  .diary-savebar .primary-button { flex: 0 0 auto; min-width: 180px; }
+}
+
 @media (max-width: 700px) {
   .page-shell { padding: 18px 18px calc(96px + env(safe-area-inset-bottom)); }.intro { display: flex; flex-direction: column; min-height: 0; }.intro-copy { padding: 46px 0 38px; }.night-art { min-height: 220px; }.moon { top: 34px; right: 20%; width: 90px; height: 90px; }.content-grid { grid-template-columns: 1fr; gap: 48px; padding: 42px 0 54px; }.preferences-panel { padding: 24px; }.footer { align-items: flex-start; flex-direction: column; gap: 10px; }
-  .screening-panel, .diary-panel { padding: 22px; }.diary-grid, .metric-grid { grid-template-columns: 1fr; }.history-entry { align-items: flex-start; }
+  .screening-panel, .diary-panel { padding: 22px; }.diary-panel { padding-bottom: 44px; }.history-entry { align-items: flex-start; }
+  /* 窄屏下四项核心输入保持两列，指标摘要同样一行三段。 */
+  .diary-grid { gap: 14px 12px; }.diary-date-row input { max-width: none; }
+  .diary-savebar-inner { padding: 10px 18px; }
 }
 
 .course-panel { margin-bottom: 28px; padding: 28px; background: #e7eee9; border: 1px solid #d2dfd7; }
