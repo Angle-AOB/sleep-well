@@ -141,7 +141,7 @@ test('an unrecorded night puts the record action in the first screen', async ({ 
   expect(await page.evaluate(() => window.scrollY)).toBe(0)
 
   await record.click()
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
   await expect(page).toHaveURL(/#\/diary$/)
 })
 
@@ -156,14 +156,14 @@ test('a complete last night summarises SE and TST with view-or-edit', async ({ p
   const action = diaryCard(page).getByRole('link', { name: /查看或修改/ })
   await expect(action).toBeVisible()
   await action.click()
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
   await expect(diaryPanel(page).locator('#diary-date')).toHaveValue('2026-11-20')
 })
 
 test('recording from the today card saves the form default date and then offers view-or-edit', async ({ page }) => {
   await openToday(page)
   await diaryCard(page).getByRole('link', { name: /记录昨夜/ }).click()
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
 
   // 今日卡查找的日期必须与表单默认日期一致，否则按默认保存后今日卡仍显示未记录。
   const diary = diaryPanel(page)
@@ -188,7 +188,7 @@ test('a partially recorded night offers completion instead of a summary', async 
   await expect(action).toBeVisible()
   await expect(diaryCard(page).getByText(/只记录了一部分/)).toBeVisible()
   await action.click()
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
 })
 
 test('the plan card shows window, fixed wake time and caffeine cutoff', async ({ page }) => {

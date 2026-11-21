@@ -255,7 +255,9 @@ function App() {
 
   const pageTitle = page === 'settings' && subPage !== null
     ? t(settingsSubPageHeadingKeys[subPage])
-    : t(pageTitleKeys[page])
+    : page === 'diary'
+      ? t('diaryTitle')
+      : t(pageTitleKeys[page])
 
   return (
     <>

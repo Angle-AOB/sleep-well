@@ -118,7 +118,7 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #507964; }
 .error-log-text { max-width: 100%; margin: 14px 0; padding: 14px 16px; overflow-x: auto; color: #344d45; background: #f7faf6; border: 1px solid #b9cbc0; font-family: Consolas, "Courier New", monospace; font-size: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
 .footer { padding-top: 16px; color: #7a8781; border-top: 1px solid #d6ddd7; font-size: 11px; }.footer i { width: 4px; height: 4px; margin: 0 5px 1px; border-radius: 50%; }
 
-.screening-panel, .diary-panel { padding: 28px; background: #e7eee9; border: 1px solid #d2dfd7; }
+.screening-panel { padding: 28px; background: #e7eee9; border: 1px solid #d2dfd7; }
 .screening-panel { margin-bottom: 28px; }
 /* 固定保存栏压在内容之上，面板底部留出与栏高相当的空白，最后一行输入仍能滚到栏上方。 */
 .diary-panel { margin-bottom: 48px; padding-bottom: 48px; }
@@ -184,7 +184,7 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
 @media (max-width: 700px) {
   .page-shell { padding: 18px 18px calc(96px + env(safe-area-inset-bottom)); }.preferences-panel { padding: 24px; }.footer { align-items: flex-start; flex-direction: column; gap: 10px; }
   .today-card-link { padding: 18px 18px; }.today-plan-range { font-size: 28px; }
-  .screening-panel, .diary-panel { padding: 22px; }.diary-panel { padding-bottom: 44px; }.history-entry { align-items: flex-start; }
+  .screening-panel { padding: 22px; }.history-entry { align-items: flex-start; }
   /* 窄屏下四项核心输入保持两列，指标摘要同样一行三段。 */
   .diary-grid { gap: 14px 12px; }.diary-date-row input { max-width: none; }
   .diary-savebar-inner { padding: 10px 18px; }

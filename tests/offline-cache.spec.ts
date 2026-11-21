@@ -98,7 +98,7 @@ test('a failed service-worker update keeps the current version working with loca
 
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
   await expect(diary.getByText('11 月 18 日')).toBeVisible()
 })
 

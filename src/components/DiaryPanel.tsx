@@ -384,10 +384,8 @@ export function DiaryPanel({
   }
 
   return (
-    <section className="diary-panel" aria-labelledby="diary-title">
+    <div className="diary-panel">
       <div className="diary-head">
-        <p className="panel-kicker">{t('diaryKicker')}</p>
-        <h2 id="diary-title">{t('diaryTitle')}</h2>
         <p className="diary-intro">{t('diaryIntro')}</p>
       </div>
 
@@ -642,6 +640,6 @@ export function DiaryPanel({
           </section>
         </>
       )}
-    </section>
+    </div>
   )
 }
