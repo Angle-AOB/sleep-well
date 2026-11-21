@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { hashForPage, routeFromHash, type Page, type Route } from './routing'
+import { hashForPage, routeFromHash, type Page, type Route, type SettingsSubPage } from './routing'
 
 const todayRoute: Route = { page: 'today', subPage: null }
 
@@ -55,7 +55,7 @@ export function usePageRouting() {
   const [route, setRoute] = useState<Route>(() => routeFromHash(window.location.hash) ?? todayRoute)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const lastPage = useRef<Page>(route.page)
-  const lastSubPage = useRef<string | null>(route.subPage)
+  const lastSubPage = useRef<SettingsSubPage | null>(route.subPage)
 
   // 初始状态已经把无法解析的地址当成今日；这里只把地址栏改成一致的 `#/today`。
   useEffect(() => {

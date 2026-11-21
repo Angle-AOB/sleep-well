@@ -5,13 +5,13 @@ import { ErrorLogPanel } from '../components/ErrorLogPanel'
 import { ScreeningPanel } from '../components/ScreeningPanel'
 import type { Preferences } from '../data/preferences'
 import type { ScreeningRecord } from '../domain/screening'
-import { SETTINGS_BACKUP } from '../routing'
+import { SETTINGS_BACKUP, type SettingsSubPage } from '../routing'
 import { storageMessage, type StorageState } from '../statusText'
 
 type SettingsPageProps = {
   hidden: boolean
   /** 路由里的子页（`#/settings/backup`）；`backup` 出现时把焦点送到备份面板。 */
-  subPage: string | null
+  subPage: SettingsSubPage | null
   /** 提醒卡的「去导出备份」点击计数；同址重复点击也靠它再定位一次。 */
   backupJump: number
   preferences: Preferences

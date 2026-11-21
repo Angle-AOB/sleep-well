@@ -32,13 +32,18 @@ test('an unknown address falls back to today and replaces the hash', async ({ pa
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 })
 
-test('a settings sub-page deep link stays on settings without rewriting the address', async ({ page }) => {
+test('a non-settings page with an extra segment falls back to today and replaces the hash', async ({ page }) => {
   await page.clock.setFixedTime(new Date(defaultClock))
-  await page.goto('/#/settings/screening')
-  await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: '训练偏好' })).toBeVisible()
-  // 子页暂时只解析不渲染：地址保持原样，用户不会被带回今日。
-  await expect(page).toHaveURL(/#\/settings\/screening$/)
+  await page.goto('/#/diary/foo')
+  await expect(page).toHaveURL(/#\/today$/)
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
+})
+
+test('an unknown settings sub-page falls back to today and replaces the hash', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(defaultClock))
+  await page.goto('/#/settings/unknown')
+  await expect(page).toHaveURL(/#\/today$/)
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 })
 
 test('an in-page fragment such as #main-content is left alone', async ({ page }) => {
@@ -142,6 +147,8 @@ test('leaving a settings sub-page returns to the top and focuses the page headin
   const backupTitle = page.getByRole('heading', { name: '本地备份与导出' })
   await expect(backupTitle).toBeFocused()
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+  // `backup` 是设置页唯一有效的子页：停在设置，地址保持原样。
+  await expect(page).toHaveURL(/#\/settings\/backup$/)
 
   // 底栏「设置」把地址从 `#/settings/backup` 换回 `#/settings`：page 没变，
   // 也要回到页顶并把焦点交给页标题，而不是停在备份面板上。
