@@ -12,7 +12,9 @@ import {
 } from '../domain/backup'
 import { BackupArchiveError, type BackupManifest } from '../domain/backupArchive'
 import { diaryCsv, type DiaryCsvLabels } from '../domain/csv'
+import type { ErrorCategory, ErrorContext } from '../domain/errorLog'
 import { applyBackupImport, readBackupData } from '../data/backup'
+import { recordError } from '../data/errorLog'
 import {
   bytesBlob,
   createArchiveBytes,
@@ -28,19 +30,8 @@ import {
 } from '../data/backupDelivery'
 import { dateLongText, localToday, momentText } from '../format'
 
-type FailureReason =
-  | 'storage-unavailable'
-  | 'compression-unsupported'
-  | 'delivery-failed'
-  | 'unreadable-file'
-  | 'archive-rejected'
-  | 'archive-unsupported'
-  | 'archive-too-large'
-  | 'future-version'
-  | 'storage-error'
-  | 'import-failed'
-  | 'refresh-failed'
-  | 'export-failed'
+/** 失败原因沿用错误日志的类别体系；界面提示与诊断记录共享同一分类。 */
+type FailureReason = ErrorCategory
 
 /** 界面本地的脱敏失败状态；只保留界面真正渲染的失败原因。 */
 type LocalBackupError = { reason: FailureReason }
@@ -140,7 +131,8 @@ const reasonKey: Record<FailureReason, string> = {
   'storage-error': 'backupStorageReadFailed',
   'import-failed': 'backupImportFailed',
   'refresh-failed': 'backupImportedRefreshFailed',
-  'export-failed': 'backupExportError'
+  'export-failed': 'backupExportError',
+  'storage-write-failed': 'storageWriteError'
 }
 
 function deliveryNotice(outcome: DeliveryOutcome): Notice | null {
@@ -173,7 +165,8 @@ export function BackupPanel({ storageUnavailable, onImported, onExported }: Back
     setLocalError(null)
   }
 
-  function fail(reason: FailureReason) {
+  function fail(reason: FailureReason, context: ErrorContext) {
+    recordError(reason, context)
     setLocalError({ reason })
     setNotice(null)
   }
@@ -183,7 +176,7 @@ export function BackupPanel({ storageUnavailable, onImported, onExported }: Back
     try {
       return await readBackupData()
     } catch {
-      fail('storage-error')
+      fail('storage-error', { operation: 'storage-read' })
       return null
     }
   }
@@ -192,12 +185,12 @@ export function BackupPanel({ storageUnavailable, onImported, onExported }: Back
     const outcome = await deliverFile(blob, filename)
     const mapped = deliveryNotice(outcome)
     if (mapped) setNotice(mapped)
-    else fail('delivery-failed')
+    else fail('delivery-failed', { operation: 'export-csv' })
   }
 
   async function exportZip() {
-    if (storageUnavailable) return fail('storage-unavailable')
-    if (!supportsBackupCompression()) return fail('compression-unsupported')
+    if (storageUnavailable) return fail('storage-unavailable', { operation: 'export-backup' })
+    if (!supportsBackupCompression()) return fail('compression-unsupported', { operation: 'export-backup' })
 
     setActivity('export')
     clearNotice()
@@ -208,19 +201,19 @@ export function BackupPanel({ storageUnavailable, onImported, onExported }: Back
       const bytes = await createArchiveBytes(payload)
       const outcome = await deliverFile(bytesBlob(bytes), backupFileName(payload.exportedAt))
       const mapped = deliveryNotice(outcome)
-      if (!mapped) return fail('delivery-failed')
+      if (!mapped) return fail('delivery-failed', { operation: 'export-backup' })
       // 记账先落盘再给成功提示：提示可见即代表 lastBackupAt 已写入，提醒不会再催促。
       await onExported?.(payload.exportedAt)
       setNotice(mapped)
     } catch {
-      fail('export-failed')
+      fail('export-failed', { operation: 'export-backup' })
     } finally {
       setActivity(null)
     }
   }
 
   async function exportCsv() {
-    if (storageUnavailable) return fail('storage-unavailable')
+    if (storageUnavailable) return fail('storage-unavailable', { operation: 'export-csv' })
 
     setActivity('export')
     clearNotice()
@@ -234,7 +227,7 @@ export function BackupPanel({ storageUnavailable, onImported, onExported }: Back
         diaryFileName(today)
       )
     } catch {
-      fail('export-failed')
+      fail('export-failed', { operation: 'export-csv' })
     } finally {
       setActivity(null)
     }
@@ -251,20 +244,21 @@ export function BackupPanel({ storageUnavailable, onImported, onExported }: Back
     setConfirmingOverwrite(false)
     setActivity('read')
     try {
-      if (file.size > MAX_COMPRESSED_BYTES) return fail('archive-too-large')
+      const context: ErrorContext = { operation: 'import-read', fileBytes: file.size }
+      if (file.size > MAX_COMPRESSED_BYTES) return fail('archive-too-large', context)
 
       let bytes: Uint8Array
       try {
         bytes = new Uint8Array(await file.arrayBuffer())
       } catch {
-        return fail('unreadable-file')
+        return fail('unreadable-file', context)
       }
 
       let archive
       try {
         archive = await readArchiveBytes(bytes)
       } catch (error) {
-        return fail(archiveFailureReason(error))
+        return fail(archiveFailureReason(error), context)
       }
 
       const current = await readCurrent()
@@ -288,7 +282,7 @@ export function BackupPanel({ storageUnavailable, onImported, onExported }: Back
     try {
       result = await applyBackupImport(preview.payload, strategy)
     } catch {
-      fail('import-failed')
+      fail('import-failed', { operation: 'import-apply' })
       setActivity(null)
       return
     }
@@ -301,8 +295,8 @@ export function BackupPanel({ storageUnavailable, onImported, onExported }: Back
         ? { key: 'backupImportedOverwrite', values: { count: result.added } }
         : { key: 'backupImportedAppend', values: { added: result.added, skipped: result.skipped } })
     } catch {
-      // 导入已经提交，不能说“当前数据未变”；这条错误留给后续错误面板。
-      fail('refresh-failed')
+      // 导入已经提交，不能说“当前数据未变”；这条错误记录留给错误面板。
+      fail('refresh-failed', { operation: 'refresh' })
     } finally {
       setActivity(null)
     }

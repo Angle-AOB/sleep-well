@@ -17,6 +17,7 @@ const resources = {
       saved: '偏好已保存在此设备',
       saving: '正在保存偏好…',
       storageError: '无法保存偏好。请检查浏览器存储空间或设置，然后重试。',
+      storageWriteError: '无法写入本地数据库。请检查此设备存储空间后重试。',
       storageUnavailable: '此浏览器无法使用本地存储，偏好更改不会保存。',
       storagePersisted: '浏览器已批准增强本地存储保留',
       storageBestEffort: '浏览器未批准增强保留；清除站点数据可能导致记录丢失。',
