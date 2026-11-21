@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BackupPanel } from './components/BackupPanel'
 import { CoursePanel } from './components/CoursePanel'
@@ -13,7 +13,7 @@ import { evaluateBackupReminder, type BackupReminderDecision } from './domain/re
 import type { ScreeningRecord } from './domain/screening'
 import { localToday } from './format'
 import { readCacheStatus } from './pwa'
-import { hashForPage, pageFromHash, type Page } from './routing'
+import { hashForPage, isUnknownRoute, pageFromHash, type Page } from './routing'
 import './style.css'
 
 type OfflineStatus = 'pending' | 'ready' | 'unsupported' | 'error'
@@ -32,12 +32,36 @@ const pageTitleKeys: Record<Page, string> = {
   settings: 'pageSettings'
 }
 
-const navigationItems: { page: Page; icon: string }[] = [
-  { page: 'today', icon: '◐' },
-  { page: 'diary', icon: '☾' },
-  { page: 'training', icon: '⑥' },
-  { page: 'settings', icon: '◈' }
-]
+const navigationItems: Page[] = ['today', 'diary', 'training', 'settings']
+
+/** 底栏线性图标：24×24、描边取 currentColor，随文字颜色一起标识当前项。 */
+const tabIcons: Record<Page, ReactNode> = {
+  today: (
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6" />
+    </svg>
+  ),
+  diary: (
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M9 3v18M12.5 8h3.5M12.5 12h3.5" />
+    </svg>
+  ),
+  training: (
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+      <path d="M5 20v-5M12 20V11M19 20V6" />
+    </svg>
+  ),
+  settings: (
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+      <path d="M4 7h16M4 12h16M4 17h16" />
+      <circle cx="9" cy="7" r="2" />
+      <circle cx="15" cy="12" r="2" />
+      <circle cx="8" cy="17" r="2" />
+    </svg>
+  )
+}
 
 function App() {
   const { t } = useTranslation()
@@ -68,9 +92,9 @@ function App() {
   const [pendingSaves, setPendingSaves] = useState(0)
   const saveQueue = useRef(Promise.resolve())
 
-  // 空地址、非页面锚点与未知地址都回落到今日，并替换地址，避免历史里留下无效项。
+  // 只有空地址、未知路由才回落到今日并替换地址；`#main-content` 这类页内片段不动地址。
   useEffect(() => {
-    if (pageFromHash(window.location.hash) === null) {
+    if (isUnknownRoute(window.location.hash)) {
       window.history.replaceState(null, '', hashForPage('today'))
     }
   }, [])
@@ -78,12 +102,15 @@ function App() {
   useEffect(() => {
     function onHashChange() {
       const next = pageFromHash(window.location.hash)
-      if (next === null) {
-        window.history.replaceState(null, '', hashForPage('today'))
-        setPage('today')
+      if (next !== null) {
+        setPage(next)
         return
       }
-      setPage(next)
+      // 页内片段不切页；只有看起来是路由的地址才回落到今日。
+      if (isUnknownRoute(window.location.hash)) {
+        window.history.replaceState(null, '', hashForPage('today'))
+        setPage('today')
+      }
     }
 
     window.addEventListener('hashchange', onHashChange)
@@ -205,6 +232,18 @@ function App() {
     void updatePreference({ ...preferences, backupReminders: false })
   }
 
+  /** 同一张提醒卡：今日页嵌在页面内，其他页面提到 `<main>` 顶部，保证深链也能看到。 */
+  const reminderCard = reminder && preferencesLoaded && preferences.backupReminders
+    ? (
+      <ReminderCard
+        kind={reminder.kind}
+        entryCount={reminder.entryCount}
+        onDisable={disableReminders}
+        onDismiss={() => setReminder(null)}
+      />
+    )
+    : null
+
   const storageMessage = pendingSaves > 0
     ? t('saving')
     : storageState === 'ready'
@@ -255,19 +294,21 @@ function App() {
         <div className="tabbar-inner">
           {navigationItems.map((item) => (
             <a
-              key={item.page}
+              key={item}
               className="tab-link"
-              href={hashForPage(item.page)}
-              aria-current={page === item.page ? 'page' : undefined}
+              href={hashForPage(item)}
+              aria-current={page === item ? 'page' : undefined}
             >
-              <span className="tab-icon" aria-hidden="true">{item.icon}</span>
-              <span>{t(pageTitleKeys[item.page])}</span>
+              <span className="tab-icon" aria-hidden="true">{tabIcons[item]}</span>
+              <span>{t(pageTitleKeys[item])}</span>
             </a>
           ))}
         </div>
       </nav>
 
       <main className="page-shell" id="main-content" ref={mainRef} tabIndex={-1}>
+        {page !== 'today' && reminderCard}
+
         <section className="page" hidden={page !== 'today'} aria-labelledby="page-title">
           <section className="intro" aria-labelledby="intro-title">
             <div className="intro-copy">
@@ -309,14 +350,7 @@ function App() {
             )}
           </section>
 
-          {reminder && preferencesLoaded && preferences.backupReminders && (
-            <ReminderCard
-              kind={reminder.kind}
-              entryCount={reminder.entryCount}
-              onDisable={disableReminders}
-              onDismiss={() => setReminder(null)}
-            />
-          )}
+          {page === 'today' && reminderCard}
 
           <section className="content-grid" aria-label={t('productLabel')}>
             <article className="info-section">

@@ -20,7 +20,8 @@ button, input { font: inherit; }
 .tabbar-inner { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(100%, 1180px); margin: 0 auto; }
 .tab-link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 44px; min-height: 56px; padding: 8px 4px; color: #66736e; font-size: 12px; text-decoration: none; }
 .tab-link[aria-current="page"] { color: #263b36; font-weight: 800; }
-.tab-icon { font-size: 20px; line-height: 1; }
+.tab-icon { display: inline-flex; }
+.tab-icon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .footer { display: flex; align-items: center; justify-content: space-between; }
 
 

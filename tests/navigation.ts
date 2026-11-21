@@ -10,8 +10,11 @@ export const pageHeading: Record<AppPage, string> = {
   settings: '设置'
 }
 
-export async function openPage(page: Page, target: AppPage, at?: string): Promise<void> {
-  if (at) await page.clock.setFixedTime(new Date(at))
+/** 约定所有端到端用例固定本地日期；个别用例需要别的日期时显式传入。 */
+export const defaultClock = '2026-11-20T09:00:00'
+
+export async function openPage(page: Page, target: AppPage, at = defaultClock): Promise<void> {
+  await page.clock.setFixedTime(new Date(at))
   const url = `/#/${target}`
   // 同一个 hash 地址的 goto 在 Chromium 里是原地锚点导航，不会重新挂载应用；
   // 「重新打开应用」必须显式 reload，日期推进与提醒评估才会重新执行。

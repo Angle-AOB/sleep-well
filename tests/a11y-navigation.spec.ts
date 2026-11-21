@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { goTo, openPage, pageHeading, type AppPage } from './navigation'
+import { goTo, openPage, pageHeading, defaultClock, type AppPage } from './navigation'
 
 // 四页壳的稳定契约：页面地址、底栏可访问名称、顶栏页名与当前项语义。
 // 断言全部走地址、可访问角色/名称、可见性、焦点与几何尺寸，不碰路由或组件内部实现。
@@ -19,15 +19,35 @@ test('each page address opens directly, has one heading, and survives a reload',
 })
 
 test('an empty address lands on today and is replaced with #/today', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(defaultClock))
   await page.goto('/')
   await expect(page).toHaveURL(/#\/today$/)
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
 })
 
 test('an unknown address falls back to today and replaces the hash', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(defaultClock))
   await page.goto('/#/unknown-page')
   await expect(page).toHaveURL(/#\/today$/)
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
+})
+
+test('an in-page fragment such as #main-content is left alone', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(defaultClock))
+  await page.goto('/#main-content')
+  await expect(page).toHaveURL(/#main-content$/)
+  await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
+})
+
+test('the skip link focuses main content without changing the page address', async ({ page }) => {
+  await openPage(page, 'diary')
+  const skip = page.getByRole('link', { name: '跳到主要内容' })
+  await skip.focus()
+  await page.keyboard.press('Enter')
+
+  await expect(page.getByRole('main')).toBeFocused()
+  await expect(page).toHaveURL(/#\/diary$/)
+  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
 })
 
 test('browser back and forward stay consistent with bottom-bar switching', async ({ page }) => {
@@ -56,16 +76,13 @@ test('the bottom bar marks the current page with aria-current, colour and weight
   await expect(current).toHaveAttribute('aria-current', 'page')
   await expect(other).not.toHaveAttribute('aria-current', 'page')
 
-  const styles = await page.evaluate(() => {
-    const links = Array.from(document.querySelectorAll('nav a'))
-    return links.map((link) => {
-      const style = getComputedStyle(link)
-      const label = link.querySelector('span:last-child')?.textContent?.trim() ?? ''
-      return { label, color: style.color, weight: style.fontWeight }
+  const styles = await Promise.all([current, other].map((link) =>
+    link.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { color: style.color, weight: style.fontWeight }
     })
-  })
-  const currentStyle = styles.find((style) => style.label === '今日')!
-  const otherStyle = styles.find((style) => style.label === '日记')!
+  ))
+  const [currentStyle, otherStyle] = styles
   expect(currentStyle.color).not.toBe(otherStyle.color)
   expect(Number(currentStyle.weight)).toBeGreaterThan(Number(otherStyle.weight))
 })
