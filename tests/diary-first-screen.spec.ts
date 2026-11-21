@@ -60,6 +60,13 @@ async function expectInViewport(page: Page, target: Locator, what: string) {
   }).toBe(true)
 }
 
+/** 等提交后的滚动副作用执行完（两帧），再断言页面没有被意外滚动。 */
+async function settleScroll(page: Page) {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  }))
+}
+
 test('opening the diary shows the save button in the first screen', async ({ page }) => {
   await openDiary(page)
   await expectAboveTheFold(page, saveButton(page), '保存按钮')
@@ -112,6 +119,21 @@ test('the save button stays in the viewport after scrolling to the second screen
   // 底部固定栏可以盖住内容，但不能盖住按钮本身：点它必须能真正提交。
   await button.click()
   await expect(page.getByText('日记已保存在此设备')).toBeVisible()
+})
+
+test('saving from the first screen keeps the page at the top', async ({ page }) => {
+  await openDiary(page)
+  await page.locator('#lights-off').fill('23:00')
+  await page.locator('#out-of-bed').fill('07:00')
+
+  await saveButton(page).click()
+  await expect(page.getByRole('status').filter({ hasText: '日记已保存在此设备' })).toBeVisible()
+  await settleScroll(page)
+
+  // 首屏保存时提示本来完整可见，不能因此把日期与输入顶出视口。
+  expect(await page.evaluate(() => window.scrollY), '第一屏保存后不应滚动').toBe(0)
+  await expectInViewport(page, page.locator('#diary-date'), '记录日期')
+  await expectInViewport(page, saveButton(page), '保存按钮')
 })
 
 test('saving from the second screen scrolls the success status into view', async ({ page }) => {

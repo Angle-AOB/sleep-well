@@ -227,3 +227,24 @@ test('previewing another week keeps the progress row and training actions on the
   await expect(panel.getByRole('heading', { name: '刺激控制' })).toBeVisible()
   await expect(panel.getByRole('heading', { name: '本周睡眠窗口' })).toBeVisible()
 })
+
+test('switching weeks keeps the expanded titration details open', async ({ page }) => {
+  await reachWeekFour(page)
+  const panel = coursePanel(page)
+  await panel.getByRole('button', { name: '展开滴定明细' }).click()
+
+  const details = panel.getByRole('heading', { name: '滴定明细' })
+  await expect(details).toBeVisible()
+
+  // 选周只切换内容，不清空滴定折叠状态。
+  await weekTrack(page).getByRole('button', { name: /06/ }).click()
+  await expect(panel.getByRole('heading', { name: '第 6 周 · 巩固与复发预防' })).toBeVisible()
+  await expect(panel.getByRole('button', { name: '收起滴定明细' })).toHaveAttribute('aria-expanded', 'true')
+  await expect(details).toBeVisible()
+
+  const widths = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth
+  }))
+  expect(widths.scrollWidth, '选周后展开滴定明细不应横向溢出').toBeLessThanOrEqual(widths.clientWidth)
+})

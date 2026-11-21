@@ -269,12 +269,22 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
   }, [today, selectedDate, dirty, entries])
 
   /**
-   * 提交结果渲染在第一屏底部，而固定保存栏在第二屏也能点到：提交后把提示滚进视口，
-   * 保证「已保存」「请先修正」「保存失败」都不会落在视口外。序号让重复提交同一结果也能再次滚动。
+   * 提交结果渲染在第一屏底部，而固定保存栏在第二屏也能点到：
+   * 只有提示不在视口内、或会被固定保存栏盖住时才滚动，并用 nearest 保持最小位移。
+   * 第一屏保存时提示本来完整可见，滚动反而会把日期与输入顶出视口。
+   * 序号让重复提交同一结果也能再次判定。
    */
   useEffect(() => {
     if (feedbackSeq === 0) return
-    feedbackRef.current?.scrollIntoView({ block: 'center', behavior: 'instant' })
+    const element = feedbackRef.current
+    if (!element) return
+
+    const saveBar = document.querySelector('.diary-savebar')
+    const visibleBottom = saveBar ? saveBar.getBoundingClientRect().top : window.innerHeight
+    const rect = element.getBoundingClientRect()
+    if (rect.top >= 0 && rect.bottom <= visibleBottom) return
+
+    element.scrollIntoView({ block: 'nearest', behavior: 'instant' })
   }, [feedbackSeq])
 
   const savedEntry = findEntry(entries, selectedDate)
