@@ -104,3 +104,48 @@ test('v2 diary entries with legacy field names migrate to current schema', async
   expect(prefs.wakeTime).toBe('07:00')
   expect(prefs.reminderEnabled).toBeUndefined()
 })
+
+test('v3 diary entries with intermediate field names migrate to current schema', async ({ page }) => {
+  await openAndSettle(page)
+  await page.waitForTimeout(500)
+
+  await seedLegacyDb(page, 3, {
+    diary: [{
+      key: '2026-11-10',
+      value: {
+        date: '2026-11-10',
+        lightsOffTime: '22:30',
+        outOfBedTime: '06:45',
+        sleepOnsetLatencyMinutes: 10,
+        lastAwakeTime: '06:15',
+        wasoMinutes: 0,
+        sleepQuality: 4,
+        nightWakesCount: 0,
+        tags: [],
+        recordedAt: '2026-11-10T07:00:00Z',
+        updatedAt: '2026-11-10T07:00:00Z'
+      }
+    }],
+    preferences: [{
+      key: 'current',
+      value: { backupReminders: false, lastReminderOn: '2026-11-09' }
+    }]
+  })
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
+  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+
+  const entry = await readDbRecord(page, 'diary', '2026-11-10')
+  expect(entry.finalWakeTime).toBe('06:15')
+  expect(entry.waso).toEqual({ kind: 'none-remembered' })
+  expect(entry.nightWakes).toBe('none')
+  expect(entry.lastAwakeTime).toBeUndefined()
+  expect(entry.wasoMinutes).toBeUndefined()
+  expect(entry.nightWakesCount).toBeUndefined()
+
+  const prefs = await readDbRecord(page, 'preferences', 'current')
+  expect(prefs.backupReminders).toBe(false)
+  expect(prefs.lastBackupReminderOn).toBe('2026-11-09')
+  expect(prefs.lastReminderOn).toBeUndefined()
+})
