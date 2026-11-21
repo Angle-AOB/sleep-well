@@ -57,3 +57,25 @@ test('one click on the reminder card turns backup reminders off for good', async
   await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
   await expect(page.locator('#backup-reminders')).not.toBeChecked()
 })
+
+test('showing the reminder marks it seen, so it returns at most once a week', async ({ page }) => {
+  await openApp(page)
+  await recordNight(page, '2026-11-17')
+  await recordNight(page, '2026-11-18')
+  await recordNight(page, '2026-11-19')
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
+  await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible()
+
+  await page.getByRole('button', { name: '稍后再说' }).click()
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
+
+  // 同一天再次打开：每周上限之内，保持安静。
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeHidden()
+
+  // 七天后打开：提醒回来，仍是应用内提示。
+  await openApp(page, '2026-11-27T09:00:00')
+  await expect(page.getByRole('heading', { name: '备份提醒' })).toBeVisible()
+  await expect(page.getByText('又到了每周一次的备份提醒')).toBeVisible()
+})
