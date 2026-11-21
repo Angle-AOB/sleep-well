@@ -14,7 +14,8 @@ function diaryPanel(page: Page) {
 
 async function openAt(page: Page, time: string) {
   await openPage(page, 'training', time)
-  await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '训练' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '六周训练' })).toHaveCount(0)
 }
 
 async function advanceTo(page: Page, time: string) {

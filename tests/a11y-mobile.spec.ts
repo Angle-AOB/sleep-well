@@ -14,7 +14,9 @@ test('应用在每个页面都无横向溢出且主要面板完整可见', async
   await expect(page.getByRole('heading', { name: '晨间睡眠日记' })).toBeVisible()
 
   await goTo(page, 'training')
-  await expect(page.getByRole('heading', { name: '六周训练' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '训练' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '六周训练' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: '六周训练' })).toBeVisible()
 
   await goTo(page, 'settings')
   await expect(page.getByRole('navigation', { name: '设置项' })).toBeVisible()
@@ -29,4 +31,32 @@ test('应用在每个页面都无横向溢出且主要面板完整可见', async
     clientWidth: document.documentElement.clientWidth
   }))
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth)
+})
+
+test('训练内容没有页面级外框且宽视口下主内容避开固定底栏', async ({ page }) => {
+  await openPage(page, 'training', '2026-11-20T09:00:00')
+  const panel = page.getByRole('region', { name: '六周训练' })
+  await expect(panel).toBeVisible()
+  const frame = await panel.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return {
+      background: style.backgroundColor,
+      borders: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth],
+      padding: style.padding
+    }
+  })
+  expect(frame.background).toBe('rgba(0, 0, 0, 0)')
+  expect(frame.borders).toEqual(['0px', '0px', '0px', '0px'])
+  expect(frame.padding).toBe('0px')
+
+  await page.setViewportSize({ width: 1024, height: 900 })
+  const spacing = await page.getByRole('main').evaluate((main) => {
+    const bottomBar = document.querySelector('nav[aria-label="页面导航"]')
+    if (!bottomBar) throw new Error('页面导航缺失')
+    return {
+      mainPaddingBottom: Number.parseFloat(getComputedStyle(main).paddingBottom),
+      bottomBarHeight: bottomBar.getBoundingClientRect().height
+    }
+  })
+  expect(spacing.mainPaddingBottom, '主内容应避开固定底栏').toBeGreaterThanOrEqual(spacing.bottomBarHeight)
 })
