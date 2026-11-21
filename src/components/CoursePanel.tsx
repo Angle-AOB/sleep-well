@@ -24,12 +24,15 @@ import type { ScreeningRecord } from '../domain/screening'
 import { writeCourse } from '../data/course'
 import { durationText, efficiencyText, localToday } from '../format'
 import { restrictionText, weekContent, weekTaskText, weeks, windowUnavailableBody } from '../courseText'
+import { hashForSettingsSubPage } from '../routing'
 import { titrationBody } from '../titrationText'
 import { useCourseAssessment } from '../useCourseAssessment'
 
 type CoursePanelProps = {
   storageUnavailable: boolean
   screening: ScreeningRecord | null
+  /** 筛查读取状态；只有明确读到「没有记录」才拦截开始，读不到时不拦截。 */
+  screeningState: 'loading' | 'ready' | 'error'
   /** 日记保存后递增，用来重新推导周次与候选窗口。 */
   diaryRevision: number
   /** 当前页是否可见；隐藏页不读取课程，切回时重新读取。 */
@@ -45,7 +48,14 @@ function weekStatus(week: CourseWeek, currentWeek: CourseWeek, completed: boolea
   return 'locked'
 }
 
-export function CoursePanel({ storageUnavailable, screening, diaryRevision, visible, initialWakeTime }: CoursePanelProps) {
+export function CoursePanel({
+  storageUnavailable,
+  screening,
+  screeningState,
+  diaryRevision,
+  visible,
+  initialWakeTime
+}: CoursePanelProps) {
   const { t } = useTranslation()
   const [today] = useState(localToday)
   const { course, entries, assessment, loadState, setCourse } = useCourseAssessment({
@@ -54,6 +64,8 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, visi
     visible,
     storageUnavailable
   })
+  // 只在确认「读到了、但确实没有记录」时拦截；加载中或读取失败都不拦。
+  const screeningMissing = screeningState === 'ready' && screening === null
   const [wakeTimeDraft, setWakeTimeDraft] = useState<string | null>(null)
   const [patternDraft, setPatternDraft] = useState<WorkPattern | null>(null)
   const [busy, setBusy] = useState(false)
@@ -165,9 +177,20 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, visi
         {heading}
         <p className="course-intro">{t('courseIntro')}</p>
         <p className="course-card-copy">{t('courseNotStarted')}</p>
+        {screeningMissing && (
+          <div className="course-screening-gate" role="status">
+            <p className="course-note is-warning">{t('courseScreeningRequired')}</p>
+            <a className="link-button" href={hashForSettingsSubPage('screening')}>{t('courseScreeningAction')}</a>
+          </div>
+        )}
         {patternField}
         <div className="course-actions">
-          <button type="button" className="primary-button" onClick={() => void begin()} disabled={busy}>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => void begin()}
+            disabled={busy || screeningMissing}
+          >
             {busy ? t('courseStarting') : t('courseStart')}
           </button>
         </div>
@@ -191,6 +214,13 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, visi
     <section className="course-panel" aria-labelledby="course-title">
       {heading}
       <p className="course-intro">{t('courseIntro')}</p>
+
+      {screeningMissing && (
+        <div className="course-screening-gate" role="status">
+          <p className="course-note is-warning">{t('courseScreeningMissingHint')}</p>
+          <a className="link-button" href={hashForSettingsSubPage('screening')}>{t('courseScreeningAction')}</a>
+        </div>
+      )}
 
       <div className="week-track" role="group" aria-label={t('weekTrackLabel')}>
         {weeks.map((week) => {

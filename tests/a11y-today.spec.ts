@@ -80,6 +80,7 @@ async function completeScreening(page: Page, options: { pausesRestriction?: bool
 
 async function startCourse(page: Page) {
   await goTo(page, 'training')
+  await completeScreening(page)
   await coursePanel(page).getByRole('button', { name: '开始六周训练' }).click()
   await expect(coursePanel(page).getByText('第 1 周 · 第 1 天')).toBeVisible()
 }
@@ -193,7 +194,6 @@ test('a partially recorded night offers completion instead of a summary', async 
 test('the plan card shows window, fixed wake time and caffeine cutoff', async ({ page }) => {
   await openPage(page, 'training', '2026-11-01T09:00:00')
   await startCourse(page)
-  await completeScreening(page)
   await coursePanel(page).getByRole('button', { name: '确认起床时间' }).click()
   await expect(coursePanel(page).getByText('07:00 已确认，将从第 2 周开始执行。')).toBeVisible()
 
@@ -262,7 +262,6 @@ test('a missing screening routes to the screening sub-page from the week slot', 
 test('an active course shows the current week title and its three tasks', async ({ page }) => {
   await openPage(page, 'training', '2026-11-01T09:00:00')
   await startCourse(page)
-  await completeScreening(page)
   await goTo(page, 'today')
 
   const week = weekCard(page)
@@ -277,7 +276,6 @@ test('an active course shows the current week title and its three tasks', async 
 test('a paused restriction still shows the week tasks and explains the pause on the plan card', async ({ page }) => {
   await openPage(page, 'training', '2026-11-01T09:00:00')
   await startCourse(page)
-  await completeScreening(page)
 
   await recordBaseline(page)
   await advanceTo(page, '2026-11-08T09:00:00')
@@ -293,7 +291,6 @@ test('a paused restriction still shows the week tasks and explains the pause on 
 test('maintenance adds a maintenance line to the plan card and keeps the week tasks', async ({ page }) => {
   await openPage(page, 'training', '2026-11-01T09:00:00')
   await startCourse(page)
-  await completeScreening(page)
   await recordBaseline(page)
 
   await advanceTo(page, '2026-12-13T09:00:00')

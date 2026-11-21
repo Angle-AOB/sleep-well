@@ -89,8 +89,8 @@ async function recordLongNight(page: Page, date: string) {
 
 test('an over-limit W2 candidate is shown as a candidate, with no titration or pause claim', async ({ page }) => {
   await openAt(page, '2026-11-01T09:00:00')
-  await startCourse(page)
   await completeScreening(page)
+  await startCourse(page)
   await coursePanel(page).locator('#fixed-wake-time').fill('09:00')
   await coursePanel(page).getByRole('button', { name: '确认起床时间' }).click()
   await expect(coursePanel(page).getByText('09:00 已确认，将从第 2 周开始执行。')).toBeVisible()
@@ -121,6 +121,7 @@ test('starting the course opens the baseline week and survives a reload', async 
   const panel = coursePanel(page)
   await expect(panel.getByText('还没有开始六周训练。')).toBeVisible()
 
+  await completeScreening(page)
   await startCourse(page)
 
   await expect(panel.getByRole('heading', { name: '第 1 周 · 记录基线' })).toBeVisible()
@@ -136,8 +137,8 @@ test('starting the course opens the baseline week and survives a reload', async 
 
 test('W2 previews the baseline window, defers a wake-time change, and W3 activates it', async ({ page }) => {
   await openAt(page, '2026-11-01T09:00:00')
-  await startCourse(page)
   await completeScreening(page)
+  await startCourse(page)
   await coursePanel(page).getByRole('button', { name: '确认起床时间' }).click()
   await expect(coursePanel(page).getByText('07:00 已确认，将从第 2 周开始执行。')).toBeVisible()
 
@@ -184,8 +185,8 @@ test('W2 previews the baseline window, defers a wake-time change, and W3 activat
 
 test('shift work keeps the course and diary available while pausing automatic windows', async ({ page }) => {
   await openAt(page, '2026-11-01T09:00:00')
-  await startCourse(page)
   await completeScreening(page)
+  await startCourse(page)
 
   await advanceTo(page, '2026-11-05T09:00:00')
   await recordBaseline(page)
@@ -217,8 +218,8 @@ test('shift work keeps the course and diary available while pausing automatic wi
 
 test('a screening that needs review blocks the automatic window without blocking the diary', async ({ page }) => {
   await openAt(page, '2026-11-01T09:00:00')
-  await startCourse(page)
   await completeScreening(page, { pausesRestriction: true })
+  await startCourse(page)
 
   await advanceTo(page, '2026-11-05T09:00:00')
   await recordBaseline(page)
@@ -248,8 +249,8 @@ test('a screening that needs review blocks the automatic window without blocking
 
 test('W4 explains the weekly adjustment, teaches stimulus control, and can defer the change', async ({ page }) => {
   await openAt(page, '2026-11-01T09:00:00')
-  await startCourse(page)
   await completeScreening(page)
+  await startCourse(page)
   await coursePanel(page).getByRole('button', { name: '确认起床时间' }).click()
   await expect(coursePanel(page).getByText('07:00 已确认，将从第 2 周开始执行。')).toBeVisible()
 
@@ -303,8 +304,8 @@ test('W4 explains the weekly adjustment, teaches stimulus control, and can defer
 
 test('a titration adjustment cannot be deferred after the week has started', async ({ page }) => {
   await openAt(page, '2026-11-01T09:00:00')
-  await startCourse(page)
   await completeScreening(page)
+  await startCourse(page)
   await coursePanel(page).getByRole('button', { name: '确认起床时间' }).click()
   await expect(coursePanel(page).getByText('07:00 已确认，将从第 2 周开始执行。')).toBeVisible()
 
@@ -339,8 +340,8 @@ test('a titration adjustment cannot be deferred after the week has started', asy
 
 test('all six weeks are viewable; future weeks show a preview banner and keep actions on the current week', async ({ page }) => {
   await openAt(page, '2026-11-01T09:00:00')
-  await startCourse(page)
   await completeScreening(page)
+  await startCourse(page)
   const panel = coursePanel(page)
   const weekTrack = panel.getByRole('group', { name: '疗程进度' })
 

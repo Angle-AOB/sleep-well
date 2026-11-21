@@ -322,6 +322,7 @@ function App() {
           visible={page === 'training'}
           storageUnavailable={storageState === 'unsupported'}
           screening={screeningState === 'ready' ? screening : null}
+          screeningState={screeningState}
           diaryRevision={diaryRevision}
           initialWakeTime={preferences.wakeTime}
         />
