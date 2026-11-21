@@ -284,7 +284,7 @@ function App() {
         {page !== 'today' && reminderCard}
 
         <TodayPage
-          hidden={page !== 'today'}
+          visible={page === 'today'}
           offlineStatus={offlineStatus}
           storageState={storageState}
           pendingSaves={pendingSaves}
@@ -304,7 +304,7 @@ function App() {
         />
 
         <TrainingPage
-          hidden={page !== 'training'}
+          visible={page === 'training'}
           storageUnavailable={storageState === 'unsupported'}
           screening={screeningState === 'ready' ? screening : null}
           diaryRevision={diaryRevision}

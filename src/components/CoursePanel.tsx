@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  assessCourse,
   BASELINE_LENGTH_DAYS,
   CAFFEINE_CUTOFF_HOURS,
   DAYS_PER_WEEK,
@@ -21,19 +20,20 @@ import {
   type CourseWeek,
   type WorkPattern
 } from '../domain/course'
-import type { SleepDiaryEntry } from '../domain/diary'
 import type { ScreeningRecord } from '../domain/screening'
-import { readCourse, writeCourse } from '../data/course'
-import { readDiaryEntries } from '../data/diary'
+import { writeCourse } from '../data/course'
 import { durationText, efficiencyText, localToday } from '../format'
 import { restrictionText, weekContent, weekTaskText, weeks, windowUnavailableBody } from '../courseText'
 import { titrationBody } from '../titrationText'
+import { useCourseAssessment } from '../useCourseAssessment'
 
 type CoursePanelProps = {
   storageUnavailable: boolean
   screening: ScreeningRecord | null
   /** 日记保存后递增，用来重新推导周次与候选窗口。 */
   diaryRevision: number
+  /** 当前页是否可见；隐藏页不读取课程，切回时重新读取。 */
+  visible: boolean
   /** 旧版本偏好中的期望起床时间，仅作预填，不直接生效。 */
   initialWakeTime?: string
 }
@@ -45,50 +45,29 @@ function weekStatus(week: CourseWeek, currentWeek: CourseWeek, completed: boolea
   return 'locked'
 }
 
-export function CoursePanel({ storageUnavailable, screening, diaryRevision, initialWakeTime }: CoursePanelProps) {
+export function CoursePanel({ storageUnavailable, screening, diaryRevision, visible, initialWakeTime }: CoursePanelProps) {
   const { t } = useTranslation()
   const [today] = useState(localToday)
-  const [course, setCourse] = useState<CourseState | null>(null)
-  const [entries, setEntries] = useState<SleepDiaryEntry[]>([])
-  const [fetchState, setFetchState] = useState<'loading' | 'ready' | 'error'>('loading')
-  const [wakeTimeInput, setWakeTimeInput] = useState('07:00')
-  const [pattern, setPattern] = useState<WorkPattern>('regular')
+  const { course, entries, assessment, loadState, setCourse } = useCourseAssessment({
+    screening,
+    diaryRevision,
+    visible,
+    storageUnavailable
+  })
+  const [wakeTimeDraft, setWakeTimeDraft] = useState<string | null>(null)
+  const [patternDraft, setPatternDraft] = useState<WorkPattern | null>(null)
   const [busy, setBusy] = useState(false)
   const [feedback, setFeedback] = useState<'saved' | 'error' | null>(null)
   const [selectedWeek, setSelectedWeek] = useState<CourseWeek | null>(null)
   const [showTitrationDetails, setShowTitrationDetails] = useState(false)
-  const loadState = storageUnavailable ? 'error' : fetchState
 
-  useEffect(() => {
-    if (storageUnavailable) return
-
-    let active = true
-    Promise.all([readCourse(), readDiaryEntries()])
-      .then(([saved, diary]) => {
-        if (!active) return
-        setCourse(saved)
-        setEntries(diary)
-        setPattern(saved?.workPattern ?? 'regular')
-        setWakeTimeInput(
-          saved?.wakeTimes[saved.wakeTimes.length - 1]?.time
-            ?? medianOutOfBedTime(diary, today)
-            ?? initialWakeTime
-            ?? '07:00'
-        )
-        setFetchState('ready')
-      })
-      .catch(() => {
-        if (active) setFetchState('error')
-      })
-    return () => { active = false }
-  }, [storageUnavailable, diaryRevision, today, initialWakeTime])
-
-  const assessment = assessCourse({
-    state: course,
-    entries,
-    screening: screening ? screening.result : null,
-    today
-  })
+  // 输入初值由已保存的起床时间、近 7 夜中位数与旧偏好依次兜底；用户一编辑就改用草稿。
+  const wakeTimeInput = wakeTimeDraft
+    ?? course?.wakeTimes[course.wakeTimes.length - 1]?.time
+    ?? medianOutOfBedTime(entries, today)
+    ?? initialWakeTime
+    ?? '07:00'
+  const pattern = patternDraft ?? course?.workPattern ?? 'regular'
 
   async function persist(next: CourseState, onFailure?: () => void) {
     setBusy(true)
@@ -111,9 +90,9 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
   }
 
   async function changePattern(next: WorkPattern) {
-    setPattern(next)
+    setPatternDraft(next)
     if (!course) return
-    await persist(withWorkPattern(course, next), () => setPattern(course.workPattern))
+    await persist(withWorkPattern(course, next), () => setPatternDraft(course.workPattern))
   }
 
   async function confirmWakeTime() {
@@ -310,7 +289,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
                   id="fixed-wake-time"
                   type="time"
                   value={wakeTimeInput}
-                  onChange={(event) => { setWakeTimeInput(event.target.value); setFeedback(null) }}
+                  onChange={(event) => { setWakeTimeDraft(event.target.value); setFeedback(null) }}
                   disabled={busy}
                 />
               </div>
@@ -329,7 +308,7 @@ export function CoursePanel({ storageUnavailable, screening, diaryRevision, init
                 <button
                   type="button"
                   className="link-button"
-                  onClick={() => setWakeTimeInput(assessment.wakeTime.suggestion!)}
+                  onClick={() => setWakeTimeDraft(assessment.wakeTime.suggestion!)}
                 >
                   {t('wakeTimeUseSuggestion')}
                 </button>

@@ -31,10 +31,9 @@ async function openToday(page: Page) {
   await openPage(page, 'today', CLOCK)
 }
 
-async function recordNight(page: Page, date: string, options: { complete?: boolean } = {}) {
+async function recordNight(page: Page, options: { complete?: boolean } = {}) {
   await goTo(page, 'diary')
   const diary = diaryPanel(page)
-  await diary.locator('#diary-date').fill(date)
   await diary.locator('#lights-off').fill('23:00')
   if (options.complete !== false) {
     await diary.locator('#sleep-onset').fill('30')
@@ -147,7 +146,7 @@ test('an unrecorded night puts the record action in the first screen', async ({ 
 
 test('a complete last night summarises SE and TST with view-or-edit', async ({ page }) => {
   await openToday(page)
-  await recordNight(page, '2026-11-19')
+  await recordNight(page)
 
   await expect(diaryCard(page).getByText('SE')).toBeVisible()
   await expect(diaryCard(page).getByText('TST')).toBeVisible()
@@ -157,12 +156,32 @@ test('a complete last night summarises SE and TST with view-or-edit', async ({ p
   await expect(action).toBeVisible()
   await action.click()
   await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
-  await expect(diaryPanel(page).locator('#diary-date')).toHaveValue('2026-11-19')
+  await expect(diaryPanel(page).locator('#diary-date')).toHaveValue('2026-11-20')
+})
+
+test('recording from the today card saves the form default date and then offers view-or-edit', async ({ page }) => {
+  await openToday(page)
+  await diaryCard(page).getByRole('link', { name: /记录昨夜/ }).click()
+  await expect(page.getByRole('heading', { level: 1, name: '日记' })).toBeVisible()
+
+  // 今日卡查找的日期必须与表单默认日期一致，否则按默认保存后今日卡仍显示未记录。
+  const diary = diaryPanel(page)
+  await expect(diary.locator('#diary-date')).toHaveValue('2026-11-20')
+  await diary.locator('#lights-off').fill('23:00')
+  await diary.locator('#sleep-onset').fill('30')
+  await diary.locator('#final-wake').fill('06:30')
+  await diary.locator('#out-of-bed').fill('07:00')
+  await diary.locator('#waso').selectOption('none-remembered')
+  await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
+  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+
+  await goTo(page, 'today')
+  await expect(diaryCard(page).getByRole('link', { name: /查看或修改/ })).toBeVisible()
 })
 
 test('a partially recorded night offers completion instead of a summary', async ({ page }) => {
   await openToday(page)
-  await recordNight(page, '2026-11-19', { complete: false })
+  await recordNight(page, { complete: false })
 
   const action = diaryCard(page).getByRole('link', { name: /补全记录/ })
   await expect(action).toBeVisible()
@@ -207,16 +226,24 @@ test('an unavailable window explains why and still links into training', async (
   await expect(page.getByRole('heading', { level: 1, name: '训练' })).toBeVisible()
 })
 
-test('a cleared screening without a course shows the start-course card in the week slot', async ({ page }) => {
+test('a cleared screening without a course shows the start-course card right after the diary', async ({ page }) => {
   await openToday(page)
   await completeScreening(page)
   await goTo(page, 'today')
 
-  const week = weekCard(page)
-  await expect(week.getByRole('heading', { name: '开始六周训练' })).toBeVisible()
-  await expect(week.getByRole('link', { name: /开始/ })).toBeVisible()
+  const start = page.getByRole('region', { name: '开始六周训练' })
+  await expect(start.getByRole('heading', { name: '开始六周训练' })).toBeVisible()
+  await expect(start.getByRole('link', { name: /进入训练/ })).toBeVisible()
+  // 未开始疗程时不再渲染本周任务卡，开始卡紧跟日记卡。
+  await expect(weekCard(page)).toHaveCount(0)
 
-  await week.getByRole('link').click()
+  const diaryBox = (await diaryCard(page).boundingBox())!
+  const startBox = (await start.boundingBox())!
+  const planBox = (await planCard(page).boundingBox())!
+  expect(diaryBox.y).toBeLessThan(startBox.y)
+  expect(startBox.y).toBeLessThan(planBox.y)
+
+  await start.getByRole('link').click()
   await expect(page.getByRole('heading', { level: 1, name: '训练' })).toBeVisible()
   await expect(page).toHaveURL(/#\/training$/)
 })
