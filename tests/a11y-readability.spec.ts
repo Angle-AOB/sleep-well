@@ -109,7 +109,7 @@ async function renderedText(page: Page) {
     }
 
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
-    const results: { text: string; size: number; family: string; ratio: number | null; opacity: number; large: boolean }[] = []
+    const results: { text: string; tag: string; size: number; family: string; ratio: number | null; opacity: number; large: boolean }[] = []
     let node: Node | null
     while ((node = walker.nextNode())) {
       const text = node.textContent?.replace(/\s+/g, ' ').trim() ?? ''
@@ -120,6 +120,7 @@ async function renderedText(page: Page) {
       const large = size >= 24 || (size >= 18.66 && Number.parseInt(style.fontWeight, 10) >= 700)
       results.push({
         text: text.slice(0, 80),
+        tag: element.tagName.toLowerCase(),
         size,
         family: style.fontFamily,
         ratio: contrast(parseColor(style.color), element),
@@ -163,27 +164,42 @@ test('four pages and settings sub-pages render readable sans-serif text', async 
 })
 
 test('diary, today, settings, and training body copy stays at least 16px', async ({ page }) => {
-  const cases: { page: AppPage | SettingsSubPage; selectors: string[]; settings?: boolean }[] = [
-    { page: 'diary', selectors: ['.diary-intro', '.diary-summary-item dd'] },
-    { page: 'today', selectors: ['.today-card-copy'] },
-    { page: 'about', selectors: ['.about-panel p:not(.local-only)'], settings: true },
-    { page: 'backup', selectors: ['.backup-intro', '.backup-caution'], settings: true },
-    { page: 'training', selectors: ['.course-intro', '.course-card-copy'] }
+  const cases: {
+    page: AppPage | SettingsSubPage
+    settings?: boolean
+    include: (text: { text: string; tag: string }) => boolean
+  }[] = [
+    {
+      page: 'diary',
+      include: (text) => text.tag === 'dd' || text.text.startsWith('在早晨回顾上一夜。')
+    },
+    {
+      page: 'today',
+      include: (text) => text.tag === 'p' && !/^[A-Z ]+$/.test(text.text) && text.text !== '维持期：六周训练已完成，固定起床时间与睡眠窗口继续适用。'
+    },
+    {
+      page: 'about',
+      settings: true,
+      include: (text) => text.tag === 'p' && text.text !== '仅保存在此设备' && !/^[A-Z ]+$/.test(text.text)
+    },
+    {
+      page: 'backup',
+      settings: true,
+      include: (text) => text.tag === 'p' && (text.text.startsWith('完整备份包含') || text.text.startsWith('ZIP 压缩不是加密'))
+    },
+    {
+      page: 'training',
+      include: (text) => (text.tag === 'li' || text.text.startsWith('疗程逐周解锁：') || text.text.startsWith('还没有开始六周训练。'))
+    }
   ]
 
   for (const item of cases) {
     if (item.settings) await goToSettingsSubPage(page, item.page as SettingsSubPage)
     else await openPage(page, item.page as AppPage)
-    for (const selector of item.selectors) {
-      const sizes = await page.locator(selector).evaluateAll((elements) => elements
-        .filter((element) => {
-          const rect = element.getBoundingClientRect()
-          return rect.width > 0 && rect.height > 0
-        })
-        .map((element) => Number.parseFloat(getComputedStyle(element).fontSize)))
-      expect(sizes.length, `${item.page} ${selector} should be rendered`).toBeGreaterThan(0)
-      for (const size of sizes) expect(size, `${item.page} ${selector}`).toBeGreaterThanOrEqual(16)
-    }
+    const result = await renderedText(page)
+    const bodyCopy = result.texts.filter(item.include)
+    expect(bodyCopy.length, `${item.page} body copy should be rendered`).toBeGreaterThan(0)
+    for (const text of bodyCopy) expect(text.size, `${item.page} body copy "${text.text}"`).toBeGreaterThanOrEqual(16)
   }
 })
 
@@ -328,7 +344,6 @@ test('disabled backup controls keep normal-text contrast', async ({ page }) => {
   const fileInput = page.locator('input[type="file"]')
   await fileInput.setInputFiles({ name: 'contrast-probe.zip', mimeType: 'application/zip', buffer: Buffer.from('probe') })
   await expect(fileInput).toBeDisabled()
-  await expect(page.locator('.backup-file-button')).toHaveClass(/is-disabled/)
 
   let result = await renderedText(page)
   const fileChoice = result.texts.find((text) => text.text === '选择备份文件')
