@@ -33,3 +33,15 @@ test('本地存储与备份加密警告的文案对用户可见', async ({ page 
   await expect(page.getByText('ZIP 压缩不是加密：备份文件没有密码保护', { exact: false })).toBeVisible()
   await expect(page.getByText('并不代表备份已经保存到本设备之外', { exact: false })).toBeVisible()
 })
+
+test('所有界面文案都在 i18n 资源里且非空', async () => {
+  // i18n 完整性：资源里每个键都必须有非空文案，且不能原样留键名占位。
+  const { default: i18n } = await import('../src/i18n/index')
+  const bundle = i18n.getResourceBundle('zh-CN', 'translation') as Record<string, unknown>
+  const entries = Object.entries(bundle)
+  expect(entries.length).toBeGreaterThan(50)
+  for (const [key, value] of entries) {
+    expect(typeof value, key).toBe('string')
+    expect((value as string).trim().length, key).toBeGreaterThan(0)
+  }
+})

@@ -39,6 +39,7 @@
 4. workflow 顺序：install → eslint → tsc → Playwright 全量 → `GITHUB_PAGES=1 npm run build` →
    upload-pages-artifact → deploy-pages。**构建或测试失败时 deploy job 不会运行**，线上保持上一个可用版本。
 5. 发布后在真机上核对：版本号/页面可打开、离线提示出现、日记可保存。
+6. 发布后补一条版本记录：版本号、日期、变更摘要（与标签一一对应，便于回滚时定位）。
 
 ## 版本标签规则
 
@@ -55,11 +56,13 @@
    ```bash
    git checkout -b hotfix/rollback v0.1.0   # 从要回滚到的标签拉出分支
    git tag v0.1.1                            # 回滚也是一次对外发布，打新标签
-   git push origin hotfix/rollback v0.1.1    # 择一触发部署，见下方提示
+   git push origin v0.1.1                    # 只推标签触发部署，见下方提示
    ```
    - 每次对外发布都要有对应标签，线上才有版本可查；回滚同样打标签。
    - 分支 push 与 `v*` tag push 都会触发 Deploy workflow：**同一次发布只推送其中一个**，
-     否则 workflow 会跑两次部署。推荐只 push 标签（分支随后合回集成分支）。
+     否则 workflow 会跑两次部署。这里只推标签；分支随后合回集成分支时不要再触发部署
+     （或合回后不再 push 分支）。
+   - 发布后补一条版本记录（版本号 + 日期 + 变更摘要），与「日常发布步骤」第 5 条一起归档。
    - 或直接在 Actions 里对旧版本的成功 workflow run 使用 “Re-run all jobs” 重新发布当时的产物。
 2. **代码回退**：在集成分支上 `git revert` 引入问题的提交并推送，让 workflow 重新发布。
 3. 回滚只影响线上静态资源；用户设备上的 IndexedDB 数据不受影响（备份 schema 兼容性见

@@ -242,7 +242,7 @@ const resources = {
       windowAdjustmentDecrease: '第 {{week}} 周：依据该周之前的 {{nights}} 个完整夜（平均 SE {{se}}%），窗口从 {{from}}缩短 {{change}}，变为 {{to}}。',
       caffeineTitle: '咖啡因截止',
       caffeineCutoff: '睡前 {{hours}} 小时：{{time}} 前停止摄入咖啡因。',
-      caffeineNoteWindow: '按窗口的推荐上床时间倒推 {{hours}} 小时。咖啡因的影响可能持续数小时，具体感受因人而异。',
+      caffeineNoteWindow: '按推荐上床时间（睡眠窗口起点）倒推 {{hours}} 小时。咖啡因的影响可能持续数小时，具体感受因人而异。',
       caffeineNoteRecent: '按最近 {{nights}} 夜入睡时间的中位数倒推 {{hours}} 小时。睡眠窗口未启用时，也可以先执行这个锚定习惯。',
       titrationTitle: '每周滴定',
       titrationScheduled: '第 {{week}} 周将进行第一次滴定：依据该周开始前 {{nights}} 夜的完整夜平均 SE，窗口最多调整一次。',

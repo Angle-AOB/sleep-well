@@ -51,3 +51,19 @@ test('estimate() failure does not crash the app', async ({ browser }) => {
   await expect(page.getByText('偏好已保存在此设备').first()).toBeVisible({ timeout: 10_000 })
   await context.close()
 })
+
+test('a denied storage-persist request degrades to best-effort and the app keeps working', async ({ browser }) => {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  await page.addInitScript(() => {
+    const storage = navigator.storage as StorageManager & { persist?: () => Promise<boolean> }
+    storage.persist = () => Promise.resolve(false)
+  })
+  await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: '把规律，慢慢带回夜晚。' })).toBeVisible()
+  // 拒绝持久化不是错误：提示降级说明，应用仍可使用。
+  await expect(page.getByText('浏览器未批准增强保留；清除站点数据可能导致记录丢失。')).toBeVisible()
+  await expect(page.getByRole('region', { name: '晨间睡眠日记' })).toBeVisible()
+  await context.close()
+})
