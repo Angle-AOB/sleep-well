@@ -21,7 +21,7 @@ test('without a screening record the start button is disabled, explains why, and
   await expect(page).toHaveURL(/#\/settings\/screening$/)
 })
 
-async function completeScreening(page: Page, options: { pausesRestriction?: boolean } = {}) {
+async function fillScreeningForm(page: Page, options: { pausesRestriction?: boolean } = {}) {
   await goToSettingsSubPage(page, 'screening')
   await page.getByRole('button', { name: '开始自查' }).click()
   await page.getByLabel('你的年龄').fill('30')
@@ -43,6 +43,10 @@ async function completeScreening(page: Page, options: { pausesRestriction?: bool
   await page.getByRole('group', { name: '目前这件事给你带来多大困扰？' }).getByLabel('有一些困扰').check()
   await page.getByLabel('你最希望改善什么？').selectOption('fall-asleep')
   await page.getByRole('button', { name: '提交自查' }).click()
+}
+
+async function completeScreening(page: Page, options: { pausesRestriction?: boolean } = {}) {
+  await fillScreeningForm(page, options)
   await expect(page.getByText(
     options.pausesRestriction ? '睡眠限制暂时暂停。' : '目前没有发现需要暂停睡眠限制的安全筛查项。'
   )).toBeVisible()
@@ -148,3 +152,48 @@ test('unavailable storage is reported as such and is not turned into a screening
   await expect(panel.getByText('完成安全自查后才能开始六周训练；记录日记与导出数据不受影响。')).toHaveCount(0)
   await expect(page.getByRole('button', { name: '开始六周训练' })).toHaveCount(0)
 })
+
+test('a screening that is still loading keeps the start button disabled instead of opening the gate', async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = IDBObjectStore.prototype.get as (
+      this: IDBObjectStore,
+      query: IDBValidKey | IDBKeyRange
+    ) => IDBRequest
+    IDBObjectStore.prototype.get = function patchedGet(this: IDBObjectStore, query: IDBValidKey | IDBKeyRange) {
+      const request = original.call(this, query)
+      if (this.name !== 'screening') return request
+      // 让筛查读取永远停在 loading：课程与日记照常读到，门禁不能因此先放行。
+      const pending = Object.create(IDBRequest.prototype) as IDBRequest
+      Object.defineProperty(pending, 'addEventListener', { value: () => { /* 不派发任何事件 */ } })
+      return pending
+    } as typeof IDBObjectStore.prototype.get
+  })
+
+  await openPage(page, 'training', '2026-11-20T09:00:00')
+  const panel = coursePanel(page)
+
+  await expect(panel.getByText('正在读取安全自查状态…')).toBeVisible()
+  await expect(panel.getByRole('button', { name: '开始六周训练' })).toBeDisabled()
+  await expect(panel.getByText('完成安全自查后才能开始六周训练；记录日记与导出数据不受影响。')).toHaveCount(0)
+})
+
+test('a screening write failure never blocks starting and reports the storage failure', async ({ page }) => {
+  await page.addInitScript(() => {
+    // 写入失败：读取与打开数据库仍然正常，只有 put 抛错。
+    IDBObjectStore.prototype.put = function patchedPut() {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError')
+    } as typeof IDBObjectStore.prototype.put
+  })
+
+  await openPage(page, 'training', '2026-11-20T09:00:00')
+  await fillScreeningForm(page)
+  // 筛查页明确报告保存失败；随后训练页必须按 fail-open 放行。
+  await expect(page.getByText('此浏览器无法保存筛查状态，因此暂不能开始训练流程。')).toBeVisible()
+
+  await goTo(page, 'training')
+  const panel = coursePanel(page)
+  await expect(panel.getByRole('button', { name: '开始六周训练' })).toBeEnabled()
+  await expect(panel.getByText('无法读取或保存安全自查状态，本次不拦截开始训练。请检查浏览器存储设置。')).toBeVisible()
+  await expect(panel.getByText('完成安全自查后才能开始六周训练；记录日记与导出数据不受影响。')).toHaveCount(0)
+})
+

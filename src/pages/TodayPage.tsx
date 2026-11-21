@@ -5,6 +5,7 @@ import type { ScreeningRecord } from '../domain/screening'
 import { durationText, localToday } from '../format'
 import { hashForPage, hashForSettingsSubPage } from '../routing'
 import { weekContent, weekTaskText, windowUnavailableBody } from '../courseText'
+import { screeningGate } from '../screeningGate'
 import { useCourseAssessment } from '../useCourseAssessment'
 import {
   offlineMessage,
@@ -61,7 +62,7 @@ export function TodayPage({
   // 今日卡与日记表单使用同一个默认日期：表单保存后，今日卡立即能读到同一天。
   const entry = entries.find((item) => item.date === today)
   const night = entry ? evaluateNight(entry) : null
-  const screenMissing = screeningState === 'ready' && screening === null
+  const screenMissing = screeningGate(screeningState, screening) === 'required'
 
   const offlineProblem = offlineStatus === 'pending' || offlineStatus === 'error'
   const storageProblem = storageState === 'unsupported'
@@ -177,7 +178,7 @@ export function TodayPage({
 
   function weekBody() {
     if (screenMissing) {
-      return <p className="today-card-copy">{t('todayScreeningBody')}</p>
+      return <p className="today-card-copy">{t('screeningGateRequired')}</p>
     }
     if (loadState === 'loading' || screeningState === 'loading') {
       return <p className="today-card-copy" role="status">{t('courseLoading')}</p>
@@ -209,7 +210,7 @@ export function TodayPage({
     ? t('todayScreeningTitle')
     : content ? t(content.title) : t('todayWeekRegion')
   const weekAction = screenMissing
-    ? t('todayScreeningAction')
+    ? t('screeningGateAction')
     : content ? t('todayWeekAction') : t('todayStartAction')
 
   return (
