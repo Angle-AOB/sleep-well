@@ -2,11 +2,18 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { readErrorRecords } from '../data/errorLog'
 import { BACKUP_APP_VERSION } from '../domain/backup'
-import { formatDiagnostics, MAX_ERROR_RECORDS, type ErrorRecord } from '../domain/errorLog'
+import {
+  formatDiagnostics,
+  formatIssueSummary,
+  MAX_ERROR_RECORDS,
+  type ErrorCategory,
+  type ErrorRecord
+} from '../domain/errorLog'
 
 /**
  * 本地诊断信息面板：默认折叠，输出可检查的纯文本，提供复制与预填的 GitHub issue 链接。
- * 不做遥测、分析或自动上报；链接只含版本与环境，用户公开前需自行检查隐私。
+ * 不做遥测、分析或自动上报；链接只含版本、环境与错误类别，用户公开前需自行检查隐私。
+ * 诊断全文（含类别文案）只能由用户主动复制后自行粘贴。
  */
 export function ErrorLogPanel() {
   const { t } = useTranslation()
@@ -20,16 +27,24 @@ export function ErrorLogPanel() {
     setExpanded((current) => !current)
   }
 
-  const diagnostics = formatDiagnostics(records, {
+  const meta = {
     appVersion: BACKUP_APP_VERSION,
     generatedAt: new Date().toISOString(),
     userAgent: navigator.userAgent,
     language: navigator.language
-  }, { note: t('errorLogPrivacyNote') })
+  }
 
+  const diagnostics = formatDiagnostics(records, meta, {
+    messageFor: (category: ErrorCategory) => t(`errorCategory.${category}`),
+    note: t('errorLogPrivacyNote')
+  })
+
+  // issue 预填只带元信息与错误类别 code，不带错误消息原文与本地数据。
   const issueHref = 'https://github.com/Angle-AOB/sleep-well/issues/new'
     + `?title=${encodeURIComponent(t('errorLogIssueTitle', { version: BACKUP_APP_VERSION }))}`
-    + `&body=${encodeURIComponent(diagnostics)}`
+    + `&body=${encodeURIComponent(formatIssueSummary(records, meta, {
+      note: t('errorLogPrivacyNote')
+    }))}`
 
   async function copyDiagnostics() {
     try {
@@ -58,6 +73,7 @@ export function ErrorLogPanel() {
           </p>
           {records.length === 0 && <p className="field-hint">{t('errorLogEmpty')}</p>}
           <p className="backup-caution">{t('errorLogPrivacyNote')}</p>
+          <p className="field-hint">{t('errorLogSessionOnlyNote')}</p>
           <pre className="error-log-text" tabIndex={0}>{diagnostics}</pre>
           <div className="backup-actions">
             <button type="button" className="primary-button" onClick={() => void copyDiagnostics()}>

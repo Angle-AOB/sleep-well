@@ -4,7 +4,7 @@
  * 错误只留在本设备，供用户自行查看、复制与自愿报告；不接入遥测、分析或自动上报。
  * 脱敏是结构性的：记录只接受类别与受限上下文（操作枚举、字节数），没有自由文本入口，
  * 因此日记字段、筛查答案、疗程状态与备份内容都不可能进入诊断文本。
- * 消息由类别决定，与备份面板共用同一套失败原因分类，不另造平行体系。
+ * 用户可见文案由调用方通过 `messageFor` 注入——本模块不持有任何面向用户的语言资源。
  */
 
 export type ErrorCategory =
@@ -41,39 +41,17 @@ export type ErrorRecord = {
   /** ISO 时间戳。 */
   recordedAt: string
   category: ErrorCategory
-  /** 由类别推导的可读消息，不含任何用户数据。 */
-  message: string
   context?: ErrorContext
 }
 
 export const MAX_ERROR_RECORDS = 20
-
-const ERROR_MESSAGES: Record<ErrorCategory, string> = {
-  'storage-unavailable': '此浏览器无法使用本地存储',
-  'compression-unsupported': '此浏览器不支持压缩备份',
-  'delivery-failed': '无法交付备份文件',
-  'unreadable-file': '无法读取所选文件',
-  'archive-rejected': '备份文件校验失败',
-  'archive-unsupported': '备份压缩方式不受支持',
-  'archive-too-large': '备份文件超过大小限制',
-  'future-version': '备份来自更新版本的应用',
-  'storage-error': '无法读取本地数据库',
-  'import-failed': '备份导入失败',
-  'refresh-failed': '导入后界面刷新失败',
-  'export-failed': '备份导出失败',
-  'storage-write-failed': '本地数据库写入失败'
-}
 
 export function createErrorRecord(
   category: ErrorCategory,
   context: ErrorContext | undefined,
   recordedAt: string
 ): ErrorRecord {
-  const record: ErrorRecord = {
-    recordedAt,
-    category,
-    message: ERROR_MESSAGES[category]
-  }
+  const record: ErrorRecord = { recordedAt, category }
   if (context) record.context = { ...context }
   return record
 }
@@ -97,30 +75,59 @@ function contextText(record: ErrorRecord): string {
   return ` | ${parts.join(' ')}`
 }
 
-/**
- * 输出可检查的纯文本诊断信息：版本、环境、错误记录。
- * 不包含睡眠日记、筛查答案、疗程状态或备份内容；结尾附带隐私提醒。
- */
-export function formatDiagnostics(
-  records: readonly ErrorRecord[],
-  meta: DiagnosticMeta,
-  options: { note?: string } = {}
-): string {
-  const lines: string[] = [
+function metaLines(meta: DiagnosticMeta): string[] {
+  return [
     'sleep-well diagnostics',
     `appVersion: ${meta.appVersion}`,
     `generatedAt: ${meta.generatedAt}`,
     `userAgent: ${meta.userAgent}`,
-    `language: ${meta.language}`,
+    `language: ${meta.language}`
+  ]
+}
+
+/**
+ * 输出可检查的纯文本诊断信息：版本、环境、错误记录。
+ * 不包含睡眠日记、筛查答案、疗程状态或备份内容；结尾附带隐私提醒。
+ * `messageFor` 由界面层提供（i18n），本模块不持有用户可见文案。
+ */
+export function formatDiagnostics(
+  records: readonly ErrorRecord[],
+  meta: DiagnosticMeta,
+  options: {
+    messageFor: (category: ErrorCategory) => string
+    note?: string
+  }
+): string {
+  const lines = [
+    ...metaLines(meta),
     `records (${records.length}/${MAX_ERROR_RECORDS}):`
   ]
   if (records.length === 0) {
     lines.push('(none)')
   } else {
     for (const record of records) {
-      lines.push(`${record.recordedAt} | ${record.category} | ${record.message}${contextText(record)}`)
+      lines.push(
+        `${record.recordedAt} | ${record.category} | ${options.messageFor(record.category)}${contextText(record)}`
+      )
     }
   }
+  if (options.note) lines.push(`note: ${options.note}`)
+  return lines.join('\n')
+}
+
+/**
+ * 供 GitHub issue 预填的摘要：只含版本、环境与错误类别 code，
+ * 不含错误消息原文、上下文或任何本地数据——诊断全文只能由用户主动复制后自行粘贴。
+ */
+export function formatIssueSummary(
+  records: readonly ErrorRecord[],
+  meta: DiagnosticMeta,
+  options: { note?: string } = {}
+): string {
+  const lines = [
+    ...metaLines(meta),
+    `categories: ${records.length === 0 ? '(none)' : records.map((record) => record.category).join(', ')}`
+  ]
   if (options.note) lines.push(`note: ${options.note}`)
   return lines.join('\n')
 }
