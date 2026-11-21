@@ -179,7 +179,7 @@ function problemText(t: TFunction, problem: DiaryProblem): string {
   }
 }
 
-function MetricValue({ metric, format }: { metric: Metric<number>; format: (value: number) => string }) {
+function MetricValue({ metric, format, compact = false }: { metric: Metric<number>; format: (value: number) => string; compact?: boolean }) {
   const { t } = useTranslation()
 
   if (metric.status === 'available') return <>{format(metric.value)}</>
@@ -187,7 +187,8 @@ function MetricValue({ metric, format }: { metric: Metric<number>; format: (valu
   return (
     <>
       <span className="metric-unavailable">{t('metricUnavailable')}</span>
-      <span className="metric-reason">{reasonText(t, metric.reason)}</span>
+      {/* 一行摘要只报“数据不足”，具体原因留在第二屏的完整指标里。 */}
+      {!compact && <span className="metric-reason">{reasonText(t, metric.reason)}</span>}
     </>
   )
 }
@@ -328,14 +329,11 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
 
   return (
     <section className="diary-panel" aria-labelledby="diary-title">
-      <div className="panel-heading">
-        <div>
-          <p className="panel-kicker">{t('diaryKicker')}</p>
-          <h2 id="diary-title">{t('diaryTitle')}</h2>
-        </div>
-        <span className="panel-symbol" aria-hidden="true">☾</span>
+      <div className="diary-head">
+        <p className="panel-kicker">{t('diaryKicker')}</p>
+        <h2 id="diary-title">{t('diaryTitle')}</h2>
+        <p className="diary-intro">{t('diaryIntro')}</p>
       </div>
-      <p className="diary-intro">{t('diaryIntro')}</p>
 
       {loadState === 'loading' && <p role="status">{t('diaryLoading')}</p>}
       {loadState === 'error' && (
@@ -347,173 +345,204 @@ export function DiaryPanel({ storageUnavailable, onSaved, reloadToken = 0 }: { s
       {loadState === 'ready' && (
         <>
           <form className="diary-form" onSubmit={(event) => void save(event)}>
-            <div className="diary-date-field">
-              <label className="field-label" htmlFor="diary-date">{t('diaryDateLabel')}</label>
-              <input
-                id="diary-date"
-                type="date"
-                value={selectedDate}
-                max={today}
-                onChange={(event) => chooseDate(event.target.value)}
-              />
-            </div>
+            {/* 第一屏：日期、四项核心输入、一行指标摘要与保存按钮。 */}
+            <div className="diary-first">
+              <div className="diary-date-row">
+                <label className="field-label" htmlFor="diary-date">{t('diaryDateLabel')}</label>
+                <input
+                  id="diary-date"
+                  type="date"
+                  value={selectedDate}
+                  max={today}
+                  onChange={(event) => chooseDate(event.target.value)}
+                />
+              </div>
 
-            <div className="diary-grid">
-              <div className="diary-field">
-                <label className="field-label" htmlFor="lights-off">{t('diaryLightsOffLabel')}</label>
-                <input
-                  id="lights-off"
-                  type="time"
-                  value={form.lightsOffTime}
-                  onChange={(event) => update({ lightsOffTime: event.target.value })}
-                />
-              </div>
-              <div className="diary-field">
-                <label className="field-label" htmlFor="sleep-onset">{t('diaryLatencyLabel')}</label>
-                <input
-                  id="sleep-onset"
-                  type="number"
-                  min="0"
-                  max="720"
-                  step="1"
-                  inputMode="numeric"
-                  value={form.sleepOnsetLatencyMinutes}
-                  onChange={(event) => update({ sleepOnsetLatencyMinutes: event.target.value })}
-                />
-                <p className="field-hint">{t('diaryLatencyHint')}</p>
-              </div>
-              <div className="diary-field">
-                <label className="field-label" htmlFor="final-wake">{t('diaryFinalWakeLabel')}</label>
-                <input
-                  id="final-wake"
-                  type="time"
-                  value={form.finalWakeTime}
-                  onChange={(event) => update({ finalWakeTime: event.target.value })}
-                />
-              </div>
-              <div className="diary-field">
-                <label className="field-label" htmlFor="out-of-bed">{t('diaryOutOfBedLabel')}</label>
-                <input
-                  id="out-of-bed"
-                  type="time"
-                  value={form.outOfBedTime}
-                  onChange={(event) => update({ outOfBedTime: event.target.value })}
-                />
-              </div>
-              <div className="diary-field">
-                <label className="field-label" htmlFor="night-wakes">{t('diaryNightWakesLabel')}</label>
-                <select
-                  id="night-wakes"
-                  value={form.nightWakes}
-                  onChange={(event) => update({ nightWakes: event.target.value as NightWakesCount })}
-                >
-                  {nightWakesOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="diary-field">
-                <label className="field-label" htmlFor="waso">{t('diaryWasoLabel')}</label>
-                <select
-                  id="waso"
-                  value={form.wasoChoice}
-                  onChange={(event) => update({ wasoChoice: event.target.value as WasoChoice })}
-                >
-                  {wasoOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
-                  ))}
-                </select>
-                {form.wasoChoice === 'minutes' && (
+              <div className="diary-grid diary-grid-core">
+                <div className="diary-field">
+                  <label className="field-label" htmlFor="lights-off">{t('diaryLightsOffLabel')}</label>
                   <input
-                    id="waso-minutes"
-                    className="diary-inline-input"
+                    id="lights-off"
+                    type="time"
+                    value={form.lightsOffTime}
+                    onChange={(event) => update({ lightsOffTime: event.target.value })}
+                  />
+                </div>
+                <div className="diary-field">
+                  <label className="field-label" htmlFor="sleep-onset">{t('diaryLatencyLabel')}</label>
+                  <input
+                    id="sleep-onset"
                     type="number"
                     min="0"
                     max="720"
                     step="1"
                     inputMode="numeric"
-                    aria-label={t('diaryWasoMinutesLabel')}
-                    value={form.wasoMinutes}
-                    onChange={(event) => update({ wasoMinutes: event.target.value })}
+                    value={form.sleepOnsetLatencyMinutes}
+                    onChange={(event) => update({ sleepOnsetLatencyMinutes: event.target.value })}
                   />
-                )}
+                  <p className="field-hint">{t('diaryLatencyHint')}</p>
+                </div>
+                <div className="diary-field">
+                  <label className="field-label" htmlFor="final-wake">{t('diaryFinalWakeLabel')}</label>
+                  <input
+                    id="final-wake"
+                    type="time"
+                    value={form.finalWakeTime}
+                    onChange={(event) => update({ finalWakeTime: event.target.value })}
+                  />
+                </div>
+                <div className="diary-field">
+                  <label className="field-label" htmlFor="out-of-bed">{t('diaryOutOfBedLabel')}</label>
+                  <input
+                    id="out-of-bed"
+                    type="time"
+                    value={form.outOfBedTime}
+                    onChange={(event) => update({ outOfBedTime: event.target.value })}
+                  />
+                </div>
               </div>
+
+              <div className="diary-summary" role="group" aria-label={t('diarySummaryLabel')}>
+                <dl className="diary-summary-list">
+                  <div className="diary-summary-item">
+                    <dt>{t('metricTibShort')}</dt>
+                    <dd><MetricValue metric={assessment.timeInBed} compact format={(value) => durationText(t, value)} /></dd>
+                  </div>
+                  <div className="diary-summary-item">
+                    <dt>{t('metricTstShort')}</dt>
+                    <dd><MetricValue metric={assessment.totalSleep} compact format={(value) => durationText(t, value)} /></dd>
+                  </div>
+                  <div className="diary-summary-item">
+                    <dt>{t('metricSeShort')}</dt>
+                    <dd><MetricValue metric={assessment.sleepEfficiency} compact format={(value) => t('metricPercent', { value })} /></dd>
+                  </div>
+                </dl>
+              </div>
+
+              {blocked && (
+                <div className="diary-alert" role="alert">
+                  <p>{t('diaryProblemsTitle')}</p>
+                  <ul>
+                    {problems.map((problem, index) => (
+                      <li key={`${problem.kind}-${index}`}>{problemText(t, problem)}</li>
+                    ))}
+                    {wasoMinutesMissing && <li>{t('diaryProblemWasoMinutesMissing')}</li>}
+                    {futureDate && <li>{t('diaryProblemFutureDate')}</li>}
+                  </ul>
+                </div>
+              )}
+
+              {feedback === 'invalid' && <p className="diary-status is-warning" role="status">{t('diaryFixBeforeSave')}</p>}
+              {feedback === 'saved' && <p className="diary-status" role="status">{t('diarySaved')}</p>}
+              {feedback === 'save-error' && <p className="diary-alert" role="alert">{t('diarySaveError')}</p>}
             </div>
 
-            <fieldset className="diary-fieldset">
-              <legend className="field-label">{t('diaryQualityLabel')}</legend>
-              <p className="field-hint">{t('diaryQualityHint')}</p>
-              <div className="choice-row choice-row-wide">
-                {qualityOptions.map((option) => (
-                  <label key={option.value || 'unset'}>
+            {/* 第二屏：可选字段、完整指标与最近记录。 */}
+            <div className="diary-second">
+              <h3 className="diary-second-title">{t('diaryMoreTitle')}</h3>
+
+              <div className="diary-grid diary-grid-extra">
+                <div className="diary-field">
+                  <label className="field-label" htmlFor="night-wakes">{t('diaryNightWakesLabel')}</label>
+                  <select
+                    id="night-wakes"
+                    value={form.nightWakes}
+                    onChange={(event) => update({ nightWakes: event.target.value as NightWakesCount })}
+                  >
+                    {nightWakesOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="diary-field">
+                  <label className="field-label" htmlFor="waso">{t('diaryWasoLabel')}</label>
+                  <select
+                    id="waso"
+                    value={form.wasoChoice}
+                    onChange={(event) => update({ wasoChoice: event.target.value as WasoChoice })}
+                  >
+                    {wasoOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                    ))}
+                  </select>
+                  {form.wasoChoice === 'minutes' && (
                     <input
-                      type="radio"
-                      name="diary-quality"
-                      checked={form.sleepQuality === option.value}
-                      onChange={() => update({ sleepQuality: option.value })}
+                      id="waso-minutes"
+                      className="diary-inline-input"
+                      type="number"
+                      min="0"
+                      max="720"
+                      step="1"
+                      inputMode="numeric"
+                      aria-label={t('diaryWasoMinutesLabel')}
+                      value={form.wasoMinutes}
+                      onChange={(event) => update({ wasoMinutes: event.target.value })}
                     />
-                    {t(option.labelKey)}
-                  </label>
-                ))}
+                  )}
+                </div>
               </div>
-            </fieldset>
 
-            <fieldset className="diary-fieldset">
-              <legend className="field-label">{t('diaryTagsLabel')}</legend>
-              <div className="tag-row">
-                {diaryTags.map((tag) => (
-                  <label key={tag} className="tag-choice">
-                    <input type="checkbox" checked={form.tags.includes(tag)} onChange={() => toggleTag(tag)} />
-                    {t(tagLabelKeys[tag])}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <section className="diary-metrics" aria-labelledby="diary-metrics-title">
-              <h3 id="diary-metrics-title">{t('diaryMetricsTitle')}</h3>
-              <dl className="metric-grid">
-                <div className="metric-cell">
-                  <dt>{t('metricTib')}</dt>
-                  <dd><MetricValue metric={assessment.timeInBed} format={(value) => durationText(t, value)} /></dd>
-                </div>
-                <div className="metric-cell">
-                  <dt>{t('metricTerminalAwake')}</dt>
-                  <dd><MetricValue metric={assessment.terminalAwake} format={(value) => durationText(t, value)} /></dd>
-                </div>
-                <div className="metric-cell">
-                  <dt>{t('metricTst')}</dt>
-                  <dd><MetricValue metric={assessment.totalSleep} format={(value) => durationText(t, value)} /></dd>
-                </div>
-                <div className="metric-cell">
-                  <dt>{t('metricSe')}</dt>
-                  <dd><MetricValue metric={assessment.sleepEfficiency} format={(value) => t('metricPercent', { value })} /></dd>
-                </div>
-              </dl>
-              <p className="field-hint">{t('diaryMetricsNote')}</p>
-            </section>
-
-            {blocked && (
-              <div className="diary-alert" role="alert">
-                <p>{t('diaryProblemsTitle')}</p>
-                <ul>
-                  {problems.map((problem, index) => (
-                    <li key={`${problem.kind}-${index}`}>{problemText(t, problem)}</li>
+              <fieldset className="diary-fieldset">
+                <legend className="field-label">{t('diaryQualityLabel')}</legend>
+                <p className="field-hint">{t('diaryQualityHint')}</p>
+                <div className="choice-row choice-row-wide">
+                  {qualityOptions.map((option) => (
+                    <label key={option.value || 'unset'}>
+                      <input
+                        type="radio"
+                        name="diary-quality"
+                        checked={form.sleepQuality === option.value}
+                        onChange={() => update({ sleepQuality: option.value })}
+                      />
+                      {t(option.labelKey)}
+                    </label>
                   ))}
-                  {wasoMinutesMissing && <li>{t('diaryProblemWasoMinutesMissing')}</li>}
-                  {futureDate && <li>{t('diaryProblemFutureDate')}</li>}
-                </ul>
+                </div>
+              </fieldset>
+
+              <fieldset className="diary-fieldset">
+                <legend className="field-label">{t('diaryTagsLabel')}</legend>
+                <div className="tag-row">
+                  {diaryTags.map((tag) => (
+                    <label key={tag} className="tag-choice">
+                      <input type="checkbox" checked={form.tags.includes(tag)} onChange={() => toggleTag(tag)} />
+                      {t(tagLabelKeys[tag])}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <section className="diary-metrics" aria-labelledby="diary-metrics-title">
+                <h3 id="diary-metrics-title">{t('diaryMetricsTitle')}</h3>
+                <dl className="metric-grid">
+                  <div className="metric-cell">
+                    <dt>{t('metricTib')}</dt>
+                    <dd><MetricValue metric={assessment.timeInBed} format={(value) => durationText(t, value)} /></dd>
+                  </div>
+                  <div className="metric-cell">
+                    <dt>{t('metricTerminalAwake')}</dt>
+                    <dd><MetricValue metric={assessment.terminalAwake} format={(value) => durationText(t, value)} /></dd>
+                  </div>
+                  <div className="metric-cell">
+                    <dt>{t('metricTst')}</dt>
+                    <dd><MetricValue metric={assessment.totalSleep} format={(value) => durationText(t, value)} /></dd>
+                  </div>
+                  <div className="metric-cell">
+                    <dt>{t('metricSe')}</dt>
+                    <dd><MetricValue metric={assessment.sleepEfficiency} format={(value) => t('metricPercent', { value })} /></dd>
+                  </div>
+                </dl>
+                <p className="field-hint">{t('diaryMetricsNote')}</p>
+              </section>
+            </div>
+
+            {/* 保存栏固定在底栏上方：滚动到任何位置都能直接保存。 */}
+            <div className="diary-savebar">
+              <div className="diary-savebar-inner">
+                <button type="submit" className="primary-button" disabled={saving}>
+                  {saving ? t('diarySaving') : savedEntry ? t('diaryUpdate') : t('diarySave')}
+                </button>
               </div>
-            )}
-
-            {feedback === 'invalid' && <p className="diary-status is-warning" role="status">{t('diaryFixBeforeSave')}</p>}
-            {feedback === 'saved' && <p className="diary-status" role="status">{t('diarySaved')}</p>}
-            {feedback === 'save-error' && <p className="diary-alert" role="alert">{t('diarySaveError')}</p>}
-
-            <div className="diary-actions">
-              <button type="submit" className="primary-button" disabled={saving}>
-                {saving ? t('diarySaving') : savedEntry ? t('diaryUpdate') : t('diarySave')}
-              </button>
             </div>
           </form>
 

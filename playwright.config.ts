@@ -23,7 +23,7 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    // 可访问性测试在移动视口里跑；桌面 chromium 项目继续跑全部测试文件（全量回归）。
-    { name: 'mobile-chromium', testMatch: /a11y-.*\.spec\.ts/, use: { ...devices['Pixel 7'] } }
+    // 可访问性与首屏预算在移动视口里跑；桌面 chromium 项目继续跑全部测试文件（全量回归）。
+    { name: 'mobile-chromium', testMatch: /(a11y-|diary-first-screen).*\.spec\.ts$/, use: { ...devices['Pixel 7'] } }
   ]
 })
