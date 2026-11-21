@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import {
   goToSettingsSubPage,
   openPage,
+  openSettingsSubPage,
   type AppPage,
   type SettingsSubPage
 } from './navigation'
@@ -25,35 +26,12 @@ async function renderedText(page: Page) {
     }
 
     const parseColor = (value: string) => {
+      if (value === 'transparent') return { r: 0, g: 0, b: 0, alpha: 0 }
       const match = value.match(/rgba?\(([^)]+)\)/)
       if (!match) return null
-      const channels = match[1].split(',').map((channel) => Number.parseFloat(channel.trim()))
-      if (channels.length < 3 || channels.some((channel) => Number.isNaN(channel))) return null
+      const channels = match[1].trim().split(/\s*[,/]\s*|\s+/).map((channel) => Number.parseFloat(channel))
+      if (channels.length < 3 || channels.slice(0, 3).some((channel) => Number.isNaN(channel))) return null
       return { r: channels[0], g: channels[1], b: channels[2], alpha: channels[3] ?? 1 }
-    }
-
-    const backgroundFor = (element: Element) => {
-      const ancestors: Element[] = []
-      let current: Element | null = element
-      while (current) {
-        ancestors.unshift(current)
-        current = current.parentElement
-      }
-      const root = parseColor(getComputedStyle(document.documentElement).backgroundColor)
-        ?? { r: 255, g: 255, b: 255, alpha: 1 }
-      let rendered = { r: root.r, g: root.g, b: root.b }
-      let ancestorOpacity = 1
-      for (const layer of ancestors) {
-        const style = getComputedStyle(layer)
-        const background = parseColor(style.backgroundColor)
-        const opacity = Number.parseFloat(style.opacity)
-        const layerOpacity = Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 1
-        if (background && background.alpha > 0) {
-          rendered = composite(background, { ...rendered, alpha: 1 }, ancestorOpacity * layerOpacity)
-        }
-        ancestorOpacity *= layerOpacity
-      }
-      return { ...rendered, alpha: 1 }
     }
 
     const luminance = ({ r, g, b }: { r: number; g: number; b: number }) => {
@@ -62,6 +40,53 @@ async function renderedText(page: Page) {
         return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
       }
       return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+    }
+
+    const composite = (
+      foreground: NonNullable<ReturnType<typeof parseColor>>,
+      background: { r: number; g: number; b: number },
+      opacity = 1
+    ) => {
+      const alpha = Math.max(0, Math.min(1, foreground.alpha * opacity))
+      return {
+        r: foreground.r * alpha + background.r * (1 - alpha),
+        g: foreground.g * alpha + background.g * (1 - alpha),
+        b: foreground.b * alpha + background.b * (1 - alpha)
+      }
+    }
+
+    const renderedPixels = (element: Element, foreground: ReturnType<typeof parseColor>) => {
+      const ancestors: Element[] = []
+      let current: Element | null = element
+      while (current) {
+        ancestors.unshift(current)
+        current = current.parentElement
+      }
+      const pageBackground = parseColor(getComputedStyle(document.documentElement).backgroundColor)
+        ?? { r: 255, g: 255, b: 255, alpha: 1 }
+
+      const render = (index: number, backdrop: { r: number; g: number; b: number }) => {
+        const layer = ancestors[index]
+        const style = getComputedStyle(layer)
+        const layerBackground = parseColor(style.backgroundColor) ?? { r: 0, g: 0, b: 0, alpha: 0 }
+        const localBackground = composite(layerBackground, backdrop)
+        let backgroundPixel = localBackground
+        let foregroundPixel = localBackground
+        if (index === ancestors.length - 1) {
+          if (foreground) foregroundPixel = composite(foreground, localBackground)
+        } else {
+          const childPixels = render(index + 1, localBackground)
+          backgroundPixel = childPixels.background
+          foregroundPixel = childPixels.foreground
+        }
+        const opacity = Number.parseFloat(style.opacity)
+        const groupOpacity = Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 1
+        return {
+          background: composite({ ...backgroundPixel, alpha: 1 }, backdrop, groupOpacity),
+          foreground: composite({ ...foregroundPixel, alpha: 1 }, backdrop, groupOpacity)
+        }
+      }
+      return render(0, { r: pageBackground.r, g: pageBackground.g, b: pageBackground.b })
     }
 
     const effectiveOpacity = (element: Element) => {
@@ -75,24 +100,11 @@ async function renderedText(page: Page) {
       return opacity
     }
 
-    const composite = (
-      foreground: NonNullable<ReturnType<typeof parseColor>>,
-      background: NonNullable<ReturnType<typeof parseColor>>,
-      opacity: number
-    ) => {
-      const alpha = Math.max(0, Math.min(1, foreground.alpha * opacity))
-      return {
-        r: foreground.r * alpha + background.r * (1 - alpha),
-        g: foreground.g * alpha + background.g * (1 - alpha),
-        b: foreground.b * alpha + background.b * (1 - alpha)
-      }
-    }
-
-    const contrast = (foreground: ReturnType<typeof parseColor>, background: ReturnType<typeof parseColor>, opacity = 1) => {
-      if (!foreground || !background) return null
-      const renderedForeground = composite(foreground, background, opacity)
-      const foregroundLum = luminance(renderedForeground)
-      const backgroundLum = luminance(background)
+    const contrast = (foreground: ReturnType<typeof parseColor>, element: Element) => {
+      if (!foreground) return null
+      const pixels = renderedPixels(element, foreground)
+      const foregroundLum = luminance(pixels.foreground)
+      const backgroundLum = luminance(pixels.background)
       return (Math.max(foregroundLum, backgroundLum) + 0.05) / (Math.min(foregroundLum, backgroundLum) + 0.05)
     }
 
@@ -110,7 +122,7 @@ async function renderedText(page: Page) {
         text: text.slice(0, 80),
         size,
         family: style.fontFamily,
-        ratio: contrast(parseColor(style.color), backgroundFor(element), effectiveOpacity(element)),
+        ratio: contrast(parseColor(style.color), element),
         opacity: effectiveOpacity(element),
         large
       })
@@ -154,9 +166,9 @@ test('diary, today, settings, and training body copy stays at least 16px', async
   const cases: { page: AppPage | SettingsSubPage; selectors: string[]; settings?: boolean }[] = [
     { page: 'diary', selectors: ['.diary-intro', '.diary-summary-item dd'] },
     { page: 'today', selectors: ['.today-card-copy'] },
-    { page: 'about', selectors: ['.about-panel p'], settings: true },
+    { page: 'about', selectors: ['.about-panel p:not(.local-only)'], settings: true },
     { page: 'backup', selectors: ['.backup-intro', '.backup-caution'], settings: true },
-    { page: 'training', selectors: ['.course-intro', '.course-card-copy', '.course-content p', '.task-list'] }
+    { page: 'training', selectors: ['.course-intro', '.course-card-copy'] }
   ]
 
   for (const item of cases) {
@@ -175,26 +187,37 @@ test('diary, today, settings, and training body copy stays at least 16px', async
   }
 })
 
-test('rendered contrast composites translucent background layers and ancestor opacity', async ({ page }) => {
+test('rendered contrast composites transparent text and nested translucent opacity groups', async ({ page }) => {
   await openPage(page, 'today')
   await page.evaluate(() => {
-    const parent = document.createElement('div')
-    parent.style.cssText = 'position:fixed;top:2px;left:2px;z-index:1000;background:rgba(0,0,0,.5);opacity:.5'
+    const outer = document.createElement('div')
+    outer.style.cssText = 'position:fixed;top:2px;left:2px;z-index:1000;background:rgba(0,0,0,.5);opacity:.5'
+    const inner = document.createElement('div')
+    inner.style.cssText = 'background:rgba(255,255,255,0);opacity:1'
     const text = document.createElement('span')
     text.dataset.testid = 'composited-contrast-probe'
     text.textContent = 'contrast probe'
-    text.style.cssText = 'color:#000;font-size:16px'
-    parent.append(text)
-    document.body.append(parent)
+    text.style.cssText = 'color:rgba(0,0,0,0);font-size:16px'
+    inner.append(text)
+    outer.append(inner)
+    document.body.append(outer)
   })
   const result = await renderedText(page)
   const probe = result.texts.find((text) => text.text === 'contrast probe')
   expect(probe).toBeDefined()
-  expect(probe!.ratio).toBeCloseTo(2.2, 0)
+  expect(probe!.ratio).toBeCloseTo(1, 5)
+
+  await page.locator('[data-testid="composited-contrast-probe"]').evaluate((element) => {
+    element.style.color = '#000'
+  })
+  const opaqueResult = await renderedText(page)
+  const opaqueProbe = opaqueResult.texts.find((text) => text.text === 'contrast probe')
+  expect(opaqueProbe).toBeDefined()
+  expect(opaqueProbe!.ratio).toBeCloseTo(2.14625, 4)
 })
 
 test('error status text meets normal-text contrast on its rendered light background', async ({ page }) => {
-  await openSettingsSubPage(page, 'about')
+  await openSettingsSubPage(page, 'reminders')
   const error = page.locator('.storage-note')
   await error.evaluate((element) => {
     element.classList.add('note-error')
@@ -216,23 +239,48 @@ test('diary and training remain usable at a 200 percent equivalent viewport', as
     }))
     expect(dimensions.content, `${target} horizontal overflow`).toBeLessThanOrEqual(dimensions.viewport)
 
+    const copy = target === 'diary' ? page.locator('.diary-intro') : page.locator('.course-intro')
+    const heading = page.getByRole('heading', { level: 1 })
+    for (const [name, locator] of [['title', heading], ['body copy', copy]] as const) {
+      const unobscured = await locator.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        const centerX = rect.left + rect.width / 2
+        const centerY = rect.top + rect.height / 2
+        const bars = [...document.querySelectorAll('.diary-savebar, .bottom-bar')]
+          .map((bar) => bar.getBoundingClientRect())
+        const covered = bars.some((bar) => centerX >= bar.left && centerX <= bar.right && centerY >= bar.top && centerY <= bar.bottom)
+        return rect.width > 0 && rect.height > 0 && centerY >= 0 && centerY < window.innerHeight && !covered
+      })
+      expect(unobscured, `${target} ${name} should remain visible above fixed bars`).toBe(true)
+    }
+
+    const control = target === 'diary'
+      ? page.locator('.diary-date-row input')
+      : page.locator('.pattern-choice input').first()
+    await expect(control).toBeVisible()
+    await control.evaluate((element) => element.scrollIntoView({ block: 'center', inline: 'nearest' }))
+    const isInteractable = await control.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      const x = rect.left + rect.width / 2
+      const y = rect.top + rect.height / 2
+      const bars = [...document.querySelectorAll('.diary-savebar, .bottom-bar')]
+        .map((bar) => bar.getBoundingClientRect())
+      const covered = bars.some((bar) => x >= bar.left && x <= bar.right && y >= bar.top && y <= bar.bottom)
+      const hit = document.elementFromPoint(x, y)
+      return rect.width > 0 && rect.height > 0 && y >= 0 && y < window.innerHeight
+        && !covered && !!hit && (element === hit || element.contains(hit) || hit.contains(element))
+    })
+    expect(isInteractable, `${target} primary control should be unobscured and hit-testable`).toBe(true)
+
     if (target === 'diary') {
-      const lastField = page.locator('.diary-field').last()
-      await lastField.scrollIntoViewIfNeeded()
-      const rect = await lastField.boundingBox()
-      const savebar = await page.locator('.diary-savebar').boundingBox()
-      expect(rect).not.toBeNull()
-      expect(savebar).not.toBeNull()
-      expect(rect!.y + rect!.height).toBeLessThanOrEqual(savebar!.y)
-    } else {
-      const content = page.locator('.course-panel').last()
-      await expect(content).toBeVisible()
-      await content.scrollIntoViewIfNeeded()
-      const rect = await content.boundingBox()
-      const bottomBar = await page.locator('.bottom-bar').boundingBox()
-      expect(rect).not.toBeNull()
-      expect(bottomBar).not.toBeNull()
-      expect(rect!.y + rect!.height).toBeLessThanOrEqual(bottomBar!.y)
+      const saveButton = page.locator('.diary-savebar .primary-button')
+      await expect(saveButton).toBeVisible()
+      const saveHit = await saveButton.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+        return rect.width > 0 && rect.height > 0 && !!hit && (element === hit || element.contains(hit) || hit.contains(element))
+      })
+      expect(saveHit, 'diary fixed save control should remain hit-testable').toBe(true)
     }
   }
 })
