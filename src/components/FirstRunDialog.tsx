@@ -69,8 +69,14 @@ export function FirstRunDialog({ onStartScreening, onRecordDiary, onDismiss }: F
 
     return () => {
       if (dialog.open) dialog.close()
-      // 弹窗从 DOM 卸载时，浏览器不会替我们保留焦点；显式还给进入前的元素。
-      opener?.focus({ preventScroll: true })
+      // 弹窗从 DOM 卸载时，浏览器不会替我们保留焦点。
+      // 有触发元素（复看）就还给触发按钮；自动弹出没有触发元素，交给页标题，
+      // 否则焦点会留在 body，键盘用户失去位置。
+      if (opener !== null) {
+        opener.focus({ preventScroll: true })
+      } else {
+        document.getElementById('page-title')?.focus({ preventScroll: true })
+      }
     }
   }, [])
 

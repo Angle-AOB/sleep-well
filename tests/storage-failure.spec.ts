@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { FIRST_RUN_SEEN_KEY } from '../src/firstRun'
+import { firstRunStorageState } from '../src/firstRun'
 import { goTo, goToSettingsSubPage } from './navigation'
 
 /**
@@ -8,10 +8,7 @@ import { goTo, goToSettingsSubPage } from './navigation'
  */
 function seenFirstRun(baseURL: string | undefined) {
   if (!baseURL) throw new Error('baseURL 未配置')
-  return {
-    cookies: [],
-    origins: [{ origin: baseURL, localStorage: [{ name: FIRST_RUN_SEEN_KEY, value: '1' }] }]
-  }
+  return firstRunStorageState(baseURL)
 }
 
 test('disabled IndexedDB shows storage-unavailable and app still renders', async ({ browser, baseURL }) => {

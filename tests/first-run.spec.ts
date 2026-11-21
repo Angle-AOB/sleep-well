@@ -6,12 +6,16 @@ import { defaultClock, goToSettingsSubPage } from './navigation'
 // 其余用例通过 playwright.config.ts 的 storageState 默认带上标记，不会被弹窗挡住。
 test.use({ storageState: { cookies: [], origins: [] } })
 
+// 按仓库约定固定本地日期；不依赖真实系统时钟，时钟在导航前就位。
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(new Date(defaultClock))
+})
+
 const startScreening = '开始安全自查'
 const recordDiary = '先记录日记'
 const closeFirstRun = '关闭首次说明'
 
 test('首次打开显示说明弹窗；关闭后刷新不再出现', async ({ page }) => {
-  await page.clock.setFixedTime(new Date(defaultClock))
   await page.goto('/')
 
   const dialog = page.getByRole('dialog')
@@ -72,6 +76,19 @@ test('Esc 关闭首次说明弹窗', async ({ page }) => {
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByRole('heading', { level: 1, name: '今日' })).toBeVisible()
+})
+
+test('自动弹出的说明按 Esc 关闭后焦点落到今日标题', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('dialog')).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  // 自动弹出没有触发元素：焦点应交给当前页标题，而不是留在 body。
+  const title = page.locator('#page-title')
+  await expect(title).toHaveText('今日')
+  await expect(title).toBeFocused()
 })
 
 test('关于与隐私可以复看同一说明，关闭后回到关于页且不重置标记', async ({ page }) => {
