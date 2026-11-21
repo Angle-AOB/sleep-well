@@ -233,14 +233,13 @@ test('rendered contrast composites transparent text and nested translucent opaci
 })
 
 test('error status text meets normal-text contrast on its rendered light background', async ({ page }) => {
-  await openSettingsSubPage(page, 'reminders')
-  const error = page.locator('.storage-note')
-  await error.evaluate((element) => {
-    element.classList.add('note-error')
-    element.textContent = '本地存储不可用。'
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true })
   })
+  await openSettingsSubPage(page, 'reminders')
+  await expect(page.getByRole('status').getByText('此浏览器无法使用本地存储')).toBeVisible()
   const result = await renderedText(page)
-  const renderedError = result.texts.find((text) => text.text === '本地存储不可用。')
+  const renderedError = result.texts.find((text) => text.text.startsWith('此浏览器无法使用本地存储'))
   expect(renderedError).toBeDefined()
   expect(renderedError!.ratio).toBeGreaterThanOrEqual(4.5)
 })
@@ -255,41 +254,46 @@ test('diary and training remain usable at a 200 percent equivalent viewport', as
     }))
     expect(dimensions.content, `${target} horizontal overflow`).toBeLessThanOrEqual(dimensions.viewport)
 
-    const copy = target === 'diary' ? page.locator('.diary-intro') : page.locator('.course-intro')
+    const copy = target === 'diary'
+      ? page.getByText('在早晨回顾上一夜。只填记得住的部分：不确定的字段可以留空或记为“不知道”，缺失不会被当成 0。', { exact: true })
+      : page.getByText('疗程逐周解锁：第 1 周只记录基线，第 2 周锚定固定起床时间，第 3 周才启动睡眠限制，第 4–5 周滴定与认知练习，第 6 周巩固。', { exact: true })
     const heading = page.getByRole('heading', { level: 1 })
+    const fixedActions = [page.getByRole('navigation', { name: '页面导航' })]
+    if (target === 'diary') fixedActions.push(page.getByRole('button', { name: '保存日记' }))
+    const fixedActionBounds = await Promise.all(fixedActions.map((action) => action.boundingBox()))
     for (const [name, locator] of [['title', heading], ['body copy', copy]] as const) {
-      const unobscured = await locator.evaluate((element) => {
+      const unobscured = await locator.evaluate((element, bounds) => {
         const rect = element.getBoundingClientRect()
         const centerX = rect.left + rect.width / 2
         const centerY = rect.top + rect.height / 2
-        const bars = [...document.querySelectorAll('.diary-savebar, .bottom-bar')]
-          .map((bar) => bar.getBoundingClientRect())
-        const covered = bars.some((bar) => centerX >= bar.left && centerX <= bar.right && centerY >= bar.top && centerY <= bar.bottom)
+        const covered = bounds.some((bar) => bar !== null
+          && centerX >= bar.x && centerX <= bar.x + bar.width
+          && centerY >= bar.y && centerY <= bar.y + bar.height)
         return rect.width > 0 && rect.height > 0 && centerY >= 0 && centerY < window.innerHeight && !covered
-      })
+      }, fixedActionBounds)
       expect(unobscured, `${target} ${name} should remain visible above fixed bars`).toBe(true)
     }
 
     const control = target === 'diary'
-      ? page.locator('.diary-date-row input')
-      : page.locator('.pattern-choice input').first()
+      ? page.getByLabel('记录哪一夜')
+      : page.getByRole('radio', { name: '作息基本规律' })
     await expect(control).toBeVisible()
     await control.evaluate((element) => element.scrollIntoView({ block: 'center', inline: 'nearest' }))
-    const isInteractable = await control.evaluate((element) => {
+    const isInteractable = await control.evaluate((element, bounds) => {
       const rect = element.getBoundingClientRect()
       const x = rect.left + rect.width / 2
       const y = rect.top + rect.height / 2
-      const bars = [...document.querySelectorAll('.diary-savebar, .bottom-bar')]
-        .map((bar) => bar.getBoundingClientRect())
-      const covered = bars.some((bar) => x >= bar.left && x <= bar.right && y >= bar.top && y <= bar.bottom)
+      const covered = bounds.some((bar) => bar !== null
+        && x >= bar.x && x <= bar.x + bar.width
+        && y >= bar.y && y <= bar.y + bar.height)
       const hit = document.elementFromPoint(x, y)
       return rect.width > 0 && rect.height > 0 && y >= 0 && y < window.innerHeight
         && !covered && !!hit && (element === hit || element.contains(hit) || hit.contains(element))
-    })
+    }, fixedActionBounds)
     expect(isInteractable, `${target} primary control should be unobscured and hit-testable`).toBe(true)
 
     if (target === 'diary') {
-      const saveButton = page.locator('.diary-savebar .primary-button')
+      const saveButton = page.getByRole('button', { name: '保存日记' })
       await expect(saveButton).toBeVisible()
       const saveHit = await saveButton.evaluate((element) => {
         const rect = element.getBoundingClientRect()
@@ -305,10 +309,11 @@ test('training body copy stays at least 16px across viewports', async ({ page })
   for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport)
     await openPage(page, 'training')
-    const copy = await page.locator('.course-intro, .course-card-copy, .course-note, .course-content p, .task-list').evaluateAll((elements) => elements.map((element) => ({
-      text: (element.textContent ?? '').trim().slice(0, 80),
-      size: Number.parseFloat(getComputedStyle(element).fontSize)
-    })))
+    const result = await renderedText(page)
+    const copy = result.texts.filter((text) =>
+      (text.tag === 'li' || (text.tag === 'p' && text.text !== '轮班/倒班作息不进入自动睡眠限制；仍可记录日记和查看训练内容。'))
+      && !/^[A-Z ]+$/.test(text.text)
+    )
     expect(copy.length, `training body copy at ${viewport.width}px`).toBeGreaterThan(0)
     for (const item of copy) {
       expect(item.size, `training body copy "${item.text}" at ${viewport.width}px`).toBeGreaterThanOrEqual(16)
@@ -318,7 +323,7 @@ test('training body copy stays at least 16px across viewports', async ({ page })
 
 test('training page contrast includes dimmed rendered text', async ({ page }) => {
   await openPage(page, 'training')
-  await page.locator('.course-intro').evaluate((element) => {
+  await page.getByText('疗程逐周解锁：第 1 周只记录基线，第 2 周锚定固定起床时间，第 3 周才启动睡眠限制，第 4–5 周滴定与认知练习，第 6 周巩固。', { exact: true }).evaluate((element) => {
     const text = element as HTMLElement
     text.style.color = '#22302c'
     text.style.opacity = '0.75'
