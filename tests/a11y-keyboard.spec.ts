@@ -1,7 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 
 // 键盘与焦点顺序：跳转链接 → 头部 → 主内容；所有交互元素可聚焦且焦点可见；
-// 记录日记这条主路径可以只用键盘走通。断言焦点与可访问名，不碰 CSS 类名。
+// 记录日记这条主路径的导航、启用与提交用键盘走通（时间输入的值以 fill 注入，见下）。
+// 断言焦点与可访问名，不碰 CSS 类名。
 
 async function openApp(page: Page) {
   await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))

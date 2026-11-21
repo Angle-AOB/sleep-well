@@ -25,12 +25,17 @@
 
 1. 变更合并进集成分支 `feat/2-offline-pwa-foundation`，本地收工检查全绿：
    `npx tsc -b`、`npx eslint .`、`npm run build`、`npx playwright test --reporter=line`。
-2. 打版本标签（见下）并推送分支与标签：
+2. 先推送集成分支，确认 Deploy workflow 全绿（这一步不带标签，便于失败时排查）：
+   ```bash
+   git push origin feat/2-offline-pwa-foundation
+   ```
+3. workflow 全绿后再打并推送版本标签（见下），**同一次发布只推送标签、不再重复推分支**：
    ```bash
    git tag v0.2.0
-   git push origin feat/2-offline-pwa-foundation v0.2.0
+   git push origin v0.2.0
    ```
-3. push 到集成分支或 `v*` 标签都会触发 Deploy workflow；也可以在 Actions 里手动触发。
+   push 到集成分支或 `v*` 标签都会触发 Deploy workflow（Actions 里也可手动触发）。
+   两次触发的产物一致，属预期行为。
 4. workflow 顺序：install → eslint → tsc → Playwright 全量 → `GITHUB_PAGES=1 npm run build` →
    upload-pages-artifact → deploy-pages。**构建或测试失败时 deploy job 不会运行**，线上保持上一个可用版本。
 5. 发布后在真机上核对：版本号/页面可打开、离线提示出现、日记可保存。
@@ -48,12 +53,14 @@
 
 1. **重新部署旧标签**（推荐）：
    ```bash
-   git checkout v0.1.0        # 换成要回滚到的标签
-   git checkout -b hotfix/rollback
-   git push origin hotfix/rollback
+   git checkout -b hotfix/rollback v0.1.0   # 从要回滚到的标签拉出分支
+   git tag v0.1.1                            # 回滚也是一次对外发布，打新标签
+   git push origin hotfix/rollback v0.1.1    # 择一触发部署，见下方提示
    ```
-   合并/推送到集成分支后由 Deploy workflow 重新发布；或直接在 Actions 里对旧版本的
-   成功 workflow run 使用 “Re-run all jobs” 重新发布当时的产物。
+   - 每次对外发布都要有对应标签，线上才有版本可查；回滚同样打标签。
+   - 分支 push 与 `v*` tag push 都会触发 Deploy workflow：**同一次发布只推送其中一个**，
+     否则 workflow 会跑两次部署。推荐只 push 标签（分支随后合回集成分支）。
+   - 或直接在 Actions 里对旧版本的成功 workflow run 使用 “Re-run all jobs” 重新发布当时的产物。
 2. **代码回退**：在集成分支上 `git revert` 引入问题的提交并推送，让 workflow 重新发布。
 3. 回滚只影响线上静态资源；用户设备上的 IndexedDB 数据不受影响（备份 schema 兼容性见
    `docs/adr/0001-local-first-data.md`，升级不清数据）。
@@ -85,6 +92,8 @@
    用 ZIP 跨设备恢复、CSV 在 Excel/WPS 打开。
 6. **临床审阅**：有资质的 CBT-I 临床人员对安全筛查、睡眠限制规则、刺激控制与就医提示
    文案的审阅记录。产品规则是产品边界（见 `GLOSSARY.md` 与 ADR），不等于临床背书。
+7. **中文输入**：用系统中文输入法实测文本输入（IME 选词、组合输入、粘贴）。
+   当前应用没有自由文本字段（日记全是选择/时间/数值），此项在新增任何文本输入后必须补测并留存记录。
 
 ## 相关文档
 

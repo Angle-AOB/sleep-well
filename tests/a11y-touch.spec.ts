@@ -4,7 +4,7 @@ import { test, expect, type Page } from '@playwright/test'
 // - 有 label 包裹/关联的 checkbox、radio、file input，触控目标是整个 label
 //   （WCAG 2.5.8 允许把 label 区域计入目标尺寸）；控件本身另按 WCAG 2.2 AA
 //   的 2.5.8 最低 24×24 CSS px 单独检查（文件选择由 label 承担，不量原生 input）。
-// - 例外（如正文内联链接）必须写明理由后放进 exceptionTargets 单独分组断言；
+// - 例外（如正文内联链接）必须写明理由后单独分组断言，并与常规控件区分；
 //   当前界面没有需要豁免的控件。
 
 const MIN_TARGET = 44
