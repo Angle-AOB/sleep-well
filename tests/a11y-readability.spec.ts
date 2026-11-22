@@ -390,10 +390,17 @@ test('topbar keeps viewport-safe gutters and aligns with page content', async ({
   expect(narrow.right).toBeLessThanOrEqual(narrow.width - 16)
 
   await goToSettingsSubPage(page, 'about')
-  const back = await page.getByRole('link', { name: '返回设置' }).boundingBox()
+  const backLink = page.getByRole('link', { name: '返回设置' })
+  const back = await backLink.boundingBox()
   const subHeading = await page.getByRole('heading', { level: 1 }).boundingBox()
   expect(back?.x ?? 0).toBeGreaterThanOrEqual(16)
   expect(subHeading?.x ?? 0).toBeGreaterThanOrEqual(16)
+  const backSvg = backLink.locator('svg')
+  await expect(backSvg).toHaveAttribute('viewBox', '0 0 24 24')
+  await expect(backSvg).toHaveAttribute('width', '24')
+  await expect(backSvg).toHaveAttribute('height', '24')
+  await expect(backSvg.locator('path')).toHaveAttribute('d', 'M14.5 5 7.5 12l7 7')
+  await expect(backLink).not.toContainText('←')
 
   await page.setViewportSize({ width: 1440, height: 900 })
   await openPage(page, 'today')

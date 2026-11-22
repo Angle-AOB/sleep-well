@@ -20,9 +20,8 @@ test('首次打开显示说明弹窗；关闭后刷新不再出现', async ({ pa
 
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
-  // 复用既有文案：品牌、产品自称、适用范围与本地边界。
-  await expect(dialog).toContainText('睡眠行为训练器')
-  await expect(dialog).toContainText('把规律，慢慢带回夜晚。')
+  // 保留首次说明标题、适用范围与本地边界；删除重复品牌与引言。
+  await expect(dialog.getByRole('heading', { level: 2, name: '首次说明' })).toBeVisible()
   await expect(dialog).toContainText('先了解这是什么')
   await expect(dialog).toContainText('你的数据留在此设备')
   await expect(dialog).toContainText('仅保存在此设备')
@@ -103,7 +102,7 @@ test('关于与隐私可以复看同一说明，关闭后回到关于页且不�
 
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
-  await expect(dialog).toContainText('睡眠行为训练器')
+  await expect(dialog.getByRole('heading', { level: 2, name: '首次说明' })).toBeVisible()
   await expect(dialog).toContainText('仅保存在此设备')
 
   await page.keyboard.press('Escape')

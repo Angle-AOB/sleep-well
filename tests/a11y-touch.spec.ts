@@ -178,7 +178,6 @@ test('diagnostics copy and issue actions meet the 44x44 CSS px touch target', as
   await openApp(page)
   await goToSettingsSubPage(page, 'diagnostics')
   const panel = page.getByRole('region', { name: '诊断信息' })
-  await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
 
   const copy = panel.getByRole('button', { name: '复制诊断信息' })
   const issueLink = panel.getByRole('link', { name: '打开 GitHub issue' })

@@ -120,5 +120,6 @@ test('a diary entry can be completed and saved with keyboard navigation and acti
   await tabUntil((_id, type) => type === 'submit', '保存按钮')
 
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('region', { name: '晨间睡眠日记' }).getByText('日记已保存在此设备')).toBeVisible()
+  await expect(page.getByRole('region', { name: '晨间睡眠日记' }).getByText('日记已保存在此设备').first()).toBeVisible()
+  await expect(page.getByRole('region', { name: '晨间睡眠日记' }).getByRole('status').filter({ hasText: '日记已保存在此设备' })).toBeAttached()
 })

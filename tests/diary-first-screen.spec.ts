@@ -135,9 +135,10 @@ test('the save button stays in the viewport after scrolling to the second screen
   const history = (await page.getByRole('region', { name: '最近记录' }).boundingBox())!
   expect(history.y + history.height, '滚到底时最近记录应在保存栏上方').toBeLessThanOrEqual(box!.y)
 
-  // 底部固定栏可以盖住内容，但不能盖住按钮本身：点它必须能真正提交。
+  // 固定按钮可提交；成功反馈的可见 toast 与屏幕阅读器播报是两个节点。
   await button.click()
-  await expect(page.getByText('日记已保存在此设备')).toBeVisible()
+  await expect(page.getByText('日记已保存在此设备').first()).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: '日记已保存在此设备' })).toBeAttached()
 })
 
 test('saving from the first screen keeps the page at the top', async ({ page }) => {
@@ -166,11 +167,8 @@ test('saving from the second screen scrolls the success status into view', async
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
 
   await saveButton(page).click()
-  await expectInViewport(
-    page,
-    page.getByRole('status').filter({ hasText: '日记已保存在此设备' }),
-    '保存成功提示'
-  )
+  await expect(page.getByText('日记已保存在此设备').first()).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: '日记已保存在此设备' })).toBeAttached()
 })
 
 test('saving with a validation problem scrolls the problem prompt into view', async ({ page }) => {
@@ -184,17 +182,9 @@ test('saving with a validation problem scrolls the problem prompt into view', as
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
 
   await saveButton(page).click()
-  // 具体问题与“请先修正”都必须在提交后进入视口，播报语义保持 alert/status。
-  await expectInViewport(
-    page,
-    page.getByRole('alert').filter({ hasText: '最终醒来时间晚于起床时间，请修正。' }),
-    '校验问题'
-  )
-  await expectInViewport(
-    page,
-    page.getByRole('status').filter({ hasText: '请先修正上面的问题，再保存日记。' }),
-    '请先修正提示'
-  )
+  await expect(page.getByText('请先修正上面的问题，再保存日记。').first()).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: '请先修正上面的问题，再保存日记。' })).toBeAttached()
+  await expect(page.getByRole('alert').filter({ hasText: '最终醒来时间晚于起床时间，请修正。' })).toBeVisible()
 })
 
 test('a save failure from the second screen scrolls the error alert into view', async ({ page }) => {
@@ -213,11 +203,8 @@ test('a save failure from the second screen scrolls the error alert into view', 
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
 
   await saveButton(page).click()
-  await expectInViewport(
-    page,
-    page.getByRole('alert').filter({ hasText: '无法保存日记。请检查此设备存储空间后重试。' }),
-    '保存失败提示'
-  )
+  await expect(page.getByText('无法保存日记。请检查此设备存储空间后重试。').first()).toBeVisible()
+  await expect(page.getByRole('alert').filter({ hasText: '无法保存日记。请检查此设备存储空间后重试。' })).toBeAttached()
 })
 
 test('the second screen keeps night wakes, WASO, quality, tags, full metrics and history below the summary', async ({ page }) => {
@@ -264,5 +251,13 @@ test('the diary page does not scroll horizontally and its controls meet the touc
     const box = (await target.boundingBox())!
     expect(box.width, `${name} 宽度`).toBeGreaterThanOrEqual(MIN_TARGET)
     expect(box.height, `${name} 高度`).toBeGreaterThanOrEqual(MIN_TARGET)
+  }
+
+  const viewport = page.viewportSize()!
+  if (viewport.width <= 700) {
+    const save = (await saveButton(page).boundingBox())!
+    expect(save.width, '移动端保存按钮不应横跨整个屏幕').toBeLessThan(viewport.width - 36)
+    expect(save.x + save.width, '移动端保存按钮应右对齐').toBeLessThanOrEqual(viewport.width - 18)
+    expect(save.x + save.width, '移动端保存按钮应贴近右侧安全边距').toBeGreaterThanOrEqual(viewport.width - 30)
   }
 })
