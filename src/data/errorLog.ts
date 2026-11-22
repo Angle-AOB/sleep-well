@@ -15,6 +15,12 @@ import {
 } from '../domain/errorLog'
 
 let records: ErrorRecord[] = []
+const listeners = new Set<() => void>()
+
+export function subscribeErrorRecords(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
 
 export function recordError(
   category: ErrorCategory,
@@ -23,6 +29,7 @@ export function recordError(
 ): ErrorRecord {
   const record = createErrorRecord(category, context, recordedAt)
   records = appendErrorRecord(records, record)
+  listeners.forEach((listener) => listener())
   return record
 }
 

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { readErrorRecords } from '../data/errorLog'
+import { readErrorRecords, subscribeErrorRecords } from '../data/errorLog'
 import { BACKUP_APP_VERSION } from '../domain/backup'
 import {
   formatDiagnostics,
@@ -17,8 +17,10 @@ import {
  */
 export function ErrorLogPanel() {
   const { t } = useTranslation()
-  const [records] = useState<readonly ErrorRecord[]>(() => readErrorRecords())
+  const [records, setRecords] = useState<readonly ErrorRecord[]>(() => readErrorRecords())
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
+
+  useEffect(() => subscribeErrorRecords(() => setRecords(readErrorRecords())), [])
 
   const meta = {
     appVersion: BACKUP_APP_VERSION,
