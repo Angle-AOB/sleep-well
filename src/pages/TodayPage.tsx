@@ -152,12 +152,10 @@ export function TodayPage({
     const week = assessment.progress?.week ?? 1
     const facts = [
       { label: t('wakeTimeTitle'), value: assessment.wakeTime.effective ?? t('todayPlanWakeNone') },
-      {
+      ...(week >= 2 ? [{
         label: t('caffeineTitle'),
-        value: assessment.caffeine
-          ? assessment.caffeine.cutoff
-          : week >= 2 ? t('todayCaffeineNone') : t('todayCaffeineLater')
-      }
+        value: assessment.caffeine ? assessment.caffeine.cutoff : t('todayCaffeineNone')
+      }] : [])
     ]
     return (
       <dl className="today-plan-facts">
@@ -240,7 +238,7 @@ export function TodayPage({
           href={hashForPage('diary')}
           onClick={() => onOpenDiary(localToday())}
         >
-          <p className="panel-kicker">{t('todayDiaryKicker')}</p>
+          
           <h2 id="today-diary-title">{t('todayDiaryTitle')}</h2>
           {diarySummary()}
           <span className="today-card-action">{diaryAction()}</span>
@@ -250,9 +248,7 @@ export function TodayPage({
       {showStartCard && (
         <section className="today-card today-card-week" aria-label={t('courseStart')}>
           <a className="today-card-link" href={hashForPage('training')}>
-            <p className="panel-kicker">{t('courseKicker')}</p>
             <h2>{t('courseStart')}</h2>
-            <p className="today-card-copy">{t('todayStartBody')}</p>
             <span className="today-card-action">{t('todayStartAction')}</span>
           </a>
         </section>
@@ -260,13 +256,9 @@ export function TodayPage({
 
       <section className="today-card today-card-plan" aria-labelledby="today-plan-title">
         <a className="today-card-link" href={hashForPage('training')}>
-          <p className="panel-kicker">{t('todayPlanKicker')}</p>
           <h2 id="today-plan-title">{t('todayPlanTitle')}</h2>
           {planBody()}
           {planFacts()}
-          {assessment?.progress?.completed && (
-            <p className="today-plan-maintenance">{t('todayMaintenance')}</p>
-          )}
           <span className="today-card-action">{t('todayPlanAction')}</span>
           <span className="visually-hidden">{t('todayPlanOpen')}</span>
         </a>
@@ -275,7 +267,6 @@ export function TodayPage({
       {showWeekCard && (
         <section className="today-card today-card-week" aria-label={t('todayWeekRegion')}>
           <a className="today-card-link" href={weekTarget}>
-            <p className="panel-kicker">{t('weekContentKicker')}</p>
             <h2>{weekTitle}</h2>
             {weekBody()}
             <span className="today-card-action">{weekAction}</span>

@@ -93,9 +93,7 @@ export function FirstRunDialog({ onStartScreening, onRecordDiary, onDismiss }: F
       }}
     >
       <div className="first-run-body">
-        <p className="panel-kicker">{t('brand')}</p>
-        <h2 id="first-run-title" className="first-run-heading" ref={headingRef} tabIndex={-1}>{t('title')}</h2>
-        <p className="first-run-lead">{t('intro')}</p>
+        <h2 id="first-run-title" className="first-run-heading" ref={headingRef} tabIndex={-1}>{t('firstRunTitle')}</h2>
 
         <h3>{t('scopeTitle')}</h3>
         <p>{t('scopeBody')}</p>
