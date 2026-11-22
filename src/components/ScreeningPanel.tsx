@@ -333,7 +333,7 @@ export function ScreeningPanel({ initialRecord, loading, storageUnavailable, onS
   return (
     <section className={`screening-panel screening-result ${paused ? 'is-paused' : 'is-cleared'}`} aria-labelledby="screening-result-title">
       <div className="panel-heading">
-        <div><p className="panel-kicker">{t('screeningKicker')}</p><h2 id="screening-result-title">{t('screeningResultTitle')}</h2></div>
+        <div><h2 id="screening-result-title">{t('screeningResultTitle')}</h2></div>
         <span className="panel-symbol" aria-hidden="true">{paused ? '!' : '✓'}</span>
       </div>
       {paused ? (

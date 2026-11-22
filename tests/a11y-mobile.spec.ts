@@ -60,3 +60,46 @@ test('训练内容没有页面级外框且宽视口下主内容避开固定底�
   })
   expect(spacing.mainPaddingBottom, '主内容应避开固定底栏').toBeGreaterThanOrEqual(spacing.bottomBarHeight)
 })
+
+test('UI density surfaces keep approved neutral, control, hover, and warm semantic colors', async ({ page }) => {
+  await openPage(page, 'today')
+  const todayCard = page.getByRole('region', { name: '昨夜记录' })
+  await expect(todayCard).toBeVisible()
+  await expect.poll(() => todayCard.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return { background: style.backgroundColor, border: style.borderTopColor }
+  })).toEqual({ background: 'rgb(242, 247, 243)', border: 'rgb(210, 223, 215)' })
+  const todayLink = todayCard.getByRole('link').first()
+  await todayLink.hover()
+  await expect.poll(() => todayLink.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(238, 244, 239)')
+
+  await goTo(page, 'diary')
+  const summary = page.getByRole('group', { name: '指标摘要' })
+  await expect(summary).toBeVisible()
+  await expect.poll(() => summary.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(242, 247, 243)')
+  await expect.poll(() => page.getByRole('main').getByRole('textbox').first().evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(247, 250, 246)')
+
+  await goTo(page, 'training')
+  await expect(page.getByRole('region', { name: '六周训练' })).toBeVisible()
+
+  await goTo(page, 'settings')
+  const settingsItem = page.getByRole('navigation', { name: '设置项' }).getByRole('link').first()
+  await expect.poll(() => settingsItem.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(242, 247, 243)')
+  await expect.poll(() => settingsItem.locator('span').last().evaluate((element) => getComputedStyle(element).color)).toBe('rgb(53, 96, 75)')
+
+  await goToSettingsSubPage(page, 'backup')
+  const backup = page.locator('section[aria-labelledby="backup-title"]')
+  await expect(backup).toBeVisible()
+  const backupCaution = backup.getByText('ZIP 压缩不是加密：备份文件没有密码保护，请自行保管，不要上传到公开位置。点击导出只是把文件交给浏览器或系统分享，并不代表备份已经保存到本设备之外。')
+  await expect.poll(() => backupCaution.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(243, 236, 228)')
+
+  await goToSettingsSubPage(page, 'screening')
+  const screening = page.locator('section[aria-labelledby="screening-title"]')
+  await expect(screening).toBeVisible()
+
+  await page.emulateMedia({ forcedColors: 'active' })
+  await goTo(page, 'today')
+  const forcedTodayCard = page.getByRole('region', { name: '昨夜记录' })
+  await expect.poll(() => forcedTodayCard.evaluate((element) => getComputedStyle(element).borderTopColor)).toBe('rgb(0, 0, 0)')
+  await expect.poll(() => forcedTodayCard.evaluate((element) => getComputedStyle(element).borderTopWidth)).toBe('1px')
+})

@@ -308,7 +308,6 @@ const resources = {
       workPatternRegular: '作息基本规律',
       workPatternShift: '轮班/倒班',
       workPatternHint: '轮班/倒班作息不进入自动睡眠限制；仍可记录日记和查看训练内容。',
-      diaryKicker: 'DIARY',
       diaryTitle: '晨间睡眠日记',
       diaryIntro: '在早晨回顾上一夜。只填记得住的部分：不确定的字段可以留空或记为“不知道”，缺失不会被当成 0。',
       diaryDateLabel: '记录哪一夜',
