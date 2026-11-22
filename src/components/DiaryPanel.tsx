@@ -308,6 +308,11 @@ export function DiaryPanel({
   const wasoMinutesMissing = wasoFromForm(form) === null
   const futureDate = selectedDate > today
   const blocked = problems.length > 0 || wasoMinutesMissing || futureDate
+  const validationMessages = [
+    ...problems.map((problem) => problemText(t, problem)),
+    ...(wasoMinutesMissing ? [t('diaryProblemWasoMinutesMissing')] : []),
+    ...(futureDate ? [t('diaryProblemFutureDate')] : [])
+  ]
 
   function update(changes: Partial<DiaryFormState>) {
     setForm((current) => ({ ...current, ...changes }))
@@ -334,6 +339,7 @@ export function DiaryPanel({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setFeedback(null)
     if (blocked) {
       announce('invalid')
       return
@@ -571,11 +577,11 @@ export function DiaryPanel({
             {feedback !== null && (
               <>
                 <p className={`diary-toast ${feedback === 'save-error' || feedback === 'invalid' ? 'is-error' : ''}`} aria-hidden="true">
-                  {t(feedback === 'invalid' ? 'diaryFixBeforeSave' : feedback === 'saved' ? 'diarySaved' : 'diarySaveError')}
+                  {feedback === 'invalid' ? validationMessages.join(' ') : t(feedback === 'saved' ? 'diarySaved' : 'diarySaveError')}
                 </p>
                 {feedback === 'save-error'
                   ? <p className="visually-hidden" role="alert">{t('diarySaveError')}</p>
-                  : <p className="visually-hidden" role="status">{t(feedback === 'invalid' ? 'diaryFixBeforeSave' : 'diarySaved')}</p>}
+                  : <p className="visually-hidden" role="status">{feedback === 'invalid' ? validationMessages.join(' ') : t('diarySaved')}</p>}
               </>
             )}
 
