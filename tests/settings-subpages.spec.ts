@@ -145,7 +145,7 @@ test('browser back also restores the list scroll position and focus', async ({ p
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(listScroll)
 })
 
-test('about and privacy shows the brand, non-medical boundary and local-only promise', async ({ page }) => {
+test('about and privacy shows non-medical boundary and local-only promise', async ({ page }) => {
   await openSettingsSubPage(page, 'about', '2026-11-20T09:00:00')
   const about = page.getByRole('region', { name: '关于这个应用' })
 
@@ -176,7 +176,7 @@ test('settings sub-page roots use the unframed page layout at narrow and wide wi
 
       const main = page.getByRole('main')
       const content = target === 'diagnostics'
-        ? root.getByRole('button', { name: '诊断信息与错误报告' })
+        ? root.getByText(/本次会话还没有错误记录|本会话记录/).first()
         : root.getByRole('heading').first()
       await expect(content).toBeVisible()
       const [bounds, mainBounds, contentBounds] = await Promise.all([
