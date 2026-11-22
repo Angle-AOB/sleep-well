@@ -63,7 +63,12 @@ h1 { max-width: 450px; margin: 0; color: #213630; font-family: inherit; font-siz
 .settings-item-symbol { color: #729786; font-size: 20px; }
 .settings-status { margin-top: 8px; }
 .settings-subpage { display: grid; gap: 28px; }
-.about-panel { padding: 28px; background: #e7eee9; border: 1px solid #d2dfd7; }
+.settings-subpage > :is(.screening-panel, .preferences-panel, .backup-panel, .error-log-panel, .about-panel) {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
 .about-brand { margin: 0 0 8px; color: #213630; font-family: inherit; font-size: 26px; line-height: 1.2; }
 .about-statement { margin: 0 0 24px; color: #7a5a33; font-size: 16px; line-height: 1.7; }
 .about-panel h3 { margin: 24px 0 8px; color: #263b36; font-family: inherit; font-size: 20px; font-weight: 400; }
@@ -277,6 +282,8 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
 @media (max-width: 700px) {
   .backup-panel { padding: 22px; }.backup-compare { grid-template-columns: 1fr; }
 }
+
+.settings-subpage > .screening-panel.is-paused { background: transparent; border: 0; }
 
 /* Shared readability baseline: every visible text surface uses the app sans-serif stack. */
 :root {

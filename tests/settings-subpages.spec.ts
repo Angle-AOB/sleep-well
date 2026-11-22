@@ -159,6 +159,43 @@ test('about and privacy shows the brand, non-medical boundary and local-only pro
   await expect(about.getByText('本地优先 · 离线可用')).toBeVisible()
 })
 
+test('settings sub-page roots use the unframed page layout at narrow and wide widths', async ({ page }) => {
+  const roots: Record<SettingsSubPage, string> = {
+    screening: '睡眠困扰与安全自查',
+    reminders: '训练偏好',
+    backup: '本地备份与导出',
+    diagnostics: '诊断信息',
+    about: '关于这个应用'
+  }
+
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+
+    for (const target of subPages) {
+      await openSettingsSubPage(page, target)
+      const root = page.getByRole('region', { name: roots[target] })
+      await expect(root).toBeVisible()
+
+      const layout = await root.evaluate((element) => {
+        const bounds = element.getBoundingClientRect()
+        const mainBounds = element.closest('main')!.getBoundingClientRect()
+        const firstChild = element.firstElementChild
+        const firstChildBounds = firstChild?.getBoundingClientRect()
+        if (!firstChildBounds) throw new Error('settings root has no visible content')
+        return {
+          leftInset: bounds.left - mainBounds.left,
+          width: bounds.width,
+          contentLeft: firstChildBounds.left - bounds.left
+        }
+      })
+
+      expect(layout.leftInset).toBe(width <= 700 ? 18 : 24)
+      expect(layout.contentLeft).toBe(0)
+      expect(layout.width).toBeGreaterThan(width * 0.8)
+    }
+  }
+})
+
 test('an unknown settings sub-page still falls back to today', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
   await page.goto('/#/settings/not-a-page')
