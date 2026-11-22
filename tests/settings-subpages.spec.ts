@@ -194,7 +194,7 @@ test('settings sub-page roots use the unframed page layout at narrow and wide wi
       }
 
       expect(layout.leftInset).toBe(width <= 700 ? 18 : 24)
-      expect(layout.contentLeft).toBe(target === 'diagnostics' && width <= 700 ? 18 : 0)
+      expect(layout.contentLeft).toBe(target === 'diagnostics' ? 18 : 0)
       expect(layout.width).toBeGreaterThan(width * 0.8)
     }
   }
