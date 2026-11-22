@@ -182,9 +182,9 @@ test('saving with a validation problem scrolls the problem prompt into view', as
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
 
   await saveButton(page).click()
-  const toast = page.locator('.diary-toast')
-  await expect(toast).toBeVisible()
-  await expect(toast).toContainText('最终醒来时间晚于起床时间，请修正。')
+  const validationToast = page.getByText('最终醒来时间晚于起床时间，请修正。', { exact: true }).filter({ visible: true }).last()
+  await expect(validationToast).toBeVisible()
+  await expect(validationToast).toContainText('最终醒来时间晚于起床时间，请修正。')
   await expect(page.getByRole('status').filter({ hasText: '最终醒来时间晚于起床时间，请修正。' })).toBeAttached()
   await expect(page.getByRole('alert').filter({ hasText: '最终醒来时间晚于起床时间，请修正。' })).toBeVisible()
 })
@@ -196,7 +196,7 @@ test('editing a diary field clears validation feedback', async ({ page }) => {
   await page.locator('#out-of-bed').fill('07:00')
   await saveButton(page).click()
 
-  const toast = page.locator('.diary-toast')
+  const toast = page.getByText('最终醒来时间晚于起床时间，请修正。', { exact: true }).filter({ visible: true }).last()
   await expect(toast).toContainText('最终醒来时间晚于起床时间，请修正。')
   await page.locator('#out-of-bed').fill('08:30')
   await expect(toast).toHaveCount(0)
@@ -219,7 +219,7 @@ test('a new save attempt replaces stale save-error feedback', async ({ page }) =
   await page.locator('#waso').selectOption('none-remembered')
   await saveButton(page).click()
 
-  const toast = page.locator('.diary-toast')
+  const toast = page.getByText(/^(无法保存日记。请检查此设备存储空间后重试。|日记已保存在此设备)$/, { exact: true }).filter({ visible: true }).first()
   await expect(toast).toHaveText('无法保存日记。请检查此设备存储空间后重试。')
   await page.evaluate(() => { (window as Window & { failDiarySave?: boolean }).failDiarySave = false })
   await saveButton(page).click()
@@ -243,7 +243,8 @@ test('a save failure from the second screen scrolls the error alert into view', 
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
 
   await saveButton(page).click()
-  await expect(page.getByText('无法保存日记。请检查此设备存储空间后重试。').first()).toBeVisible()
+  const toast = page.getByText('无法保存日记。请检查此设备存储空间后重试。', { exact: true }).filter({ visible: true }).first()
+  await expect(toast).toBeVisible()
   await expect(page.getByRole('alert').filter({ hasText: '无法保存日记。请检查此设备存储空间后重试。' })).toBeAttached()
 })
 
