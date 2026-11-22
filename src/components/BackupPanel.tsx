@@ -318,7 +318,6 @@ export function BackupPanel({ storageUnavailable, onImported, onExported }: Back
     <section className="backup-panel" aria-labelledby="backup-title">
       <div className="panel-heading">
         <div>
-          <p className="panel-kicker">{t('backupKicker')}</p>
           <h2 id="backup-title" tabIndex={-1}>{t('backupTitle')}</h2>
         </div>
         <span className="panel-symbol" aria-hidden="true">⇅</span>

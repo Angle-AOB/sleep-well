@@ -294,7 +294,7 @@ export function ScreeningPanel({ initialRecord, loading, storageUnavailable, onS
     return (
       <section className="screening-panel" aria-labelledby="screening-title">
         <div className="panel-heading">
-          <div><p className="panel-kicker">{t('screeningKicker')}</p><h2 id="screening-title">{t('screeningTitle')}</h2></div>
+          <div><h2 id="screening-title">{t('screeningTitle')}</h2></div>
           <span className="panel-symbol" aria-hidden="true">◌</span>
         </div>
         <ScreeningForm onSubmit={saveRecord} onCancel={record ? () => setEditing(false) : undefined} />
@@ -306,7 +306,7 @@ export function ScreeningPanel({ initialRecord, loading, storageUnavailable, onS
     return (
       <section className="screening-panel" aria-labelledby="screening-title">
         <div className="panel-heading">
-          <div><p className="panel-kicker">{t('screeningKicker')}</p><h2 id="screening-title">{t('screeningTitle')}</h2></div>
+          <div><h2 id="screening-title">{t('screeningTitle')}</h2></div>
           <span className="panel-symbol" aria-hidden="true">◌</span>
         </div>
         <p className="screening-summary">{t('screeningLoading')}</p>
@@ -318,7 +318,7 @@ export function ScreeningPanel({ initialRecord, loading, storageUnavailable, onS
     return (
       <section className="screening-panel" aria-labelledby="screening-title">
         <div className="panel-heading">
-          <div><p className="panel-kicker">{t('screeningKicker')}</p><h2 id="screening-title">{t('screeningTitle')}</h2></div>
+          <div><h2 id="screening-title">{t('screeningTitle')}</h2></div>
           <span className="panel-symbol" aria-hidden="true">◌</span>
         </div>
         <p className="screening-summary">{t('screeningIntro')}</p>

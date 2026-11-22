@@ -6,12 +6,9 @@ async function openApp(page: Page, time = '2026-11-20T09:00:00') {
   await expect(page.getByRole('heading', { name: '诊断与反馈' })).toBeVisible()
 }
 
-test('the error log panel stays collapsed until asked and shows plain-text diagnostics', async ({ page }) => {
+test('diagnostics are shown on entry and display plain-text records', async ({ page }) => {
   await openApp(page)
   const panel = page.getByRole('region', { name: '诊断信息' })
-  await expect(panel.getByText('sleep-well diagnostics')).toBeHidden()
-
-  await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
   await expect(panel.getByText('sleep-well diagnostics')).toBeVisible()
   await expect(panel.getByText('appVersion: 0.1.0')).toBeVisible()
   await expect(panel.getByText('本次会话还没有错误记录')).toBeVisible()
@@ -35,7 +32,7 @@ test('a failed import is recorded and diagnostics carry no health data', async (
   await diary.locator('#out-of-bed').fill('07:00')
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await expect(diary.getByText('日记已保存在此设备').first()).toBeVisible()
 
   await goToSettingsSubPage(page, 'backup')
   await page.locator('input[type="file"]').setInputFiles({
@@ -47,7 +44,6 @@ test('a failed import is recorded and diagnostics carry no health data', async (
 
   await goToSettingsSubPage(page, 'diagnostics')
   const panel = page.getByRole('region', { name: '诊断信息' })
-  await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
   await expect(panel.getByText('备份文件校验失败')).toBeVisible()
 
   const diagnostics = (await panel.locator('.error-log-text').textContent()) ?? ''
@@ -66,7 +62,6 @@ test('the copy button puts the plain-text diagnostics on the clipboard', async (
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await openApp(page)
   const panel = page.getByRole('region', { name: '诊断信息' })
-  await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
   await panel.getByRole('button', { name: '复制诊断信息' }).click()
   await expect(panel.getByText('诊断信息已复制到剪贴板')).toBeVisible()
 
@@ -88,7 +83,6 @@ test('a failed export is recorded in the error log as well', async ({ page }) =>
 
   await goToSettingsSubPage(page, 'diagnostics')
   const panel = page.getByRole('region', { name: '诊断信息' })
-  await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
   await expect(panel.getByText('备份导出失败')).toBeVisible()
 })
 
@@ -109,11 +103,10 @@ test('a failed local database write is recorded in the error log', async ({ page
   await diary.locator('#out-of-bed').fill('07:00')
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('无法保存日记。请检查此设备存储空间后重试。')).toBeVisible()
+  await expect(diary.getByText('无法保存日记。请检查此设备存储空间后重试。').first()).toBeVisible()
 
   await goToSettingsSubPage(page, 'diagnostics')
   const panel = page.getByRole('region', { name: '诊断信息' })
-  await panel.getByRole('button', { name: '诊断信息与错误报告' }).click()
   await expect(panel.getByText('本地数据库写入失败')).toBeVisible()
 
   const diagnostics = (await panel.locator('.error-log-text').textContent()) ?? ''
