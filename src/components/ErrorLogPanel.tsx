@@ -11,21 +11,14 @@ import {
 } from '../domain/errorLog'
 
 /**
- * 本地诊断信息面板：默认折叠，输出可检查的纯文本，提供复制与预填的 GitHub issue 链接。
+ * 本地诊断信息面板：输出可检查的纯文本，提供复制与预填的 GitHub issue 链接。
  * 不做遥测、分析或自动上报；链接只含版本、环境与错误类别，用户公开前需自行检查隐私。
- * 诊断全文（含类别文案）只能由用户主动复制后自行粘贴。
+ * 诊断全文（含类别文案）不会自动上报；用户可自行检查后复制。
  */
 export function ErrorLogPanel() {
   const { t } = useTranslation()
-  const [expanded, setExpanded] = useState(false)
-  const [records, setRecords] = useState<readonly ErrorRecord[]>(() => readErrorRecords())
+  const [records] = useState<readonly ErrorRecord[]>(() => readErrorRecords())
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
-
-  function toggle() {
-    setRecords(readErrorRecords())
-    setCopyState('idle')
-    setExpanded((current) => !current)
-  }
 
   const meta = {
     appVersion: BACKUP_APP_VERSION,
@@ -57,42 +50,31 @@ export function ErrorLogPanel() {
 
   return (
     <section className="error-log-panel" aria-label={t('errorLogTitle')}>
-      <button
-        type="button"
-        className="secondary-button"
-        aria-expanded={expanded}
-        onClick={toggle}
-      >
-        {t('errorLogToggle')}
-      </button>
-
-      {expanded && (
-        <div className="error-log-body">
-          <p className="field-hint">
-            {t('errorLogCount', { count: records.length, max: MAX_ERROR_RECORDS })}
-          </p>
-          {records.length === 0 && <p className="field-hint">{t('errorLogEmpty')}</p>}
-          <p className="backup-caution">{t('errorLogPrivacyNote')}</p>
-          <p className="field-hint">{t('errorLogSessionOnlyNote')}</p>
-          <pre className="error-log-text" tabIndex={0}>{diagnostics}</pre>
-          <div className="backup-actions">
-            <button type="button" className="primary-button" onClick={() => void copyDiagnostics()}>
-              {t('errorLogCopy')}
-            </button>
-            <a
-              className="secondary-button reminder-link"
-              href={issueHref}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {t('errorLogIssueLink')}
-            </a>
-          </div>
-          {copyState === 'copied' && <p className="backup-status" role="status">{t('errorLogCopied')}</p>}
-          {copyState === 'failed' && <p className="diary-alert" role="alert">{t('errorLogCopyFailed')}</p>}
-          <p className="field-hint">{t('errorLogIssueHint')}</p>
+      <div className="error-log-body">
+        <p className="field-hint">
+          {t('errorLogCount', { count: records.length, max: MAX_ERROR_RECORDS })}
+        </p>
+        {records.length === 0 && <p className="field-hint">{t('errorLogEmpty')}</p>}
+        <p className="backup-caution">{t('errorLogPrivacyNote')}</p>
+        <p className="field-hint">{t('errorLogSessionOnlyNote')}</p>
+        <pre className="error-log-text" tabIndex={0}>{diagnostics}</pre>
+        <div className="backup-actions">
+          <button type="button" className="primary-button" onClick={() => void copyDiagnostics()}>
+            {t('errorLogCopy')}
+          </button>
+          <a
+            className="secondary-button reminder-link"
+            href={issueHref}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t('errorLogIssueLink')}
+          </a>
         </div>
-      )}
+        {copyState === 'copied' && <p className="backup-status" role="status">{t('errorLogCopied')}</p>}
+        {copyState === 'failed' && <p className="diary-alert" role="alert">{t('errorLogCopyFailed')}</p>}
+        <p className="field-hint">{t('errorLogIssueHint')}</p>
+      </div>
     </section>
   )
 }

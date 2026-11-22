@@ -212,8 +212,6 @@ export function DiaryPanel({
   const [entries, setEntries] = useState<SleepDiaryEntry[]>([])
   const [fetchState, setFetchState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [feedback, setFeedback] = useState<Feedback | null>(null)
-  const [feedbackSeq, setFeedbackSeq] = useState(0)
-  const feedbackRef = useRef<HTMLDivElement>(null)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [appliedRequest, setAppliedRequest] = useState(0)
@@ -297,24 +295,11 @@ export function DiaryPanel({
     }
   }, [today, selectedDate, dirty, entries])
 
-  /**
-   * 提交结果渲染在第一屏底部，而固定保存栏在第二屏也能点到：
-   * 只有提示不在视口内、或会被固定保存栏盖住时才滚动，并用 nearest 保持最小位移。
-   * 第一屏保存时提示本来完整可见，滚动反而会把日期与输入顶出视口。
-   * 序号让重复提交同一结果也能再次判定。
-   */
   useEffect(() => {
-    if (feedbackSeq === 0) return
-    const element = feedbackRef.current
-    if (!element) return
-
-    const saveBar = document.querySelector('.diary-savebar')
-    const visibleBottom = saveBar ? saveBar.getBoundingClientRect().top : window.innerHeight
-    const rect = element.getBoundingClientRect()
-    if (rect.top >= 0 && rect.bottom <= visibleBottom) return
-
-    element.scrollIntoView({ block: 'nearest', behavior: 'instant' })
-  }, [feedbackSeq])
+    if (feedback !== 'saved') return
+    const timeout = window.setTimeout(() => setFeedback(null), 3000)
+    return () => window.clearTimeout(timeout)
+  }, [feedback])
 
   const savedEntry = findEntry(entries, selectedDate)
   const draft = draftFromForm(selectedDate, form)
@@ -342,10 +327,9 @@ export function DiaryPanel({
     update({ tags: form.tags.includes(tag) ? form.tags.filter((item) => item !== tag) : [...form.tags, tag] })
   }
 
-  /** 提交结果统一走这里：更新播报文案并触发一次滚动序号。 */
+  /** 提交结果统一由底部 toast 展示，并保留屏幕阅读器播报。 */
   function announce(next: Feedback) {
     setFeedback(next)
-    setFeedbackSeq((seq) => seq + 1)
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -423,7 +407,7 @@ export function DiaryPanel({
                   />
                 </div>
                 <div className="diary-field">
-                  <label className="field-label" htmlFor="sleep-onset">{t('diaryLatencyLabel')}</label>
+                  <label className="field-label" htmlFor="sleep-onset">{t('diaryLatencyLabel')}{t('diaryLatencyLabelHint')}</label>
                   <input
                     id="sleep-onset"
                     type="number"
@@ -434,7 +418,6 @@ export function DiaryPanel({
                     value={form.sleepOnsetLatencyMinutes}
                     onChange={(event) => update({ sleepOnsetLatencyMinutes: event.target.value })}
                   />
-                  <p className="field-hint">{t('diaryLatencyHint')}</p>
                 </div>
                 <div className="diary-field">
                   <label className="field-label" htmlFor="final-wake">{t('diaryFinalWakeLabel')}</label>
@@ -473,24 +456,16 @@ export function DiaryPanel({
                 </dl>
               </div>
 
-              {(blocked || feedback !== null) && (
-                <div className="diary-feedback" ref={feedbackRef}>
-                  {blocked && (
-                    <div className="diary-alert" role="alert">
-                      <p>{t('diaryProblemsTitle')}</p>
-                      <ul>
-                        {problems.map((problem, index) => (
-                          <li key={`${problem.kind}-${index}`}>{problemText(t, problem)}</li>
-                        ))}
-                        {wasoMinutesMissing && <li>{t('diaryProblemWasoMinutesMissing')}</li>}
-                        {futureDate && <li>{t('diaryProblemFutureDate')}</li>}
-                      </ul>
-                    </div>
-                  )}
-
-                  {feedback === 'invalid' && <p className="diary-status is-warning" role="status">{t('diaryFixBeforeSave')}</p>}
-                  {feedback === 'saved' && <p className="diary-status" role="status">{t('diarySaved')}</p>}
-                  {feedback === 'save-error' && <p className="diary-alert" role="alert">{t('diarySaveError')}</p>}
+              {blocked && (
+                <div className="diary-alert" role="alert">
+                  <p>{t('diaryProblemsTitle')}</p>
+                  <ul>
+                    {problems.map((problem, index) => (
+                      <li key={`${problem.kind}-${index}`}>{problemText(t, problem)}</li>
+                    ))}
+                    {wasoMinutesMissing && <li>{t('diaryProblemWasoMinutesMissing')}</li>}
+                    {futureDate && <li>{t('diaryProblemFutureDate')}</li>}
+                  </ul>
                 </div>
               )}
             </div>
@@ -541,8 +516,7 @@ export function DiaryPanel({
               </div>
 
               <fieldset className="diary-fieldset">
-                <legend className="field-label">{t('diaryQualityLabel')}</legend>
-                <p className="field-hint">{t('diaryQualityHint')}</p>
+                <legend className="field-label">{t('diaryQualityLabel')} <span className="field-hint">{t('diaryQualityLegend')}</span></legend>
                 <div className="choice-row choice-row-wide">
                   {qualityOptions.map((option) => (
                     <label key={option.value || 'unset'}>
@@ -594,7 +568,18 @@ export function DiaryPanel({
               </section>
             </div>
 
-            {/* 保存栏固定在底栏上方：滚动到任何位置都能直接保存。 */}
+            {feedback !== null && (
+              <>
+                <p className={`diary-toast ${feedback === 'save-error' || feedback === 'invalid' ? 'is-error' : ''}`} aria-hidden="true">
+                  {t(feedback === 'invalid' ? 'diaryFixBeforeSave' : feedback === 'saved' ? 'diarySaved' : 'diarySaveError')}
+                </p>
+                {feedback === 'save-error'
+                  ? <p className="visually-hidden" role="alert">{t('diarySaveError')}</p>
+                  : <p className="visually-hidden" role="status">{t(feedback === 'invalid' ? 'diaryFixBeforeSave' : 'diarySaved')}</p>}
+              </>
+            )}
+
+            {/* 保存按钮固定在底栏上方，由共享样式定位。 */}
             <div className="diary-savebar">
               <div className="diary-savebar-inner">
                 <button type="submit" className="primary-button" disabled={saving}>
