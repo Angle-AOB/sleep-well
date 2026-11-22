@@ -275,7 +275,9 @@ function App() {
       <header className="topbar">
         {page === 'settings' && subPage !== null && (
           <a className="topbar-back" href={hashForPage('settings')} aria-label={t('settingsBack')}>
-            <span aria-hidden="true">←</span>
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+              <path d="M14.5 5 7.5 12l7 7" />
+            </svg>
           </a>
         )}
         <h1 id="page-title" ref={headingRef} tabIndex={-1}>{pageTitle}</h1>

@@ -275,7 +275,6 @@ export function CoursePanel({
 
       <div className="course-grid">
         <section className="course-content" aria-labelledby="week-content-title">
-          <p className="panel-kicker">{t('weekContentKicker')}</p>
           <h3 id="week-content-title">{t(content.title)}</h3>
           <p>{t(content.body)}</p>
           {content.note && <p className="cognition-note">{t(content.note)}</p>}

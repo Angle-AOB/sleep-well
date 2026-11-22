@@ -53,7 +53,7 @@ function PreferencesPanel({
   return (
     <section className="preferences-panel" aria-labelledby="preferences-title">
       <div className="panel-heading">
-        <div><p className="panel-kicker">{t('preferencesKicker')}</p><h2 id="preferences-title">{t('preferencesTitle')}</h2></div>
+        <div><h2 id="preferences-title">{t('preferencesTitle')}</h2></div>
         <span className="panel-symbol" aria-hidden="true">◷</span>
       </div>
       <label className="toggle-row" htmlFor="backup-reminders">
@@ -77,11 +77,10 @@ function AboutPanel({ onShowFirstRun }: { onShowFirstRun: () => void }) {
   return (
     <section className="about-panel" aria-labelledby="about-title">
       <div className="panel-heading">
-        <div><p className="panel-kicker">{t('aboutKicker')}</p><h2 id="about-title">{t('aboutTitle')}</h2></div>
+        <div><h2 id="about-title">{t('aboutTitle')}</h2></div>
         <span className="panel-symbol" aria-hidden="true">◇</span>
       </div>
 
-      <p className="about-brand">{t('brand')}</p>
       <p className="about-statement">{t('aboutNonMedical')}</p>
 
       <h3>{t('scopeTitle')}</h3>
@@ -99,8 +98,6 @@ function AboutPanel({ onShowFirstRun }: { onShowFirstRun: () => void }) {
       <button type="button" className="secondary-button about-replay" onClick={onShowFirstRun}>
         {t('firstRunReplay')}
       </button>
-
-      <footer className="footer"><span>{t('footer')}</span><span>{t('footerMeta')}</span></footer>
     </section>
   )
 }
