@@ -44,7 +44,7 @@ async function recordNight(page: Page, options: { complete?: boolean } = {}) {
     await diary.locator('#waso').selectOption('none-remembered')
   }
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
   await goTo(page, 'today')
 }
 
@@ -98,7 +98,7 @@ async function recordBaseline(page: Page, finalWake = '06:00') {
     await diary.locator('#out-of-bed').fill('07:00')
     await diary.locator('#waso').selectOption('none-remembered')
     await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-    await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+    await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
   }
 }
 
@@ -174,7 +174,7 @@ test('recording from the today card saves the form default date and then offers 
   await diary.locator('#out-of-bed').fill('07:00')
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
 
   await goTo(page, 'today')
   await expect(diaryCard(page).getByRole('link', { name: /查看或修改/ })).toBeVisible()
@@ -288,7 +288,7 @@ test('a paused restriction still shows the week tasks and explains the pause on 
   await expect(planCard(page).getByText('轮班/倒班作息不进入自动睡眠限制，因此不会生成睡眠窗口。')).toBeVisible()
 })
 
-test('maintenance adds a maintenance line to the plan card and keeps the week tasks', async ({ page }) => {
+test('maintenance keeps the Today plan concise and preserves the week tasks', async ({ page }) => {
   await openPage(page, 'training', '2026-11-01T09:00:00')
   await startCourse(page)
   await recordBaseline(page)
@@ -296,7 +296,7 @@ test('maintenance adds a maintenance line to the plan card and keeps the week ta
   await advanceTo(page, '2026-12-13T09:00:00')
   await goTo(page, 'today')
 
-  await expect(planCard(page).getByText(/维持期/)).toBeVisible()
+  await expect(planCard(page).getByText(/维持期/)).toHaveCount(0)
   await expect(weekCard(page).getByRole('heading', { name: '第 6 周 · 巩固与复发预防' })).toBeVisible()
   await expect(weekCard(page).getByRole('listitem')).toHaveCount(3)
 })

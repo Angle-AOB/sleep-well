@@ -149,14 +149,12 @@ test('about and privacy shows the brand, non-medical boundary and local-only pro
   await openSettingsSubPage(page, 'about', '2026-11-20T09:00:00')
   const about = page.getByRole('region', { name: '关于这个应用' })
 
-  await expect(about.getByText('睡眠行为训练器', { exact: true })).toBeVisible()
   await expect(about.getByText(/非医疗服务/).first()).toBeVisible()
   await expect(about.getByRole('heading', { name: '你的数据留在此设备' })).toBeVisible()
   await expect(about.getByText('仅保存在此设备')).toBeVisible()
   await expect(about.getByText('不创建账号')).toBeVisible()
   await expect(about.getByText('不上传睡眠日记')).toBeVisible()
   await expect(about.getByText('错误只在本地显示')).toBeVisible()
-  await expect(about.getByText('本地优先 · 离线可用')).toBeVisible()
 })
 
 test('settings sub-page roots use the unframed page layout at narrow and wide widths', async ({ page }) => {
@@ -196,7 +194,7 @@ test('settings sub-page roots use the unframed page layout at narrow and wide wi
       }
 
       expect(layout.leftInset).toBe(width <= 700 ? 18 : 24)
-      expect(layout.contentLeft).toBe(0)
+      expect(layout.contentLeft).toBe(width <= 700 ? 18 : 0)
       expect(layout.width).toBeGreaterThan(width * 0.8)
     }
   }

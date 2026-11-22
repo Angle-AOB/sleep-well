@@ -24,7 +24,7 @@ async function recordCompleteNight(page: Page) {
   await diary.locator('#out-of-bed').fill('07:00')
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
 }
 
 async function recordPastPartialNight(page: Page) {
@@ -33,7 +33,7 @@ async function recordPastPartialNight(page: Page) {
   await diary.locator('#lights-off').fill('22:00')
   await diary.locator('#out-of-bed').fill('06:00')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
 }
 
 test('the today card resets a history date to today with an empty form', async ({ page }) => {
@@ -68,7 +68,7 @@ test('the today card keeps an unsaved draft for today', async ({ page }) => {
   await diary.locator('#lights-off').fill('22:00')
   await diary.locator('#out-of-bed').fill('06:00')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
 
   await diary.locator('#lights-off').fill('23:15')
   await diary.locator('#sleep-onset').fill('45')
@@ -80,7 +80,7 @@ test('the today card keeps an unsaved draft for today', async ({ page }) => {
   await expect(diary.locator('#diary-date')).toHaveValue(TODAY)
   await expect(diary.locator('#lights-off')).toHaveValue('23:15')
   await expect(diary.locator('#sleep-onset')).toHaveValue('45')
-  await expect(diary.getByText('日记已保存在此设备')).toHaveCount(0)
+  await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toHaveCount(0)
 })
 
 test('a complete night opens from the today card on today and loads that night', async ({ page }) => {

@@ -67,7 +67,7 @@ test('a failed service-worker update keeps the current version working with loca
   await diary.locator('#out-of-bed').fill('07:00')
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
 
   // 让资源更新真的失败：替换 update() 并计数，失败必须确实被注入。
   await page.evaluate(() => {
@@ -115,7 +115,7 @@ test('a half-written new cache is never claimed offline-ready and leaves local d
   await diary.locator('#out-of-bed').fill('07:00')
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
 
   // 模拟新缓存只抓了一半：预缓存条目消失，完整性检查不通过。
   // 桩要装在 init script 里，重载后仍然生效——状态是在打开应用时判定的。

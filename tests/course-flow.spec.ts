@@ -63,7 +63,7 @@ async function recordCompleteNight(page: Page, date: string, finalWake = '06:00'
   await diary.locator('#out-of-bed').fill('07:00')
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
   await goTo(page, 'training')
 }
 
@@ -84,7 +84,7 @@ async function recordLongNight(page: Page, date: string) {
   await diary.locator('#out-of-bed').fill('09:00')
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('日记已保存在此设备')).toBeVisible()
+  await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
   await goTo(page, 'training')
 }
 
@@ -158,7 +158,7 @@ test('W2 previews the baseline window, defers a wake-time change, and W3 activat
   await expect(panel.getByText('07:00', { exact: true })).toBeVisible()
   await expect(panel.getByText('窗口长度 7 小时')).toBeVisible()
   await expect(panel.getByText('依据第 1 周基线中的 4 个完整夜：平均 TST 6 小时 30 分钟，平均 TIB 8 小时。')).toBeVisible()
-  await expect(panel.getByText('第 2 周仅预览候选窗口，不执行睡眠限制；第 3 周重新校准后才正式启用。')).toBeVisible()
+  await expect(panel.getByText('第 2 周仅预览候选睡眠窗口，第 3 周才启用睡眠限制。')).toBeVisible()
   await expect(panel.getByText('睡前 8 小时：16:00 前停止摄入咖啡因。')).toBeVisible()
   await expect(panel.getByText('近 7 夜实际起床时间中位数是 07:00，可以作为预填建议。')).toBeVisible()
 

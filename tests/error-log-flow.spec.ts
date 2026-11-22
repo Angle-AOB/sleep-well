@@ -32,7 +32,7 @@ test('a failed import is recorded and diagnostics carry no health data', async (
   await diary.locator('#out-of-bed').fill('07:00')
   await diary.locator('#waso').selectOption('none-remembered')
   await diary.getByRole('button', { name: /保存日记|更新日记/ }).click()
-  await expect(diary.getByText('日记已保存在此设备').first()).toBeVisible()
+  await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
 
   await goToSettingsSubPage(page, 'backup')
   await page.locator('input[type="file"]').setInputFiles({
