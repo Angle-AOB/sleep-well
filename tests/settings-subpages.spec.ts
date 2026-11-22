@@ -176,18 +176,24 @@ test('settings sub-page roots use the unframed page layout at narrow and wide wi
       const root = page.getByRole('region', { name: roots[target] })
       await expect(root).toBeVisible()
 
-      const layout = await root.evaluate((element) => {
-        const bounds = element.getBoundingClientRect()
-        const mainBounds = element.closest('main')!.getBoundingClientRect()
-        const firstChild = element.firstElementChild
-        const firstChildBounds = firstChild?.getBoundingClientRect()
-        if (!firstChildBounds) throw new Error('settings root has no visible content')
-        return {
-          leftInset: bounds.left - mainBounds.left,
-          width: bounds.width,
-          contentLeft: firstChildBounds.left - bounds.left
-        }
-      })
+      const main = page.getByRole('main')
+      const content = target === 'diagnostics'
+        ? root.getByRole('button', { name: '诊断信息与错误报告' })
+        : root.getByRole('heading').first()
+      await expect(content).toBeVisible()
+      const [bounds, mainBounds, contentBounds] = await Promise.all([
+        root.boundingBox(),
+        main.boundingBox(),
+        content.boundingBox()
+      ])
+      expect(bounds).not.toBeNull()
+      expect(mainBounds).not.toBeNull()
+      expect(contentBounds).not.toBeNull()
+      const layout = {
+        leftInset: bounds!.x - mainBounds!.x,
+        width: bounds!.width,
+        contentLeft: contentBounds!.x - bounds!.x
+      }
 
       expect(layout.leftInset).toBe(width <= 700 ? 18 : 24)
       expect(layout.contentLeft).toBe(0)
