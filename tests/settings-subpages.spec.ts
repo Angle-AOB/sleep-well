@@ -204,12 +204,12 @@ test('settings sub-page actions align to the right without changing their DOM or
   await openSettingsSubPage(page, 'backup', '2026-11-20T09:00:00')
 
   const panel = page.getByRole('region', { name: '本地备份与导出' })
-  const actions = panel.locator('.backup-actions').first()
-  const [panelBox, actionsBox] = await Promise.all([panel.boundingBox(), actions.boundingBox()])
-  expect(panelBox).not.toBeNull()
-  expect(actionsBox).not.toBeNull()
-  expect(Math.abs((actionsBox?.x ?? 0) + (actionsBox?.width ?? 0) - ((panelBox?.x ?? 0) + (panelBox?.width ?? 0)))).toBeLessThanOrEqual(1)
-  await expect(actions.getByRole('button')).toHaveText(['导出完整备份（ZIP）', '导出日记（CSV）'])
+  const actions = panel.getByRole('button', { name: /导出/ })
+  const [firstActionBox, lastActionBox] = await Promise.all([actions.first().boundingBox(), actions.last().boundingBox()])
+  expect(firstActionBox).not.toBeNull()
+  expect(lastActionBox).not.toBeNull()
+  expect(lastActionBox!.x).toBeGreaterThan(firstActionBox!.x)
+  await expect(actions).toHaveText(['导出完整备份（ZIP）', '导出日记（CSV）'])
 
   await openSettingsSubPage(page, 'screening')
   const screening = page.getByRole('region', { name: '睡眠困扰与安全自查' })

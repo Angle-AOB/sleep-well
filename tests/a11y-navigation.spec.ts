@@ -133,7 +133,7 @@ test('every bottom-bar target is at least 44 by 44 CSS pixels', async ({ page })
 
 test('the topbar stays fixed at the viewport edge and its back target remains 44 by 44', async ({ page }) => {
   await openPage(page, 'today')
-  const topbar = page.locator('.topbar')
+  const topbar = page.getByRole('banner')
   await expect(topbar).toBeVisible()
   await expect.poll(() => topbar.evaluate((element) => getComputedStyle(element).position)).toBe('fixed')
   const topbarBox = await topbar.boundingBox()

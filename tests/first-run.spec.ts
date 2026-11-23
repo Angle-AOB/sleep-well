@@ -173,6 +173,21 @@ test('首次标记只写入 localStorage，不进入偏好', async ({ page }) =>
   expect(fields.some((field) => field.toLowerCase().includes('first-run'))).toBe(false)
 })
 
+test('desktop close target is 44px and its 28px icon centers on the heading', async ({ page }) => {
+  await page.goto('/')
+  const dialog = page.getByRole('dialog')
+  const close = dialog.getByRole('button', { name: closeFirstRun })
+  const heading = dialog.getByRole('heading', { level: 2, name: '首次说明' })
+  const icon = close.locator('span').first()
+  const [closeBox, headingBox, iconBox] = await Promise.all([close.boundingBox(), heading.boundingBox(), icon.boundingBox()])
+
+  expect(closeBox?.width).toBeGreaterThanOrEqual(44)
+  expect(closeBox?.height).toBeGreaterThanOrEqual(44)
+  expect(iconBox?.width).toBe(28)
+  expect(iconBox?.height).toBe(28)
+  expect(Math.abs(((iconBox?.y ?? 0) + (iconBox?.height ?? 0) / 2) - ((headingBox?.y ?? 0) + (headingBox?.height ?? 0) / 2))).toBeLessThanOrEqual(2)
+})
+
 test.describe('小屏', () => {
   test.use({ viewport: { width: 412, height: 915 } })
 
@@ -199,7 +214,7 @@ test.describe('小屏', () => {
     const dialog = page.getByRole('dialog')
     const close = dialog.getByRole('button', { name: closeFirstRun })
     const heading = dialog.getByRole('heading', { level: 2, name: '首次说明' })
-    const icon = close.locator('span[aria-hidden="true"]')
+    const icon = close.locator('span').first()
     const [dialogBox, closeBox, headingBox, iconBox] = await Promise.all([
       dialog.boundingBox(), close.boundingBox(), heading.boundingBox(), icon.boundingBox()
     ])
@@ -207,9 +222,11 @@ test.describe('小屏', () => {
     expect(closeBox).not.toBeNull()
     expect(headingBox).not.toBeNull()
     expect(iconBox).not.toBeNull()
+    expect(closeBox?.width).toBeGreaterThanOrEqual(44)
+    expect(closeBox?.height).toBeGreaterThanOrEqual(44)
     expect(iconBox?.width).toBe(28)
     expect(iconBox?.height).toBe(28)
     expect(Math.abs((closeBox?.x ?? 0) + (closeBox?.width ?? 0) - ((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0)))).toBeLessThanOrEqual(1)
-    expect(Math.abs((iconBox?.y ?? 0) - (headingBox?.y ?? 0))).toBeLessThanOrEqual(2)
+    expect(Math.abs(((iconBox?.y ?? 0) + (iconBox?.height ?? 0) / 2) - ((headingBox?.y ?? 0) + (headingBox?.height ?? 0) / 2))).toBeLessThanOrEqual(2)
   })
 })
