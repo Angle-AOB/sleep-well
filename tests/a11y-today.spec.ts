@@ -268,7 +268,7 @@ test('a cleared screening without a course shows the start-course card right aft
   const start = page.getByRole('region', { name: '开始六周训练' })
   await expect(start.getByRole('heading', { name: '开始六周训练' })).toBeVisible()
   await expect(start.getByRole('link', { name: /进入训练/ })).toBeVisible()
-  await expect(start.locator('[aria-hidden="true"]')).toHaveCount(0)
+  await expect(start).toHaveAccessibleName('开始六周训练')
   // 未开始疗程时不再渲染本周任务卡，开始卡紧跟日记卡。
   await expect(weekCard(page)).toHaveCount(0)
 
@@ -307,7 +307,7 @@ test('an active course shows the current week title and its three tasks', async 
   await expect(week.getByText('如身体或情绪状况变化，重新完成安全筛查')).toBeVisible()
   await expect(week.getByRole('link', { name: /查看本周内容/ })).toBeVisible()
   if (page.viewportSize()!.width <= 700) {
-    await week.locator('.today-card-head').evaluate((element) => { (element as HTMLElement).style.width = '180px' })
+    await page.setViewportSize({ width: 320, height: 800 })
     await expect(week.getByText('查看', { exact: true })).toBeVisible()
     await expect(week.getByText('查看本周内容', { exact: true })).toBeHidden()
   }

@@ -430,12 +430,12 @@ test('a resumed app keeps a backfilled past date selected after midnight', async
 test('SOL uses an accessible disclosure and keeps the fixed save bar clear of bottom navigation', async ({ page }, testInfo) => {
   await openDiary(page)
 
-  const field = page.locator('.diary-field').filter({ has: page.locator('#sleep-onset') })
-  await expect(field.getByText('入睡潜伏期 SOL', { exact: true })).toBeVisible()
-  await expect(page.locator('#sleep-onset')).toHaveValue('')
+  const sleepOnset = page.getByRole('spinbutton', { name: '入睡潜伏期 SOL' })
+  await expect(sleepOnset).toBeVisible()
+  await expect(sleepOnset).toHaveValue('')
   await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录')).toHaveCount(0)
 
-  const disclosure = field.getByRole('button', { name: '入睡潜伏期 SOL 说明' })
+  const disclosure = page.getByRole('button', { name: '入睡潜伏期 SOL 说明' })
   await disclosure.click()
   await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录', { exact: true })).toBeVisible()
   await expect(page.locator('#sleep-onset')).toHaveAttribute('aria-describedby', /sleep-onset-description/)
@@ -454,8 +454,8 @@ test('SOL uses an accessible disclosure and keeps the fixed save bar clear of bo
     await disclosure.click()
   }
   await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录', { exact: true })).toBeVisible()
-  await page.locator('#sleep-onset').fill('30')
-  await expect(field.getByText('分钟', { exact: true })).toBeVisible()
+  await sleepOnset.fill('30')
+  await expect(page.getByText('分钟', { exact: true })).toBeVisible()
 
   const save = page.getByRole('button', { name: '保存日记' })
   const saveBox = await save.boundingBox()

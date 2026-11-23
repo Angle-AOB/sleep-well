@@ -152,14 +152,14 @@ test('a focused diary control remains between the fixed bars', async ({ page }) 
   const target = page.locator('#out-of-bed')
   await expect(target).toBeVisible()
   await target.focus()
-  const geometry = await target.evaluate((element) => {
-    const rect = element.getBoundingClientRect()
-    const topbar = document.querySelector('.topbar')?.getBoundingClientRect()
-    const bottomBar = document.querySelector('.bottom-bar')?.getBoundingClientRect()
-    return { top: rect.top, bottom: rect.bottom, topbarBottom: topbar?.bottom ?? 0, bottomBarTop: bottomBar?.top ?? window.innerHeight }
-  })
-  expect(geometry.top).toBeGreaterThanOrEqual(geometry.topbarBottom)
-  expect(geometry.bottom).toBeLessThanOrEqual(geometry.bottomBarTop)
+  const targetBox = await target.boundingBox()
+  const topbarBox = await page.getByRole('banner').boundingBox()
+  const bottomBarBox = await page.getByRole('navigation', { name: '页面导航' }).boundingBox()
+  expect(targetBox).not.toBeNull()
+  expect(topbarBox).not.toBeNull()
+  expect(bottomBarBox).not.toBeNull()
+  expect(targetBox!.y).toBeGreaterThanOrEqual(topbarBox!.y + topbarBox!.height)
+  expect(targetBox!.y + targetBox!.height).toBeLessThanOrEqual(bottomBarBox!.y)
 })
 
 test('switching pages scrolls to the top and focuses the new page heading', async ({ page }) => {
