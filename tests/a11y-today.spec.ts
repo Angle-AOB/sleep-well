@@ -144,7 +144,7 @@ test('ordinary Today cards expose concise right-side actions and decorative arro
   await expect(diary).toHaveAccessibleName(/记录昨夜/)
   const titleBox = await diary.getByRole('heading').boundingBox()
   const linkBox = await diary.boundingBox()
-  expect(diaryName).toBeNull()
+  expect(diaryName).toBe('记录昨夜')
   expect(linkBox).not.toBeNull()
   expect(titleBox).not.toBeNull()
   await expect(diary.getByRole('link')).toHaveCount(0)
@@ -187,8 +187,9 @@ test('a complete last night summarises SE and TST with view-or-edit', async ({ p
   await expect(diaryCard(page).getByText('TST')).toBeVisible()
   await expect(diaryCard(page).getByText('87.5%')).toBeVisible()
 
-  const action = diaryCard(page).getByRole('link', { name: /查看或修改/ })
+  const action = diaryCard(page).getByRole('link', { name: '记录昨夜' })
   await expect(action).toBeVisible()
+  await expect(action).toContainText('记录昨夜')
   await action.click()
   await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
   await expect(diaryPanel(page).locator('#diary-date')).toHaveValue('2026-11-20')
@@ -211,15 +212,16 @@ test('recording from the today card saves the form default date and then offers 
   await expect(diary.getByText('日记已保存在此设备').filter({ visible: true }).first()).toBeVisible()
 
   await goTo(page, 'today')
-  await expect(diaryCard(page).getByRole('link', { name: /查看或修改/ })).toBeVisible()
+  await expect(diaryCard(page).getByRole('link', { name: '记录昨夜' })).toBeVisible()
 })
 
 test('a partially recorded night offers completion instead of a summary', async ({ page }) => {
   await openToday(page)
   await recordNight(page, { complete: false })
 
-  const action = diaryCard(page).getByRole('link', { name: /补全记录/ })
+  const action = diaryCard(page).getByRole('link', { name: '记录昨夜' })
   await expect(action).toBeVisible()
+  await expect(action).toContainText('记录昨夜')
   await expect(diaryCard(page).getByText(/只记录了一部分/)).toBeVisible()
   await action.click()
   await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
