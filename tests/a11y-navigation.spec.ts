@@ -131,6 +131,37 @@ test('every bottom-bar target is at least 44 by 44 CSS pixels', async ({ page })
   }
 })
 
+test('the topbar stays fixed at the viewport edge and its back target remains 44 by 44', async ({ page }) => {
+  await openPage(page, 'today')
+  const topbar = page.locator('.topbar')
+  await expect(topbar).toBeVisible()
+  await expect.poll(() => topbar.evaluate((element) => getComputedStyle(element).position)).toBe('fixed')
+  const topbarBox = await topbar.boundingBox()
+  expect(topbarBox!.y).toBe(0)
+  expect(topbarBox!.width).toBeGreaterThanOrEqual(320)
+
+  await page.goto('/#/settings/about')
+  const back = page.getByRole('link', { name: '返回设置' })
+  const backBox = await back.boundingBox()
+  expect(backBox!.width).toBeGreaterThanOrEqual(44)
+  expect(backBox!.height).toBeGreaterThanOrEqual(44)
+})
+
+test('a focused diary control remains between the fixed bars', async ({ page }) => {
+  await openPage(page, 'diary', '2026-11-20T09:00:00')
+  const target = page.locator('#out-of-bed')
+  await expect(target).toBeVisible()
+  await target.focus()
+  const geometry = await target.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    const topbar = document.querySelector('.topbar')?.getBoundingClientRect()
+    const bottomBar = document.querySelector('.bottom-bar')?.getBoundingClientRect()
+    return { top: rect.top, bottom: rect.bottom, topbarBottom: topbar?.bottom ?? 0, bottomBarTop: bottomBar?.top ?? window.innerHeight }
+  })
+  expect(geometry.top).toBeGreaterThanOrEqual(geometry.topbarBottom)
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.bottomBarTop)
+})
+
 test('switching pages scrolls to the top and focuses the new page heading', async ({ page }) => {
   await openPage(page, 'diary', '2026-11-20T09:00:00')
   // 日记表单异步装载；等它出现再滚，否则页面还没变高，scrollY 永远到不了 0 以上。

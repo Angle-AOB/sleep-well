@@ -8,14 +8,14 @@
 
 * { box-sizing: border-box; }
 
-html { min-width: 320px; scroll-behavior: smooth; }
+html { min-width: 320px; scroll-behavior: smooth; scroll-padding-top: calc(44px + env(safe-area-inset-top)); }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
 button, input { font: inherit; }
 
-.page-shell { width: min(100%, 1180px); margin: 0 auto; padding: 24px 24px calc(104px + env(safe-area-inset-bottom)); }
-.topbar { display: flex; align-items: center; gap: 8px; min-height: 44px; border-bottom: 1px solid #d6ddd7; }
+.page-shell { width: min(100%, 1180px); margin: 0 auto; padding: calc(24px + 44px + env(safe-area-inset-top)) 24px calc(104px + env(safe-area-inset-bottom)); }
+.topbar { position: fixed; inset: 0 0 auto; z-index: 10; display: flex; align-items: center; gap: 8px; min-height: calc(44px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); background: #f5f7f3; border-bottom: 1px solid #d6ddd7; }
 .topbar h1 { max-width: none; font-size: 22px; line-height: 1.25; }
-.topbar-back { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin-left: -8px; color: #344d45; line-height: 1; text-decoration: none; }
+.topbar-back { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin-left: -8px; color: #344d45; line-height: 1; text-decoration: none; scroll-margin-top: calc(44px + env(safe-area-inset-top)); }
 .topbar-back svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .page[hidden] { display: none; }
 .bottom-bar { position: fixed; inset-inline: 0; bottom: 0; z-index: 10; background: #f7faf6; border-top: 1px solid #d6ddd7; padding-bottom: env(safe-area-inset-bottom); }
@@ -202,7 +202,7 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
 }
 
 @media (max-width: 700px) {
-  .page-shell { padding: 18px 18px calc(96px + env(safe-area-inset-bottom)); }.preferences-panel { padding: 18px; }.footer { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .page-shell { padding: calc(18px + 44px + env(safe-area-inset-top)) 18px calc(96px + env(safe-area-inset-bottom)); }.preferences-panel { padding: 18px; }.footer { align-items: flex-start; flex-direction: column; gap: 10px; }
   .today-page { gap: 12px; }.today-card-link { padding: 18px 18px; }.today-plan-range { font-size: 28px; }
   .settings-list { margin: 16px 0 20px; }.settings-subpage { gap: 20px; }
   .settings-subpage > :is(.screening-panel, .preferences-panel, .backup-panel, .error-log-panel) { padding: 18px; }
@@ -320,9 +320,9 @@ body :where(a, button, input, select, textarea, label, p, li, dt, dd, summary, t
 
 /* Keep the topbar on the same content grid as main at wide widths and safe on phones. */
 .topbar {
-  width: min(100%, 1180px);
-  margin: 0 auto;
-  padding-inline: 24px;
+  width: 100%;
+  margin: 0;
+  padding-inline: max(24px, calc((100vw - 1180px) / 2 + 24px));
 }
 .topbar-back { margin-left: 0; }
 @media (max-width: 700px) {
