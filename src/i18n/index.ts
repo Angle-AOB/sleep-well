@@ -316,6 +316,8 @@ const resources = {
       diaryLightsOffLabel: '关灯时间',
       diaryLatencyLabel: '入睡潜伏期 SOL',
       diaryLatencyLabelHint: '关灯到入睡的估计时间，留空仍表示未记录',
+      diaryLatencyDisclosure: '入睡潜伏期 SOL 说明',
+      minutesUnit: '分钟',
       diaryFinalWakeLabel: '最终醒来时间',
       diaryOutOfBedLabel: '起床时间',
       diaryNightWakesLabel: '夜醒次数',

@@ -440,7 +440,7 @@ export function DiaryPanel({
                       className="info-disclosure"
                       aria-expanded={latencyHelpOpen}
                       aria-controls="sleep-onset-description"
-                      aria-label={`${t('diaryLatencyLabel')} 说明`}
+                      aria-label={t('diaryLatencyDisclosure')}
                       onClick={() => setLatencyHelpOpen((open) => !open)}
                     >
                       <span className="info-disclosure-icon" aria-hidden="true">i</span>
@@ -459,7 +459,7 @@ export function DiaryPanel({
                       value={form.sleepOnsetLatencyMinutes}
                       onChange={(event) => update({ sleepOnsetLatencyMinutes: event.target.value })}
                     />
-                    <span aria-hidden="true">分钟</span>
+                    <span aria-hidden="true">{t('minutesUnit')}</span>
                   </div>
                 </div>
                 <div className="diary-field">
