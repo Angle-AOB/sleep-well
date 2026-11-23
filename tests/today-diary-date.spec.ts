@@ -128,6 +128,14 @@ test('a resumed app moves the today card to the new local date after midnight', 
   await page.clock.setFixedTime(new Date(2026, 10, 21, 7, 0, 0))
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
 
-  await expect(diaryCard(page).getByRole('link', { name: /记录昨夜/ })).toBeVisible()
-  await expect(diaryCard(page).getByRole('link', { name: /记录昨夜/ })).toHaveCount(0)
+  await diaryCard(page).getByRole('link', { name: /记录昨夜/ }).click()
+
+  await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
+  await expect(diaryPanel(page).locator('#diary-date')).toHaveValue('2026-11-21')
+  await expect(diaryPanel(page).locator('#lights-off')).toHaveValue('')
+  await expect(diaryPanel(page).locator('#sleep-onset')).toHaveValue('')
+  await expect(diaryPanel(page).locator('#final-wake')).toHaveValue('')
+  await expect(diaryPanel(page).locator('#out-of-bed')).toHaveValue('')
+  await expect(diaryPanel(page).locator('#waso')).toHaveValue('unknown')
+  await expect(page.getByRole('region', { name: '最近记录' }).getByRole('button', { name: /完整夜/ })).toBeVisible()
 })
