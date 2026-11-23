@@ -209,11 +209,11 @@ test('settings sub-page actions align to the right without changing their DOM or
   expect(panelBox).not.toBeNull()
   expect(actionsBox).not.toBeNull()
   expect(Math.abs((actionsBox?.x ?? 0) + (actionsBox?.width ?? 0) - ((panelBox?.x ?? 0) + (panelBox?.width ?? 0)))).toBeLessThanOrEqual(1)
-  await expect(actions.getByRole('button')).toHaveText(['导出迁移包', '导出 CSV'])
+  await expect(actions.getByRole('button')).toHaveText(['导出完整备份（ZIP）', '导出日记（CSV）'])
 
   await openSettingsSubPage(page, 'screening')
   const screening = page.getByRole('region', { name: '睡眠困扰与安全自查' })
-  const start = screening.getByRole('button', { name: '开始安全自查' })
+  const start = screening.getByRole('button', { name: '开始自查' })
   const [screeningBox, startBox] = await Promise.all([screening.boundingBox(), start.boundingBox()])
   expect(screeningBox).not.toBeNull()
   expect(startBox).not.toBeNull()

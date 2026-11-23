@@ -67,9 +67,10 @@ h1 { max-width: 450px; margin: 0; color: #213630; font-family: inherit; font-siz
 .settings-subpage .screening-actions, .settings-subpage .backup-actions { justify-content: flex-end; }
 .settings-subpage > :is(.screening-panel, .preferences-panel, .backup-panel, .error-log-panel) > .primary-button,
 .settings-subpage > :is(.screening-panel, .preferences-panel, .backup-panel, .error-log-panel) > .secondary-button,
-.settings-subpage .backup-file-row { margin-inline-start: auto; }
+.settings-subpage .backup-file-row { width: fit-content; margin-inline-start: auto; }
 .settings-subpage .backup-file-row { justify-content: flex-end; }
 .settings-subpage .about-replay { margin-inline-start: auto; }
+.settings-subpage .screening-panel > .primary-button, .settings-subpage .screening-panel > .secondary-button { display: block; width: fit-content; margin-left: auto; }
 .settings-subpage > :is(.screening-panel, .preferences-panel, .backup-panel, .error-log-panel, .about-panel) {
   margin: 0;
   padding: 0;
