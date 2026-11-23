@@ -69,6 +69,7 @@ const resources = {
       todayScreeningTitle: '先完成安全自查',
       todayStartAction: '进入训练',
       todayWeekAction: '查看本周内容',
+      todayViewFallback: '查看',
       productLabel: '产品与偏好',
       noAccount: '不创建账号',
       noUpload: '不上传睡眠日记',

@@ -41,9 +41,29 @@ h1 { max-width: 450px; margin: 0; color: #213630; font-family: inherit; font-siz
 .today-status-item { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; color: #7a5a33; font-size: 14px; line-height: 1.6; }
 .today-status-item.is-error { color: #8a3d2b; }
 .today-card { background: #f2f7f3; border: 1px solid #d2dfd7; }
-.today-card-link { display: grid; gap: 10px; min-height: 44px; padding: 20px 22px; color: #263b36; text-decoration: none; }
+.today-card-link { position: relative; display: grid; gap: 10px; min-height: 44px; padding: 20px 22px; color: #263b36; text-decoration: none; }
+.today-card-head { display: flex; align-items: center; gap: 12px; min-width: 0; padding-right: 28px; container-type: inline-size; }
+.today-card-head .today-action-fallback { display: none; }
+@container (max-width: 280px) { .today-card-head .today-action-full { display: none; } .today-card-head .today-action-fallback { display: inline; } }
 .today-card-link:hover { background: #eef4ef; }
-.today-card h2 { font-size: 24px; line-height: 1.2; }
+.today-card h2 { min-width: 0; font-size: 24px; line-height: 1.2; white-space: nowrap; }
+.today-card-title { white-space: nowrap; }
+.today-card-title > span { display: block; min-width: max-content; }
+.today-card-head .today-card-action { flex: 0 0 auto; margin-left: auto; }
+.today-card-arrow { flex: 0 0 auto; color: #52635c; font-size: 28px; line-height: 1; pointer-events: none; }
+.today-action-fallback { display: none; }
+@media (max-width: 700px) {
+  .today-card-title { position: relative; flex: 1 1 auto; width: auto; overflow: hidden; padding-right: 8px; }
+  .today-card-title.is-overflowing {
+    -webkit-mask-image: linear-gradient(to right, #000 0 calc(100% - 24px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 0 calc(100% - 24px), transparent 100%);
+  }
+  .today-card-title.is-overflowing > span { animation: today-title-marquee 16s ease-in-out 1s infinite; }
+  .today-action-full { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: nowrap; }
+  .today-card-arrow { font-size: 24px; }
+}
+@keyframes today-title-marquee { 0%, 10% { transform: translateX(0); } 45%, 55% { transform: translateX(calc(-1 * var(--today-title-overflow))); } 90%, 100% { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .today-card-title.is-overflowing > span { animation: none; } }
 .today-card-copy { margin: 0; color: #52635c; font-size: 16px; line-height: 1.7; }
 .today-card-action { display: inline-flex; align-items: center; width: fit-content; min-height: 44px; color: #344d45; font-size: 14px; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
 .today-diary-metrics { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }

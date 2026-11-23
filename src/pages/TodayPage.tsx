@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { evaluateNight, type LocalDate } from '../domain/diary'
 import type { ScreeningRecord } from '../domain/screening'
@@ -13,6 +13,22 @@ import {
   type OfflineStatus,
   type StorageState
 } from '../statusText'
+
+function TodayCardTitle({ id, children }: { id?: string; children: string }) {
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const [overflow, setOverflow] = useState(0)
+  useEffect(() => {
+    const title = titleRef.current
+    if (!title) return
+    const checkOverflow = () => setOverflow(Math.max(0, title.scrollWidth - title.clientWidth))
+    checkOverflow()
+    const observer = new ResizeObserver(checkOverflow)
+    observer.observe(title)
+    return () => observer.disconnect()
+  }, [children])
+  const style = { '--today-title-overflow': `${overflow}px` } as CSSProperties
+  return <h2 ref={titleRef} id={id} data-overflow-scroll={overflow > 0 ? 'true' : undefined} className={overflow > 0 ? 'today-card-title is-overflowing' : 'today-card-title'} style={style}><span>{children}</span></h2>
+}
 
 type TodayPageProps = {
   visible: boolean
@@ -239,9 +255,12 @@ export function TodayPage({
           onClick={() => onOpenDiary(localToday())}
         >
           
-          <h2 id="today-diary-title">{t('todayDiaryTitle')}</h2>
+          <div className="today-card-head">
+            <TodayCardTitle id="today-diary-title">{t('todayDiaryTitle')}</TodayCardTitle>
+            <span className="today-card-action">{diaryAction()}</span>
+            <span className="today-card-arrow" aria-hidden="true">›</span>
+          </div>
           {diarySummary()}
-          <span className="today-card-action">{diaryAction()}</span>
         </a>
       </section>
 
@@ -256,10 +275,13 @@ export function TodayPage({
 
       <section className="today-card today-card-plan" aria-labelledby="today-plan-title">
         <a className="today-card-link" href={hashForPage('training')}>
-          <h2 id="today-plan-title">{t('todayPlanTitle')}</h2>
+          <div className="today-card-head">
+            <TodayCardTitle id="today-plan-title">{t('todayPlanTitle')}</TodayCardTitle>
+            <span className="today-card-action">{t('todayPlanAction')}</span>
+            <span className="today-card-arrow" aria-hidden="true">›</span>
+          </div>
           {planBody()}
           {planFacts()}
-          <span className="today-card-action">{t('todayPlanAction')}</span>
           <span className="visually-hidden">{t('todayPlanOpen')}</span>
         </a>
       </section>
@@ -267,9 +289,12 @@ export function TodayPage({
       {showWeekCard && (
         <section className="today-card today-card-week" aria-label={t('todayWeekRegion')}>
           <a className="today-card-link" href={weekTarget}>
-            <h2>{weekTitle}</h2>
+            <div className="today-card-head">
+              <TodayCardTitle>{weekTitle}</TodayCardTitle>
+              <span className="today-card-action">{screenMissing ? weekAction : <><span className="today-action-full">{weekAction}</span><span className="today-action-fallback">{t('todayViewFallback')}</span></>}</span>
+              <span className="today-card-arrow" aria-hidden="true">›</span>
+            </div>
             {weekBody()}
-            <span className="today-card-action">{weekAction}</span>
           </a>
         </section>
       )}
