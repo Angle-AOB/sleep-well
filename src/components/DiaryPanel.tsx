@@ -443,7 +443,7 @@ export function DiaryPanel({
                       aria-label={`${t('diaryLatencyLabel')} 说明`}
                       onClick={() => setLatencyHelpOpen((open) => !open)}
                     >
-                      i
+                      <span className="info-disclosure-icon" aria-hidden="true">i</span>
                     </button>
                   </div>
                   {latencyHelpOpen && <p id="sleep-onset-description" className="field-hint latency-help">{t('diaryLatencyLabelHint')}</p>}

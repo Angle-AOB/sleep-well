@@ -459,7 +459,7 @@ test('SOL uses an accessible disclosure and keeps the fixed save bar clear of bo
 
   const save = page.getByRole('button', { name: '保存日记' })
   const saveBox = await save.boundingBox()
-  const navBox = await page.getByRole('navigation', { name: '底栏' }).boundingBox()
+  const navBox = await page.getByRole('navigation', { name: '页面导航' }).boundingBox()
   expect(saveBox).not.toBeNull()
   expect(navBox).not.toBeNull()
   expect((navBox?.y ?? 0) - ((saveBox?.y ?? 0) + (saveBox?.height ?? 0))).toBeGreaterThanOrEqual(12)
