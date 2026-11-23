@@ -12,7 +12,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'pwa-192.png', 'pwa-512.png'],
       manifest: {
         id: base,
         name: '睡眠行为训练器',
@@ -25,7 +25,8 @@ export default defineConfig({
         background_color: '#f5f7f3',
         theme_color: '#f5f7f3',
         icons: [
-          { src: 'pwa.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }
+          { src: 'pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
         ]
       },
       workbox: {
