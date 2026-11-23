@@ -187,14 +187,15 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
 .diary-summary .metric-unavailable { display: inline; color: #7a5a33; font-size: 14px; }
 /* 固定保存按钮位于底栏正上方，不再保留整行保存栏。 */
 .diary-savebar {
-  position: fixed; inset-inline: 0; bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 9;
+  position: fixed; inset-inline: 0; bottom: calc(77px + env(safe-area-inset-bottom)); z-index: 9;
   padding: 0;
   background: transparent; border: 0; box-shadow: none;
 }
 .diary-savebar-inner { display: flex; justify-content: flex-end; width: min(100%, 1180px); margin: 0 auto; padding: 0 24px; }
 .diary-savebar .primary-button { flex: 0 0 auto; }
 .latency-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.info-disclosure { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; color: #344d45; background: #f2f7f3; border: 1px solid #b9cbc0; border-radius: 50%; font-size: 14px; font-weight: 700; cursor: pointer; }
+.info-disclosure { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; color: #344d45; background: transparent; border: 0; font-size: 14px; font-weight: 700; cursor: pointer; }
+.info-disclosure-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f2f7f3; border: 1px solid #b9cbc0; border-radius: 50%; }
 .unit-input { display: flex; align-items: center; gap: 8px; }
 .unit-input input { flex: 1 1 auto; min-width: 0; }
 .unit-input span { color: #52635c; font-size: 14px; white-space: nowrap; }

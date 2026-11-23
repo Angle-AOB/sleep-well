@@ -17,7 +17,7 @@ Issue #40 acceptance record for the Web-only application. No application install
 - Production service worker precaches the application document, application JavaScript/CSS, manifest, and icons; training content is bundled in the application JavaScript. Navigation falls back to `index.html` for offline reload.
 - Existing Playwright offline suites verify offline reload, local diary/settings writes, and preservation of local records after failed service-worker update.
 - Browser artifact test: passed in Chromium on an isolated port. This checks manifest identity/display and PNG signature/dimensions from the production build.
-- Regression matrix: 185 passed, 2 failed out of 187 across Chromium and mobile Chromium. Both failures are the pre-existing diary `button[i]` touch-target assertion (28px width versus the 44px minimum); no offline, navigation, horizontal-overflow, or other accessibility checks failed.
+- Regression results for this fix: diary behavior passed on Chromium (28/28), mobile diary first-screen coverage passed on mobile Chromium (12/12), and the 44px touch-target accessibility suite passed on Chromium and mobile Chromium (10/10 combined).
 - Device-specific installation UI: Android Chrome and iOS Safari not run; desktop Chromium install UI not automated.
 
 ## Verification commands
