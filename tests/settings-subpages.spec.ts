@@ -200,6 +200,26 @@ test('settings sub-page roots use the unframed page layout at narrow and wide wi
   }
 })
 
+test('settings sub-page actions align to the right without changing their DOM order', async ({ page }) => {
+  await openSettingsSubPage(page, 'backup', '2026-11-20T09:00:00')
+
+  const panel = page.getByRole('region', { name: '本地备份与导出' })
+  const actions = panel.locator('.backup-actions').first()
+  const [panelBox, actionsBox] = await Promise.all([panel.boundingBox(), actions.boundingBox()])
+  expect(panelBox).not.toBeNull()
+  expect(actionsBox).not.toBeNull()
+  expect(Math.abs((actionsBox?.x ?? 0) + (actionsBox?.width ?? 0) - ((panelBox?.x ?? 0) + (panelBox?.width ?? 0)))).toBeLessThanOrEqual(1)
+  await expect(actions.getByRole('button')).toHaveText(['导出迁移包', '导出 CSV'])
+
+  await openSettingsSubPage(page, 'screening')
+  const screening = page.getByRole('region', { name: '睡眠困扰与安全自查' })
+  const start = screening.getByRole('button', { name: '开始安全自查' })
+  const [screeningBox, startBox] = await Promise.all([screening.boundingBox(), start.boundingBox()])
+  expect(screeningBox).not.toBeNull()
+  expect(startBox).not.toBeNull()
+  expect(Math.abs((startBox?.x ?? 0) + (startBox?.width ?? 0) - ((screeningBox?.x ?? 0) + (screeningBox?.width ?? 0)))).toBeLessThanOrEqual(1)
+})
+
 test('an unknown settings sub-page still falls back to today', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-11-20T09:00:00'))
   await page.goto('/#/settings/not-a-page')

@@ -64,6 +64,12 @@ h1 { max-width: 450px; margin: 0; color: #213630; font-family: inherit; font-siz
 .settings-item-symbol { color: #35604b; font-size: 20px; }
 .settings-status { margin-top: 8px; }
 .settings-subpage { display: grid; gap: 28px; }
+.settings-subpage .screening-actions, .settings-subpage .backup-actions { justify-content: flex-end; }
+.settings-subpage > :is(.screening-panel, .preferences-panel, .backup-panel, .error-log-panel) > .primary-button,
+.settings-subpage > :is(.screening-panel, .preferences-panel, .backup-panel, .error-log-panel) > .secondary-button,
+.settings-subpage .backup-file-row { margin-inline-start: auto; }
+.settings-subpage .backup-file-row { justify-content: flex-end; }
+.settings-subpage .about-replay { margin-inline-start: auto; }
 .settings-subpage > :is(.screening-panel, .preferences-panel, .backup-panel, .error-log-panel, .about-panel) {
   margin: 0;
   padding: 0;
@@ -99,7 +105,8 @@ h1 { max-width: 450px; margin: 0; color: #213630; font-family: inherit; font-siz
 .first-run-dialog .local-only { color: #35604b; font-size: 14px; font-weight: 700; }
 .first-run-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
 .first-run-actions .primary-button, .first-run-actions .secondary-button { width: 100%; min-height: 48px; }
-.first-run-close { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: #344d45; background: transparent; border: 0; font-size: 26px; line-height: 1; cursor: pointer; }
+.first-run-close { position: absolute; top: 22px; right: 0; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: #344d45; background: transparent; border: 0; line-height: 1; cursor: pointer; }
+.first-run-close span { display: grid; place-items: center; width: 28px; height: 28px; font-size: 28px; line-height: 1; }
 
 h2 { margin: 0; color: #263b36; font-family: inherit; font-size: 28px; font-weight: 400; letter-spacing: 0; }
 .boundary-list { display: grid; gap: 11px; margin: 24px 0 0; padding: 0; color: #52635c; font-size: 14px; list-style: none; }.boundary-list span { display: inline-block; width: 20px; color: #7a3f2a; font-weight: 800; }
@@ -212,6 +219,7 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
   .diary-grid { gap: 12px 12px; }.diary-date-row input { max-width: none; }
   .diary-savebar-inner { padding: 6px 18px; }
   .first-run-body { padding: 26px 20px; }
+  .first-run-close { top: 18px; }
 }
 
 .course-panel { margin-bottom: 28px; }

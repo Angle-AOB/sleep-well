@@ -194,4 +194,22 @@ test.describe('小屏', () => {
       expect(box!.height, `${name} 高度`).toBeGreaterThanOrEqual(44)
     }
   })
+  test('关闭图标为 28×28，命中区域右对齐并与标题同高', async ({ page }) => {
+    await page.goto('/')
+    const dialog = page.getByRole('dialog')
+    const close = dialog.getByRole('button', { name: closeFirstRun })
+    const heading = dialog.getByRole('heading', { level: 2, name: '首次说明' })
+    const icon = close.locator('span[aria-hidden="true"]')
+    const [dialogBox, closeBox, headingBox, iconBox] = await Promise.all([
+      dialog.boundingBox(), close.boundingBox(), heading.boundingBox(), icon.boundingBox()
+    ])
+    expect(dialogBox).not.toBeNull()
+    expect(closeBox).not.toBeNull()
+    expect(headingBox).not.toBeNull()
+    expect(iconBox).not.toBeNull()
+    expect(iconBox?.width).toBe(28)
+    expect(iconBox?.height).toBe(28)
+    expect(Math.abs((closeBox?.x ?? 0) + (closeBox?.width ?? 0) - ((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0)))).toBeLessThanOrEqual(1)
+    expect(Math.abs((iconBox?.y ?? 0) - (headingBox?.y ?? 0))).toBeLessThanOrEqual(2)
+  })
 })
