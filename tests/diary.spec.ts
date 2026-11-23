@@ -438,7 +438,7 @@ test('SOL uses an accessible disclosure and keeps the fixed save bar clear of bo
   const disclosure = page.getByRole('button', { name: '入睡潜伏期 SOL 说明' })
   await disclosure.click()
   await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录', { exact: true })).toBeVisible()
-  await expect(page.locator('#sleep-onset')).toHaveAttribute('aria-describedby', /sleep-onset-description/)
+  await expect(sleepOnset).toHaveAccessibleDescription('关灯到入睡的估计时间，留空仍表示未记录')
   await page.mouse.click(10, 10)
   await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录', { exact: true })).toHaveCount(0)
 
