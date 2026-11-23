@@ -117,13 +117,6 @@ export function TodayPage({
     return <p className="today-card-copy">{t('todayDiaryPartial')}</p>
   }
 
-  function diaryAction(): string {
-    if (loadState !== 'ready') return t('todayDiaryOpen')
-    if (!night) return t('todayDiaryRecord')
-    if (night.complete) return t('todayDiaryReview')
-    return t('todayDiaryComplete')
-  }
-
   function planBody() {
     if (loadState === 'loading' || screeningState === 'loading') {
       return <p className="today-card-copy" role="status">{t('courseLoading')}</p>
@@ -251,13 +244,14 @@ export function TodayPage({
       <section className="today-card today-card-diary" aria-labelledby="today-diary-title">
         <a
           className="today-card-link"
+          aria-label={t('todayDiaryRecord')}
           href={hashForPage('diary')}
           onClick={() => onOpenDiary(localToday())}
         >
           
           <div className="today-card-head">
             <TodayCardTitle id="today-diary-title">{t('todayDiaryTitle')}</TodayCardTitle>
-            <span className="today-card-action">{diaryAction()}</span>
+            <span className="today-card-action">{t('todayDiaryRecord')}</span>
             <span className="today-card-arrow" aria-hidden="true">›</span>
           </div>
           {diarySummary()}
