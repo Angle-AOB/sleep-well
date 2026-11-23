@@ -427,7 +427,7 @@ test('a resumed app keeps a backfilled past date selected after midnight', async
   await expect(page.locator('#out-of-bed')).toHaveValue('06:30')
 })
 
-test('SOL uses an accessible disclosure and keeps the fixed save bar clear of bottom navigation', async ({ page }) => {
+test('SOL uses an accessible disclosure and keeps the fixed save bar clear of bottom navigation', async ({ page }, testInfo) => {
   await openDiary(page)
 
   const field = page.locator('.diary-field').filter({ has: page.locator('#sleep-onset') })
@@ -448,7 +448,11 @@ test('SOL uses an accessible disclosure and keeps the fixed save bar clear of bo
   await page.keyboard.press('Escape')
   await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录', { exact: true })).toHaveCount(0)
 
-  await disclosure.tap()
+  if (testInfo.project.name === 'mobile-chromium') {
+    await disclosure.tap()
+  } else {
+    await disclosure.click()
+  }
   await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录', { exact: true })).toBeVisible()
   await page.locator('#sleep-onset').fill('30')
   await expect(field.getByText('分钟', { exact: true })).toBeVisible()
