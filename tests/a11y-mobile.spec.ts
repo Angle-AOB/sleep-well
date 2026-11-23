@@ -70,8 +70,11 @@ test('UI density surfaces keep approved neutral, control, hover, and warm semant
     return { background: style.backgroundColor, border: style.borderTopColor }
   })).toEqual({ background: 'rgb(242, 247, 243)', border: 'rgb(210, 223, 215)' })
   const todayLink = todayCard.getByRole('link').first()
-  await todayLink.hover()
-  await expect.poll(() => todayLink.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(238, 244, 239)')
+  const supportsHover = await page.evaluate(() => matchMedia('(hover: hover)').matches)
+  if (supportsHover) {
+    await todayLink.hover()
+    await expect.poll(() => todayLink.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(238, 244, 239)')
+  }
 
   await goTo(page, 'diary')
   const summary = page.getByRole('group', { name: '指标摘要' })
