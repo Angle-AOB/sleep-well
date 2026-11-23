@@ -74,7 +74,7 @@ test('the today card keeps an unsaved draft for today', async ({ page }) => {
   await diary.locator('#sleep-onset').fill('45')
 
   await goTo(page, 'today')
-  await diaryCard(page).getByRole('link', { name: /补全记录|完成记录/ }).click()
+  await diaryCard(page).getByRole('link', { name: /记录昨夜/ }).click()
 
   await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
   await expect(diary.locator('#diary-date')).toHaveValue(TODAY)
@@ -91,7 +91,7 @@ test('a complete night opens from the today card on today and loads that night',
   await expect(diaryPanel(page).locator('#diary-date')).toHaveValue('2026-11-15')
 
   await goTo(page, 'today')
-  await diaryCard(page).getByRole('link', { name: /查看或修改/ }).click()
+  await diaryCard(page).getByRole('link', { name: /记录昨夜/ }).click()
 
   const diary = diaryPanel(page)
   await expect(page.getByRole('heading', { level: 1, name: '晨间睡眠日记' })).toBeVisible()
@@ -115,7 +115,7 @@ test('saving from the today card writes today and then offers view-or-edit', asy
   await recordCompleteNight(page)
 
   await goTo(page, 'today')
-  await expect(diaryCard(page).getByRole('link', { name: /查看或修改/ })).toBeVisible()
+  await expect(diaryCard(page).getByRole('link', { name: /记录昨夜/ })).toBeVisible()
   await expect(diaryCard(page).getByText('87.5%')).toBeVisible()
 })
 
@@ -123,11 +123,11 @@ test('a resumed app moves the today card to the new local date after midnight', 
   await openPage(page, 'diary', CLOCK)
   await recordCompleteNight(page)
   await goTo(page, 'today')
-  await expect(diaryCard(page).getByRole('link', { name: /查看或修改/ })).toBeVisible()
+  await expect(diaryCard(page).getByRole('link', { name: /记录昨夜/ })).toBeVisible()
 
   await page.clock.setFixedTime(new Date(2026, 10, 21, 7, 0, 0))
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
 
   await expect(diaryCard(page).getByRole('link', { name: /记录昨夜/ })).toBeVisible()
-  await expect(diaryCard(page).getByRole('link', { name: /查看或修改/ })).toHaveCount(0)
+  await expect(diaryCard(page).getByRole('link', { name: /记录昨夜/ })).toHaveCount(0)
 })
