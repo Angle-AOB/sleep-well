@@ -131,6 +131,41 @@ test('today shows diary, plan and week cards in that order without a permanent s
   expect(planBox.y).toBeLessThan(weekBox.y)
 })
 
+test('ordinary Today cards expose concise right-side actions and decorative arrows', async ({ page }) => {
+  await openToday(page)
+  const diary = diaryCard(page).getByRole('link')
+  const plan = planCard(page).getByRole('link')
+  const week = weekCard(page).getByRole('link')
+
+  await expect(diary).toContainText('记录昨夜')
+  await expect(plan).toContainText('查看训练')
+  await expect(week).toBeVisible()
+  await expect(diary.locator('[aria-hidden="true"]').last()).toBeVisible()
+  await expect(diary.locator('[aria-hidden="true"]').last()).toHaveAttribute('aria-hidden', 'true')
+  const titleBox = await diary.getByRole('heading').boundingBox()
+  const actionBox = await diary.locator('.today-card-action').boundingBox()
+  const arrowBox = await diary.locator('[aria-hidden="true"]').last().boundingBox()
+  expect(Math.abs(titleBox!.y - actionBox!.y)).toBeLessThan(16)
+  expect(actionBox!.x).toBeGreaterThan(titleBox!.x)
+  expect(arrowBox!.x).toBeGreaterThan(actionBox!.x)
+  await expect(diary.getByRole('link')).toHaveCount(0)
+})
+
+test('ordinary card titles stay on one line and clipped mobile titles scroll', async ({ page }) => {
+  await openToday(page)
+  const titles = [diaryCard(page).getByRole('heading'), planCard(page).getByRole('heading'), weekCard(page).getByRole('heading')]
+  for (const title of titles) await expect(title).toHaveCSS('white-space', 'nowrap')
+  if (page.viewportSize()!.width <= 700) {
+    const title = weekCard(page).getByRole('heading')
+    await page.addStyleTag({ content: '[aria-label="本周任务"] .today-card-head { width: 180px !important; } [aria-label="本周任务"] h2 { width: 40px !important; }' })
+    await expect(title).toHaveAttribute('data-overflow-scroll', 'true')
+    await expect(title).toHaveCSS('animation-play-state', 'running')
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await expect(title).toHaveCSS('animation-play-state', 'running')
+    await expect(title).toHaveCSS('animation-name', 'none')
+  }
+})
+
 test('an unrecorded night puts the record action in the first screen', async ({ page }) => {
   await openToday(page)
 
@@ -234,6 +269,7 @@ test('a cleared screening without a course shows the start-course card right aft
   const start = page.getByRole('region', { name: '开始六周训练' })
   await expect(start.getByRole('heading', { name: '开始六周训练' })).toBeVisible()
   await expect(start.getByRole('link', { name: /进入训练/ })).toBeVisible()
+  await expect(start.locator('[aria-hidden="true"]')).toHaveCount(0)
   // 未开始疗程时不再渲染本周任务卡，开始卡紧跟日记卡。
   await expect(weekCard(page)).toHaveCount(0)
 
@@ -271,6 +307,11 @@ test('an active course shows the current week title and its three tasks', async 
   await expect(week.getByText('选择并确认期望的固定起床时间')).toBeVisible()
   await expect(week.getByText('如身体或情绪状况变化，重新完成安全筛查')).toBeVisible()
   await expect(week.getByRole('link', { name: /查看本周内容/ })).toBeVisible()
+  if (page.viewportSize()!.width <= 700) {
+    await week.locator('.today-card-head').evaluate((element) => { (element as HTMLElement).style.width = '180px' })
+    await expect(week.getByText('查看', { exact: true })).toBeVisible()
+    await expect(week.getByText('查看本周内容', { exact: true })).toBeHidden()
+  }
 })
 
 test('a paused restriction still shows the week tasks and explains the pause on the plan card', async ({ page }) => {
