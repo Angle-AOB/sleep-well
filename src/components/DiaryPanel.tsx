@@ -215,8 +215,28 @@ export function DiaryPanel({
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [appliedRequest, setAppliedRequest] = useState(0)
+  const [latencyHelpOpen, setLatencyHelpOpen] = useState(false)
+  const latencyHelpRef = useRef<HTMLDivElement>(null)
   const lastReload = useRef(reloadToken)
   const loadState = storageUnavailable ? 'error' : fetchState
+
+  useEffect(() => {
+    if (!latencyHelpOpen) return
+    const handleOutsidePointer = (event: PointerEvent) => {
+      if (latencyHelpRef.current && !latencyHelpRef.current.contains(event.target as Node)) {
+        setLatencyHelpOpen(false)
+      }
+    }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setLatencyHelpOpen(false)
+    }
+    document.addEventListener('pointerdown', handleOutsidePointer)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePointer)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [latencyHelpOpen])
   /**
    * 今日卡请求：面板保活，选中日期可能停在上次回看的历史日期。
    * 数据未就绪时先挂起；就绪后按 token 只应用一次，避免 entries 每次变化都覆盖用户选择。
@@ -412,18 +432,35 @@ export function DiaryPanel({
                     onChange={(event) => update({ lightsOffTime: event.target.value })}
                   />
                 </div>
-                <div className="diary-field">
-                  <label className="field-label" htmlFor="sleep-onset">{t('diaryLatencyLabel')}{t('diaryLatencyLabelHint')}</label>
-                  <input
-                    id="sleep-onset"
-                    type="number"
-                    min="0"
-                    max="720"
-                    step="1"
-                    inputMode="numeric"
-                    value={form.sleepOnsetLatencyMinutes}
-                    onChange={(event) => update({ sleepOnsetLatencyMinutes: event.target.value })}
-                  />
+                <div className="diary-field latency-field" ref={latencyHelpRef}>
+                  <div className="latency-label-row">
+                    <label className="field-label" htmlFor="sleep-onset">{t('diaryLatencyLabel')}</label>
+                    <button
+                      type="button"
+                      className="info-disclosure"
+                      aria-expanded={latencyHelpOpen}
+                      aria-controls="sleep-onset-description"
+                      aria-label={`${t('diaryLatencyLabel')} 说明`}
+                      onClick={() => setLatencyHelpOpen((open) => !open)}
+                    >
+                      i
+                    </button>
+                  </div>
+                  {latencyHelpOpen && <p id="sleep-onset-description" className="field-hint latency-help">{t('diaryLatencyLabelHint')}</p>}
+                  <div className="unit-input">
+                    <input
+                      id="sleep-onset"
+                      type="number"
+                      min="0"
+                      max="720"
+                      step="1"
+                      inputMode="numeric"
+                      aria-describedby={latencyHelpOpen ? 'sleep-onset-description' : undefined}
+                      value={form.sleepOnsetLatencyMinutes}
+                      onChange={(event) => update({ sleepOnsetLatencyMinutes: event.target.value })}
+                    />
+                    <span aria-hidden="true">分钟</span>
+                  </div>
                 </div>
                 <div className="diary-field">
                   <label className="field-label" htmlFor="final-wake">{t('diaryFinalWakeLabel')}</label>

@@ -426,3 +426,37 @@ test('a resumed app keeps a backfilled past date selected after midnight', async
   await expect(page.locator('#lights-off')).toHaveValue('22:30')
   await expect(page.locator('#out-of-bed')).toHaveValue('06:30')
 })
+
+test('SOL uses an accessible disclosure and keeps the fixed save bar clear of bottom navigation', async ({ page }) => {
+  await openDiary(page)
+
+  const field = page.locator('.diary-field').filter({ has: page.locator('#sleep-onset') })
+  await expect(field.getByText('入睡潜伏期 SOL', { exact: true })).toBeVisible()
+  await expect(page.locator('#sleep-onset')).toHaveValue('')
+  await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录')).toHaveCount(0)
+
+  const disclosure = field.getByRole('button', { name: '入睡潜伏期 SOL 说明' })
+  await disclosure.click()
+  await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录', { exact: true })).toBeVisible()
+  await expect(page.locator('#sleep-onset')).toHaveAttribute('aria-describedby', /sleep-onset-description/)
+  await page.mouse.click(10, 10)
+  await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录', { exact: true })).toHaveCount(0)
+
+  await disclosure.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录', { exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录', { exact: true })).toHaveCount(0)
+
+  await disclosure.tap()
+  await expect(page.getByText('关灯到入睡的估计时间，留空仍表示未记录', { exact: true })).toBeVisible()
+  await page.locator('#sleep-onset').fill('30')
+  await expect(field.getByText('分钟', { exact: true })).toBeVisible()
+
+  const save = page.getByRole('button', { name: '保存日记' })
+  const saveBox = await save.boundingBox()
+  const navBox = await page.getByRole('navigation', { name: '底栏' }).boundingBox()
+  expect(saveBox).not.toBeNull()
+  expect(navBox).not.toBeNull()
+  expect((navBox?.y ?? 0) - ((saveBox?.y ?? 0) + (saveBox?.height ?? 0))).toBeGreaterThanOrEqual(12)
+})
