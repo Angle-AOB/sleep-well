@@ -1,4 +1,10 @@
 :root {
+  --bottom-nav-label-line-height: 21px;
+  --bottom-nav-icon-size: 24px;
+  --bottom-nav-link-gap: 4px;
+  --bottom-nav-link-padding: 8px;
+  --bottom-nav-border-width: 1px;
+  --bottom-nav-height: calc(var(--bottom-nav-icon-size) + var(--bottom-nav-link-gap) + var(--bottom-nav-label-line-height) + 2 * var(--bottom-nav-link-padding) + var(--bottom-nav-border-width));
   color: #22302c;
   background: #f5f7f3;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -18,12 +24,12 @@ button, input { font: inherit; }
 .topbar-back { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin-left: -8px; color: #344d45; line-height: 1; text-decoration: none; scroll-margin-top: calc(44px + env(safe-area-inset-top)); }
 .topbar-back svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .page[hidden] { display: none; }
-.bottom-bar { position: fixed; inset-inline: 0; bottom: 0; z-index: 10; background: #f7faf6; border-top: 1px solid #d6ddd7; padding-bottom: env(safe-area-inset-bottom); }
+.bottom-bar { position: fixed; inset-inline: 0; bottom: 0; z-index: 10; background: #f7faf6; border-top: var(--bottom-nav-border-width) solid #d6ddd7; padding-bottom: env(safe-area-inset-bottom); }
 .bottom-bar-inner { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(100%, 1180px); margin: 0 auto; }
-.bottom-bar-link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 44px; min-height: 56px; padding: 8px 4px; color: #52635c; font-size: 14px; text-decoration: none; }
+.bottom-bar-link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--bottom-nav-link-gap); min-width: 44px; padding: var(--bottom-nav-link-padding) 4px; color: #52635c; font-size: 14px; line-height: var(--bottom-nav-label-line-height); white-space: nowrap; text-decoration: none; }
 .bottom-bar-link[aria-current="page"] { color: #263b36; font-weight: 800; }
 .bottom-bar-icon { display: inline-flex; }
-.bottom-bar-icon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.bottom-bar-icon svg { width: var(--bottom-nav-icon-size); height: var(--bottom-nav-icon-size); fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .footer { display: flex; align-items: center; justify-content: space-between; }
 
 
@@ -187,7 +193,7 @@ input[type="radio"], input[type="checkbox"] { width: 24px; height: 24px; accent-
 .diary-summary .metric-unavailable { display: inline; color: #7a5a33; font-size: 14px; }
 /* 固定保存按钮位于底栏正上方，不再保留整行保存栏。 */
 .diary-savebar {
-  position: fixed; inset-inline: 0; bottom: calc(77px + env(safe-area-inset-bottom)); z-index: 9;
+  position: fixed; inset-inline: 0; bottom: calc(var(--bottom-nav-height) + 12px + env(safe-area-inset-bottom)); z-index: 9;
   padding: 0;
   background: transparent; border: 0; box-shadow: none;
 }
